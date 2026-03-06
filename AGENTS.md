@@ -56,7 +56,7 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
 ### Naming Conventions
 - Components: PascalCase (e.g., `TradeForm`, `TradeModal`)
 - Functions/variables: camelCase (e.g., `getTrades`, `formData`)
-- Types: PascalCase (e.g., `Trade`, `TradeInsert`)
+- Types: PascalCase (e.g., `Trade`, `TradeInsert`, `System`, `SubSystem`)
 - File names: kebab-case for non-components (e.g., `trade-form.tsx`, `trades.ts`)
 
 ### Imports Order
@@ -113,6 +113,7 @@ try {
 ### Database/Supabase
 - Define types in respective service's `types.ts` (e.g., `services/trade/types.ts`)
 - Use `TradeInsert` and `TradeUpdate` types for create/update operations
+- `trades` supports both `system_id` and `sub_system_id` assignments
 - Always filter queries by `user_id` for multi-user support
 
 ### ESLint Configuration
@@ -126,7 +127,7 @@ try {
 - Use semicolons at the end of statements
 
 ### General Patterns
-- Place related functions in dedicated module files (e.g., `lib/trades.ts`)
+- Place related functions in dedicated module files (e.g., `services/trade/trades.ts`)
 - Use section comments for grouping code (optional)
 - Initialize optional fields with `null` rather than `undefined`
 - Use `URL.revokeObjectURL()` to clean up object URLs in useEffect cleanup
@@ -136,7 +137,7 @@ try {
 ```
 /app              # Next.js App Router pages
   /trades         # Trades page and components
-  /systems        # Systems page
+  /systems        # Systems + sub-systems management page
   /login          # Login page
   /signup         # Signup page
   layout.tsx      # Root layout
@@ -148,13 +149,15 @@ try {
   /trade          # Trade CRUD operations
     index.ts      # Re-exports
     trades.ts     # Trade CRUD functions
-    types.ts     # Trade types
+    types.ts      # Trade + screenshot types
   /system         # System CRUD operations
     index.ts      # Re-exports
-    systems.ts    # System CRUD functions
-    types.ts      # System types
+    systems.ts    # System + sub-system CRUD functions
+    types.ts      # System + sub-system types
   /upload         # File upload operations
     index.ts      # Re-exports
+/supabase
+  /migrations     # SQL migrations (systems, sub-systems, schema updates)
 ```
 
 ## Common Tasks
@@ -163,6 +166,16 @@ try {
 1. Add field to `Trade` type in `services/trade/types.ts`
 2. Add field to `TradeInsert` and/or `TradeUpdate` if needed
 3. Update `TradeForm.tsx` to include the new field
+
+### Adding a new sub-system field
+1. Add field to `SubSystem` type in `services/system/types.ts`
+2. Add field to `SubSystemInsert` and/or `SubSystemUpdate` if needed
+3. Update `/app/systems/page.tsx` sub-system modal/form
+
+### Assigning trade to system and sub-system
+1. Ensure `system_id` and `sub_system_id` exist in `services/trade/types.ts`
+2. Update `/app/trades/TradeForm.tsx` selection logic
+3. Keep sub-system options filtered by selected system
 
 ### Creating a new page
 1. Create directory in `/app` (e.g., `/app/analytics`)
