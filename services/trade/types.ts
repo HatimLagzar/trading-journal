@@ -1,26 +1,10 @@
-// Database types matching your Supabase schema
-
-export type System = {
-  id: string;
-  created_at: string;
-  user_id: string;
-  name: string;
-  entry_rules: string | null;
-  sl_rules: string | null;
-  tp_rules: string | null;
-  description: string | null;
-};
-
-export type SystemInsert = Omit<System, 'id' | 'created_at'>;
-export type SystemUpdate = Partial<Omit<System, 'id' | 'created_at'>>;
-
 export type Trade = {
   id: string;
   created_at: string;
   user_id: string;
   trade_number: number;
-  trade_date: string; // ISO date string 'YYYY-MM-DD'
-  trade_time: string | null; // 'HH:MM:SS'
+  trade_date: string;
+  trade_time: string | null;
   coin: string;
   direction: "long" | "short";
   entry_order_type: string | null;
@@ -40,15 +24,10 @@ export type Trade = {
   notes: string | null;
 };
 
-// For inserting new trades (omit auto-generated fields)
 export type TradeInsert = Omit<Trade, "id" | "created_at" | "trade_number">;
 
-// For updating trades (all fields optional except id)
-export type TradeUpdate = Partial<
-  Omit<Trade, "id" | "created_at" | "trade_number">
->;
+export type TradeUpdate = Partial<Omit<Trade, "id" | "created_at" | "trade_number">>;
 
-// Trade screenshots
 export type TradeScreenshot = {
   id: string;
   created_at: string;

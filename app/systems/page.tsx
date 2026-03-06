@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { getSystems, createSystem, updateSystem, deleteSystem } from '@/services/system'
-import type { System, SystemInsert } from '@/lib/types'
+import type { System, SystemInsert } from '@/services/system'
 import type { User } from '@supabase/supabase-js'
 
 export default function SystemsPage() {

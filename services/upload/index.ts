@@ -1,34 +1,30 @@
-import { supabase } from './supabase/client'
-import type { TradeScreenshot, TradeScreenshotInsert } from './types'
+import { supabase } from '@/lib/supabase/client'
+import type { TradeScreenshot, TradeScreenshotInsert } from '@/services/trade'
 
 const BUCKET = 'trades-screenshots'
 
-// Upload a screenshot and create database record
 export async function uploadScreenshot(
   userId: string,
   tradeId: string,
   file: File,
   caption?: string
 ): Promise<TradeScreenshot> {
-  // Create unique filename to avoid collisions
   const timestamp = Date.now()
   const fileExt = file.name.split('.').pop()
   const filename = `${timestamp}.${fileExt}`
   const storagePath = `${userId}/${tradeId}/${filename}`
 
-  // 1. Upload to storage
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(storagePath, file)
 
   if (uploadError) throw uploadError
 
-  // 2. Create database record
   const record: TradeScreenshotInsert = {
     trade_id: tradeId,
     user_id: userId,
     storage_path: storagePath,
-    filename: file.name, // Original filename for display
+    filename: file.name,
     caption: caption || null,
   }
 
@@ -39,7 +35,6 @@ export async function uploadScreenshot(
     .single()
 
   if (dbError) {
-    // Rollback: delete uploaded file if db insert fails
     await supabase.storage.from(BUCKET).remove([storagePath])
     throw dbError
   }
@@ -47,7 +42,6 @@ export async function uploadScreenshot(
   return data
 }
 
-// Get all screenshots for a trade
 export async function getTradeScreenshots(tradeId: string): Promise<TradeScreenshot[]> {
   const { data, error } = await supabase
     .from('trade_screenshots')
@@ -59,26 +53,22 @@ export async function getTradeScreenshots(tradeId: string): Promise<TradeScreens
   return data
 }
 
-// Get signed URL for viewing a screenshot
 export async function getScreenshotUrl(storagePath: string): Promise<string> {
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(storagePath, 3600) // 1 hour
+    .createSignedUrl(storagePath, 3600)
 
   if (error) throw error
   return data.signedUrl
 }
 
-// Delete a screenshot (storage + database record)
 export async function deleteScreenshot(screenshot: TradeScreenshot): Promise<void> {
-  // 1. Delete from storage
   const { error: storageError } = await supabase.storage
     .from(BUCKET)
     .remove([screenshot.storage_path])
 
   if (storageError) throw storageError
 
-  // 2. Delete database record
   const { error: dbError } = await supabase
     .from('trade_screenshots')
     .delete()
@@ -87,17 +77,14 @@ export async function deleteScreenshot(screenshot: TradeScreenshot): Promise<voi
   if (dbError) throw dbError
 }
 
-// Delete all screenshots for a trade
 export async function deleteAllTradeScreenshots(
   userId: string,
   tradeId: string
 ): Promise<void> {
-  // 1. Get all screenshots for the trade
   const screenshots = await getTradeScreenshots(tradeId)
 
   if (screenshots.length === 0) return
 
-  // 2. Delete all files from storage
   const paths = screenshots.map(s => s.storage_path)
   const { error: storageError } = await supabase.storage
     .from(BUCKET)
@@ -105,7 +92,6 @@ export async function deleteAllTradeScreenshots(
 
   if (storageError) throw storageError
 
-  // 3. Delete all database records
   const { error: dbError } = await supabase
     .from('trade_screenshots')
     .delete()
@@ -114,7 +100,6 @@ export async function deleteAllTradeScreenshots(
   if (dbError) throw dbError
 }
 
-// Update screenshot caption
 export async function updateScreenshotCaption(
   screenshotId: string,
   caption: string | null

@@ -8,8 +8,9 @@ import {
   getTradeScreenshots,
   getScreenshotUrl,
   deleteScreenshot,
-} from '@/lib/storage'
-import type { Trade, TradeInsert, TradeScreenshot, System } from '@/lib/types'
+} from '@/services/upload'
+import type { Trade, TradeInsert, TradeScreenshot } from '@/services/trade'
+import type { System } from '@/services/system'
 
 interface TradeFormProps {
   trade?: Trade | null // If provided, we're editing. If null, we're creating.

@@ -1,2 +1,2 @@
 export * from './trades'
-export type { Trade, TradeInsert, TradeUpdate, TradeScreenshot, TradeScreenshotInsert } from '@/lib/types'
+export type { Trade, TradeInsert, TradeUpdate, TradeScreenshot, TradeScreenshotInsert } from './types'

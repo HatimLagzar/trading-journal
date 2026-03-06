@@ -70,15 +70,16 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
 
 import { useState, useEffect, useRef } from 'react'
 import { createTrade, updateTrade } from '@/services/trade'
-import { uploadScreenshot } from '@/lib/storage'
-import type { Trade, TradeInsert } from '@/lib/types'
+import { uploadScreenshot } from '@/services/upload'
+import type { Trade, TradeInsert } from '@/services/trade'
 ```
 
 ### Path Aliases
 Use `@/*` for absolute imports:
 ```typescript
 import { getTrades } from '@/services/trade'
-import type { Trade } from '@/lib/types'
+import { uploadScreenshot } from '@/services/upload'
+import type { Trade } from '@/services/trade'
 ```
 
 ### Styling
@@ -142,22 +143,24 @@ try {
   page.tsx        # Home page
 /lib              # Shared client-side code
   /supabase       # Supabase client setup
-  types.ts        # TypeScript types
-  storage.ts      # File storage operations
   AuthContext.tsx # Authentication context
 /services         # Backend logic (Supabase operations)
   /trade          # Trade CRUD operations
     index.ts      # Re-exports
     trades.ts     # Trade CRUD functions
+    types.ts     # Trade types
   /system         # System CRUD operations
     index.ts      # Re-exports
     systems.ts    # System CRUD functions
+    types.ts      # System types
+  /upload         # File upload operations
+    index.ts      # Re-exports
 ```
 
 ## Common Tasks
 
 ### Adding a new trade field
-1. Add field to `Trade` type in `lib/types.ts`
+1. Add field to `Trade` type in `services/trade/types.ts`
 2. Add field to `TradeInsert` and/or `TradeUpdate` if needed
 3. Update `TradeForm.tsx` to include the new field
 
