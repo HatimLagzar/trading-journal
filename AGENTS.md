@@ -111,7 +111,7 @@ try {
 - Prefer functional updates: `setFormData(prev => ({ ...prev, field: value }))`
 
 ### Database/Supabase
-- Define types in `lib/types.ts` matching Supabase schema
+- Define types in respective service's `types.ts` (e.g., `services/trade/types.ts`)
 - Use `TradeInsert` and `TradeUpdate` types for create/update operations
 - Always filter queries by `user_id` for multi-user support
 
