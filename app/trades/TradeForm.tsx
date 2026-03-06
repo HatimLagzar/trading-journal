@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { createTrade, updateTrade } from '@/lib/trades'
+import { createTrade, updateTrade } from '@/services/trade'
+import { getSystems } from '@/services/system'
 import {
   uploadScreenshot,
   getTradeScreenshots,
   getScreenshotUrl,
   deleteScreenshot,
 } from '@/lib/storage'
-import type { Trade, TradeInsert, TradeScreenshot } from '@/lib/types'
+import type { Trade, TradeInsert, TradeScreenshot, System } from '@/lib/types'
 
 interface TradeFormProps {
   trade?: Trade | null // If provided, we're editing. If null, we're creating.
@@ -40,11 +41,13 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
     early_exit_reason: trade?.early_exit_reason || null,
     rules: trade?.rules || null,
     system_number: trade?.system_number || null,
+    system_id: trade?.system_id || null,
     notes: trade?.notes || null,
   })
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [systems, setSystems] = useState<System[]>([])
 
   // Screenshot state
   const [existingScreenshots, setExistingScreenshots] = useState<TradeScreenshot[]>([])
@@ -114,6 +117,11 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
       })
     }
   }, [isEditing, trade])
+
+  // Load systems
+  useEffect(() => {
+    getSystems(userId).then(setSystems).catch(console.error)
+  }, [userId])
 
   // Clean up preview URLs when component unmounts
   useEffect(() => {
@@ -315,6 +323,23 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
             </p>
           )}
         </div>
+      </div>
+
+      {/* System Selection */}
+      <div>
+        <label className="block text-sm font-medium mb-1">System</label>
+        <select
+          value={formData.system_id || ''}
+          onChange={(e) => updateField('system_id', e.target.value || null)}
+          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">No System</option>
+          {systems.map((system) => (
+            <option key={system.id} value={system.id}>
+              {system.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Entry Info */}

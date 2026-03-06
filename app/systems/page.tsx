@@ -1,0 +1,327 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase/client'
+import { getSystems, createSystem, updateSystem, deleteSystem } from '@/services/system'
+import type { System, SystemInsert } from '@/lib/types'
+import type { User } from '@supabase/supabase-js'
+
+export default function SystemsPage() {
+  const router = useRouter()
+
+  const [user, setUser] = useState<User | null>(null)
+  const [systems, setSystems] = useState<System[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedSystem, setSelectedSystem] = useState<System | null>(null)
+  const [formData, setFormData] = useState<SystemInsert>({
+    user_id: '',
+    name: '',
+    entry_rules: null,
+    sl_rules: null,
+    tp_rules: null,
+    description: null,
+  })
+  const [saving, setSaving] = useState(false)
+
+  async function refreshData() {
+    if (!user) return
+    try {
+      const data = await getSystems(user.id)
+      setSystems(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load systems')
+    }
+  }
+
+  useEffect(() => {
+    async function loadData() {
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      setUser(user)
+      try {
+        const data = await getSystems(user.id)
+        setSystems(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load systems')
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
+  }, [router])
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  function openCreateModal() {
+    setSelectedSystem(null)
+    setFormData({
+      user_id: user?.id || '',
+      name: '',
+      entry_rules: null,
+      sl_rules: null,
+      tp_rules: null,
+      description: null,
+    })
+    setIsModalOpen(true)
+  }
+
+  function openEditModal(system: System) {
+    setSelectedSystem(system)
+    setFormData({
+      user_id: system.user_id,
+      name: system.name,
+      entry_rules: system.entry_rules,
+      sl_rules: system.sl_rules,
+      tp_rules: system.tp_rules,
+      description: system.description,
+    })
+    setIsModalOpen(true)
+  }
+
+  function closeModal() {
+    setIsModalOpen(false)
+    setSelectedSystem(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!user) return
+
+    setSaving(true)
+    setError(null)
+
+    try {
+      const data = { ...formData, user_id: user.id }
+      
+      if (selectedSystem) {
+        await updateSystem(selectedSystem.id, data)
+      } else {
+        await createSystem(data)
+      }
+      
+      await refreshData()
+      closeModal()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save system')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(system: System) {
+    if (!confirm(`Are you sure you want to delete "${system.name}"?`)) {
+      return
+    }
+
+    try {
+      await deleteSystem(system.id)
+      await refreshData()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete system')
+    }
+  }
+
+  function updateField<K extends keyof SystemInsert>(field: K, value: SystemInsert[K]) {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  if (loading) return <div className="p-8">Loading...</div>
+
+  return (
+    <div className="p-8 max-w-4xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Trading Systems</h1>
+        <div className="flex gap-3">
+          <button
+            onClick={() => router.push('/trades')}
+            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+          >
+            ← Back to Trades
+          </button>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm mb-4">
+          {error}
+        </div>
+      )}
+
+      <div className="mb-6">
+        <button
+          onClick={openCreateModal}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+        >
+          + Add System
+        </button>
+      </div>
+
+      {systems.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          No systems yet. Create your first trading system!
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {systems.map((system) => (
+            <div key={system.id} className="border rounded-lg p-4 hover:bg-gray-50">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg">{system.name}</h3>
+                  {system.description && (
+                    <p className="text-sm text-gray-600 mt-1">{system.description}</p>
+                  )}
+                  <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
+                    {system.entry_rules && (
+                      <div>
+                        <span className="font-medium text-gray-500">Entry:</span>
+                        <p className="text-gray-700">{system.entry_rules}</p>
+                      </div>
+                    )}
+                    {system.sl_rules && (
+                      <div>
+                        <span className="font-medium text-gray-500">Stop Loss:</span>
+                        <p className="text-gray-700">{system.sl_rules}</p>
+                      </div>
+                    )}
+                    {system.tp_rules && (
+                      <div>
+                        <span className="font-medium text-gray-500">Take Profit:</span>
+                        <p className="text-gray-700">{system.tp_rules}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2 ml-4">
+                  <button
+                    onClick={() => openEditModal(system)}
+                    className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(system)}
+                    className="px-3 py-1 text-xs text-red-600 hover:text-red-800"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">
+                {selectedSystem ? 'Edit System' : 'Create System'}
+              </h2>
+              <button onClick={closeModal} className="text-gray-500 hover:text-gray-700">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  System Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => updateField('name', e.target.value)}
+                  required
+                  placeholder="e.g., Breakout Strategy"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                  value={formData.description || ''}
+                  onChange={(e) => updateField('description', e.target.value || null)}
+                  rows={2}
+                  placeholder="Brief description of the system..."
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Entry Rules</label>
+                <textarea
+                  value={formData.entry_rules || ''}
+                  onChange={(e) => updateField('entry_rules', e.target.value || null)}
+                  rows={2}
+                  placeholder="Rules for entering a trade..."
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Stop Loss Rules</label>
+                <textarea
+                  value={formData.sl_rules || ''}
+                  onChange={(e) => updateField('sl_rules', e.target.value || null)}
+                  rows={2}
+                  placeholder="Rules for setting stop loss..."
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Take Profit Rules</label>
+                <textarea
+                  value={formData.tp_rules || ''}
+                  onChange={(e) => updateField('tp_rules', e.target.value || null)}
+                  rows={2}
+                  placeholder="Rules for taking profit..."
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : selectedSystem ? 'Update System' : 'Create System'}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  disabled={saving}
+                  className="px-6 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

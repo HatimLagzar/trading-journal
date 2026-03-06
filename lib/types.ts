@@ -1,5 +1,19 @@
 // Database types matching your Supabase schema
 
+export type System = {
+  id: string;
+  created_at: string;
+  user_id: string;
+  name: string;
+  entry_rules: string | null;
+  sl_rules: string | null;
+  tp_rules: string | null;
+  description: string | null;
+};
+
+export type SystemInsert = Omit<System, 'id' | 'created_at'>;
+export type SystemUpdate = Partial<Omit<System, 'id' | 'created_at'>>;
+
 export type Trade = {
   id: string;
   created_at: string;
@@ -22,6 +36,7 @@ export type Trade = {
   early_exit_reason: string | null;
   rules: string | null;
   system_number: string | null;
+  system_id: string | null;
   notes: string | null;
 };
 

@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { getTrades, getTradeStats, deleteTrade } from '@/lib/trades'
-import type { Trade } from '@/lib/types'
+import { getTrades, getTradeStats, deleteTrade } from '@/services/trade'
+import { getSystems } from '@/services/system'
+import type { Trade, System } from '@/lib/types'
 import Modal from './Modal'
 import TradeForm from './TradeForm'
 import type { User } from '@supabase/supabase-js'
@@ -14,6 +15,7 @@ export default function TradesPage() {
 
   const [user, setUser] = useState<User | null>(null)
   const [trades, setTrades] = useState<Trade[]>([])
+  const [systems, setSystems] = useState<System[]>([])
   const [stats, setStats] = useState<{
     totalTrades: number
     winRate: number
@@ -32,12 +34,14 @@ export default function TradesPage() {
     if (!user) return
 
     try {
-      const [tradesData, statsData] = await Promise.all([
+      const [tradesData, statsData, systemsData] = await Promise.all([
         getTrades(user.id),
-        getTradeStats(user.id)
+        getTradeStats(user.id),
+        getSystems(user.id),
       ])
       setTrades(tradesData)
       setStats(statsData)
+      setSystems(systemsData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trades')
     }
@@ -56,12 +60,14 @@ export default function TradesPage() {
       setUser(user)
 
       try {
-        const [tradesData, statsData] = await Promise.all([
+        const [tradesData, statsData, systemsData] = await Promise.all([
           getTrades(user.id),
-          getTradeStats(user.id)
+          getTradeStats(user.id),
+          getSystems(user.id),
         ])
         setTrades(tradesData)
         setStats(statsData)
+        setSystems(systemsData)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load trades')
       } finally {
@@ -123,13 +129,17 @@ export default function TradesPage() {
     const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })
     
     if (trade.trade_time) {
-      // trade_time is in format 'HH:MM:SS', extract just 'HH:MM'
       const time = trade.trade_time.substring(0, 5)
       return `${dayName} ${time}`
     }
     
-    // If no time, just return the day name
     return dayName
+  }
+
+  function getSystemName(systemId: string | null): string {
+    if (!systemId) return '-'
+    const system = systems.find(s => s.id === systemId)
+    return system?.name || '-'
   }
 
   return (
@@ -137,6 +147,12 @@ export default function TradesPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Trading Journal</h1>
         <div className="flex gap-3">
+          <button
+            onClick={() => router.push('/systems')}
+            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+          >
+            Systems
+          </button>
           <button
             onClick={handleAddTrade}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
@@ -173,6 +189,7 @@ export default function TradesPage() {
             <tr>
               <th className="px-4 py-3 text-left">#</th>
               <th className="px-4 py-3 text-left">Date</th>
+              <th className="px-4 py-3 text-left">System</th>
               <th className="px-4 py-3 text-left">Coin</th>
               <th className="px-4 py-3 text-left">Direction</th>
               <th className="px-4 py-3 text-right">Entry</th>
@@ -187,6 +204,7 @@ export default function TradesPage() {
               <tr key={trade.id} className="border-t hover:bg-gray-50">
                 <td className="px-4 py-3">{trade.trade_number}</td>
                 <td className="px-4 py-3">{formatTradeDateTime(trade)}</td>
+                <td className="px-4 py-3 text-gray-600">{getSystemName(trade.system_id)}</td>
                 <td className="px-4 py-3 font-medium">{trade.coin}</td>
                 <td className="px-4 py-3">
                   <span className={trade.direction === 'long' ? 'text-green-600' : 'text-red-600'}>
@@ -223,7 +241,7 @@ export default function TradesPage() {
             ))}
             {trades.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                   No trades yet. Start journaling!
                 </td>
               </tr>

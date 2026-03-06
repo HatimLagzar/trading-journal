@@ -69,7 +69,7 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { createTrade, updateTrade } from '@/lib/trades'
+import { createTrade, updateTrade } from '@/services/trade'
 import { uploadScreenshot } from '@/lib/storage'
 import type { Trade, TradeInsert } from '@/lib/types'
 ```
@@ -77,7 +77,7 @@ import type { Trade, TradeInsert } from '@/lib/types'
 ### Path Aliases
 Use `@/*` for absolute imports:
 ```typescript
-import { getTrades } from '@/lib/trades'
+import { getTrades } from '@/services/trade'
 import type { Trade } from '@/lib/types'
 ```
 
@@ -135,16 +135,23 @@ try {
 ```
 /app              # Next.js App Router pages
   /trades         # Trades page and components
+  /systems        # Systems page
   /login          # Login page
   /signup         # Signup page
   layout.tsx      # Root layout
   page.tsx        # Home page
-/lib              # Shared code
+/lib              # Shared client-side code
   /supabase       # Supabase client setup
   types.ts        # TypeScript types
-  trades.ts       # Trade data operations
   storage.ts      # File storage operations
   AuthContext.tsx # Authentication context
+/services         # Backend logic (Supabase operations)
+  /trade          # Trade CRUD operations
+    index.ts      # Re-exports
+    trades.ts     # Trade CRUD functions
+  /system         # System CRUD operations
+    index.ts      # Re-exports
+    systems.ts    # System CRUD functions
 ```
 
 ## Common Tasks
