@@ -1,8 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createTrade, updateTrade } from '@/lib/trades'
-import type { Trade, TradeInsert } from '@/lib/types'
+import {
+  uploadScreenshot,
+  getTradeScreenshots,
+  getScreenshotUrl,
+  deleteScreenshot,
+} from '@/lib/storage'
+import type { Trade, TradeInsert, TradeScreenshot } from '@/lib/types'
 
 interface TradeFormProps {
   trade?: Trade | null // If provided, we're editing. If null, we're creating.
@@ -39,6 +45,14 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Screenshot state
+  const [existingScreenshots, setExistingScreenshots] = useState<TradeScreenshot[]>([])
+  const [screenshotUrls, setScreenshotUrls] = useState<Record<string, string>>({})
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [pendingPreviews, setPendingPreviews] = useState<string[]>([])
+  const [uploadingScreenshots, setUploadingScreenshots] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Auto-detect direction based on entry and stop loss
   useEffect(() => {
@@ -86,6 +100,89 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.risk, formData.realised_win, formData.realised_loss])
 
+  // Load existing screenshots when editing
+  useEffect(() => {
+    if (isEditing && trade) {
+      getTradeScreenshots(trade.id).then(async (screenshots) => {
+        setExistingScreenshots(screenshots)
+        // Get signed URLs for each screenshot
+        const urls: Record<string, string> = {}
+        for (const s of screenshots) {
+          urls[s.id] = await getScreenshotUrl(s.storage_path)
+        }
+        setScreenshotUrls(urls)
+      })
+    }
+  }, [isEditing, trade])
+
+  // Clean up preview URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      pendingPreviews.forEach(url => URL.revokeObjectURL(url))
+    }
+  }, [pendingPreviews])
+
+  function addPendingFiles(files: File[]) {
+    if (files.length === 0) return
+
+    setPendingFiles(prev => [...prev, ...files])
+
+    const newPreviews = files.map(file => URL.createObjectURL(file))
+    setPendingPreviews(prev => [...prev, ...newPreviews])
+  }
+
+  // Handle file selection
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || [])
+    addPendingFiles(files)
+
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // Remove pending file
+  function removePendingFile(index: number) {
+    URL.revokeObjectURL(pendingPreviews[index])
+    setPendingFiles(prev => prev.filter((_, i) => i !== index))
+    setPendingPreviews(prev => prev.filter((_, i) => i !== index))
+  }
+
+  useEffect(() => {
+    function handlePaste(e: ClipboardEvent) {
+      const clipboardItems = Array.from(e.clipboardData?.items || [])
+      const imageFiles = clipboardItems
+        .filter(item => item.type.startsWith('image/'))
+        .map((item, index) => {
+          const file = item.getAsFile()
+          if (!file) return null
+
+          const extension = file.type.split('/')[1] || 'png'
+          return new File([file], `clipboard-${Date.now()}-${index}.${extension}`, {
+            type: file.type,
+          })
+        })
+        .filter((file): file is File => file !== null)
+
+      if (imageFiles.length === 0) return
+
+      e.preventDefault()
+      addPendingFiles(imageFiles)
+    }
+
+    window.addEventListener('paste', handlePaste)
+    return () => window.removeEventListener('paste', handlePaste)
+  }, [])
+
+  // Delete existing screenshot
+  async function handleDeleteScreenshot(screenshot: TradeScreenshot) {
+    try {
+      await deleteScreenshot(screenshot)
+      setExistingScreenshots(prev => prev.filter(s => s.id !== screenshot.id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete screenshot')
+    }
+  }
+
   // Handle form submission
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -93,14 +190,26 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
     setError(null)
 
     try {
+      let tradeId: string
+
       if (isEditing && trade) {
         // Update existing trade
         await updateTrade(trade.id, formData)
+        tradeId = trade.id
       } else {
         // Create new trade
-        await createTrade(formData)
+        const newTrade = await createTrade(formData)
+        tradeId = newTrade.id
       }
-      
+
+      // Upload any pending screenshots
+      if (pendingFiles.length > 0) {
+        setUploadingScreenshots(true)
+        for (const file of pendingFiles) {
+          await uploadScreenshot(userId, tradeId, file)
+        }
+      }
+
       // Success! Refresh the trades list
       onSuccess()
       onClose()
@@ -312,6 +421,77 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
         )}
       </div>
 
+      {/* Screenshots */}
+      <div>
+        <label className="block text-sm font-medium mb-2">Screenshots</label>
+
+        {/* Existing screenshots (when editing) */}
+        {existingScreenshots.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {existingScreenshots.map(screenshot => (
+              <div key={screenshot.id} className="relative group">
+                <img
+                  src={screenshotUrls[screenshot.id]}
+                  alt={screenshot.filename}
+                  className="w-full h-24 object-cover rounded border"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleDeleteScreenshot(screenshot)}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  X
+                </button>
+                <p className="text-xs text-gray-500 truncate">{screenshot.filename}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Pending files preview */}
+        {pendingPreviews.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {pendingPreviews.map((preview, index) => (
+              <div key={preview} className="relative group">
+                <img
+                  src={preview}
+                  alt={`Pending ${index + 1}`}
+                  className="w-full h-24 object-cover rounded border border-blue-300"
+                />
+                <button
+                  type="button"
+                  onClick={() => removePendingFile(index)}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  X
+                </button>
+                <p className="text-xs text-blue-500 truncate">{pendingFiles[index].name}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* File input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors"
+        >
+          + Add Screenshots
+        </button>
+        <p className="mt-2 text-xs text-gray-500">
+          You can also paste an image from your clipboard with Ctrl+V or Cmd+V.
+        </p>
+      </div>
+
       {/* Additional Fields */}
       <div>
         <label className="block text-sm font-medium mb-1">Notes</label>
@@ -331,7 +511,7 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
           disabled={loading}
           className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? 'Saving...' : isEditing ? 'Update Trade' : 'Create Trade'}
+          {uploadingScreenshots ? 'Uploading images...' : loading ? 'Saving...' : isEditing ? 'Update Trade' : 'Create Trade'}
         </button>
         <button
           type="button"

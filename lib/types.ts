@@ -32,3 +32,16 @@ export type TradeInsert = Omit<Trade, "id" | "created_at" | "trade_number">;
 export type TradeUpdate = Partial<
   Omit<Trade, "id" | "created_at" | "trade_number">
 >;
+
+// Trade screenshots
+export type TradeScreenshot = {
+  id: string;
+  created_at: string;
+  trade_id: string;
+  user_id: string;
+  storage_path: string;
+  filename: string;
+  caption: string | null;
+};
+
+export type TradeScreenshotInsert = Omit<TradeScreenshot, "id" | "created_at">;

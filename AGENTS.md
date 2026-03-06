@@ -1,0 +1,167 @@
+# AGENTS.md - Trading Journal Development Guide
+
+## Project Overview
+
+A Next.js 16 trading journal application using Supabase for authentication and database. Built with TypeScript, React 19, and Tailwind CSS v4.
+
+## Build, Lint, and Test Commands
+
+```bash
+# Development
+npm run dev              # Start Next.js development server (localhost:3000)
+
+# Production
+npm run build            # Build for production
+npm run start            # Start production server
+npm run lint             # Run ESLint on the codebase
+
+# No test framework is currently configured
+```
+
+## Code Style Guidelines
+
+### TypeScript
+- Strict mode is enabled in `tsconfig.json`
+- Always use explicit types for function parameters and return types
+- Use `import type` for type-only imports to improve performance
+
+```typescript
+// Good
+import { supabase } from './supabase/client'
+import type { TradeInsert, TradeUpdate } from './types'
+
+// Bad
+import { supabase, type TradeInsert } from './supabase/client'
+```
+
+### React/Next.js Conventions
+- Use `'use client'` directive for client-side components
+- Use functional components with TypeScript interfaces for props
+- Name components using PascalCase
+- Use file-based routing (App Router)
+
+```typescript
+interface TradeFormProps {
+  trade?: Trade | null
+  onClose: () => void
+  onSuccess: () => void
+  userId: string
+}
+
+export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFormProps) {
+  // ...
+}
+```
+
+### Naming Conventions
+- Components: PascalCase (e.g., `TradeForm`, `TradeModal`)
+- Functions/variables: camelCase (e.g., `getTrades`, `formData`)
+- Types: PascalCase (e.g., `Trade`, `TradeInsert`)
+- File names: kebab-case for non-components (e.g., `trade-form.tsx`, `trades.ts`)
+
+### Imports Order
+1. React/Next imports
+2. External libraries (Supabase, etc.)
+3. Internal imports (lib/, app/)
+4. Type imports
+
+```typescript
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import { createTrade, updateTrade } from '@/lib/trades'
+import { uploadScreenshot } from '@/lib/storage'
+import type { Trade, TradeInsert } from '@/lib/types'
+```
+
+### Path Aliases
+Use `@/*` for absolute imports:
+```typescript
+import { getTrades } from '@/lib/trades'
+import type { Trade } from '@/lib/types'
+```
+
+### Styling
+- Use Tailwind CSS v4 utility classes
+- Prefer semantic HTML elements
+- Use `className` for Tailwind classes
+
+### Error Handling
+- Throw Supabase errors directly after operations
+- Catch errors in async handlers and set error state
+- Display user-friendly error messages in UI
+
+```typescript
+// In data access functions
+if (error) throw error
+
+// In event handlers
+try {
+  await createTrade(formData)
+  onSuccess()
+} catch (err) {
+  setError(err instanceof Error ? err.message : 'Failed to save trade')
+}
+```
+
+### State Management
+- Use `useState` for local component state
+- Use Context API for global state (see `lib/AuthContext.tsx`)
+- Prefer functional updates: `setFormData(prev => ({ ...prev, field: value }))`
+
+### Database/Supabase
+- Define types in `lib/types.ts` matching Supabase schema
+- Use `TradeInsert` and `TradeUpdate` types for create/update operations
+- Always filter queries by `user_id` for multi-user support
+
+### ESLint Configuration
+- Uses `eslint-config-next` with TypeScript support
+- Run `npm run lint` before committing
+
+### Formatting
+- Use single quotes for strings
+- Use 2-space indentation
+- Add trailing commas in objects and arrays
+- Use semicolons at the end of statements
+
+### General Patterns
+- Place related functions in dedicated module files (e.g., `lib/trades.ts`)
+- Use section comments for grouping code (optional)
+- Initialize optional fields with `null` rather than `undefined`
+- Use `URL.revokeObjectURL()` to clean up object URLs in useEffect cleanup
+
+## Project Structure
+
+```
+/app              # Next.js App Router pages
+  /trades         # Trades page and components
+  /login          # Login page
+  /signup         # Signup page
+  layout.tsx      # Root layout
+  page.tsx        # Home page
+/lib              # Shared code
+  /supabase       # Supabase client setup
+  types.ts        # TypeScript types
+  trades.ts       # Trade data operations
+  storage.ts      # File storage operations
+  AuthContext.tsx # Authentication context
+```
+
+## Common Tasks
+
+### Adding a new trade field
+1. Add field to `Trade` type in `lib/types.ts`
+2. Add field to `TradeInsert` and/or `TradeUpdate` if needed
+3. Update `TradeForm.tsx` to include the new field
+
+### Creating a new page
+1. Create directory in `/app` (e.g., `/app/analytics`)
+2. Create `page.tsx` in the new directory
+3. Use appropriate layout (or create custom)
+
+### Running the app locally
+```bash
+npm run dev
+```
+
+Then visit http://localhost:3000

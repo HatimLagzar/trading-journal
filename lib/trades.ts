@@ -1,5 +1,5 @@
 import { supabase } from './supabase/client'
-import type { Trade, TradeInsert, TradeUpdate } from './types'
+import type { TradeInsert, TradeUpdate } from './types'
 
 // ============================================
 // FETCH TRADES
