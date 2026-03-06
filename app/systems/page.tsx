@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { getSystems, createSystem, updateSystem, deleteSystem } from '@/services/system'
-import type { System, SystemInsert } from '@/services/system'
+import { getSystems, createSystem, updateSystem, deleteSystem, getSubSystems, createSubSystem, updateSubSystem, deleteSubSystem } from '@/services/system'
+import type { System, SystemInsert, SubSystem, SubSystemInsert } from '@/services/system'
 import type { User } from '@supabase/supabase-js'
 
 export default function SystemsPage() {
@@ -12,6 +12,7 @@ export default function SystemsPage() {
 
   const [user, setUser] = useState<User | null>(null)
   const [systems, setSystems] = useState<System[]>([])
+  const [subSystems, setSubSystems] = useState<SubSystem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
@@ -27,11 +28,29 @@ export default function SystemsPage() {
   })
   const [saving, setSaving] = useState(false)
 
+  // Sub-system modal state
+  const [isSubSystemModalOpen, setIsSubSystemModalOpen] = useState(false)
+  const [selectedSubSystem, setSelectedSubSystem] = useState<SubSystem | null>(null)
+  const [parentSystemId, setParentSystemId] = useState<string | null>(null)
+  const [subSystemFormData, setSubSystemFormData] = useState<SubSystemInsert>({
+    user_id: '',
+    system_id: '',
+    name: '',
+    entry_rules: null,
+    sl_rules: null,
+    tp_rules: null,
+    description: null,
+  })
+
   async function refreshData() {
     if (!user) return
     try {
-      const data = await getSystems(user.id)
-      setSystems(data)
+      const [systemsData, subSystemsData] = await Promise.all([
+        getSystems(user.id),
+        getSubSystems(user.id),
+      ])
+      setSystems(systemsData)
+      setSubSystems(subSystemsData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load systems')
     }
@@ -48,8 +67,12 @@ export default function SystemsPage() {
 
       setUser(user)
       try {
-        const data = await getSystems(user.id)
-        setSystems(data)
+        const [systemsData, subSystemsData] = await Promise.all([
+          getSystems(user.id),
+          getSubSystems(user.id),
+        ])
+        setSystems(systemsData)
+        setSubSystems(subSystemsData)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load systems')
       } finally {
@@ -88,6 +111,88 @@ export default function SystemsPage() {
       description: system.description,
     })
     setIsModalOpen(true)
+  }
+
+  function getSubSystemsForSystem(systemId: string): SubSystem[] {
+    return subSystems.filter(s => s.system_id === systemId)
+  }
+
+  function openCreateSubSystemModal(systemId: string) {
+    setParentSystemId(systemId)
+    setSelectedSubSystem(null)
+    setSubSystemFormData({
+      user_id: user?.id || '',
+      system_id: systemId,
+      name: '',
+      entry_rules: null,
+      sl_rules: null,
+      tp_rules: null,
+      description: null,
+    })
+    setIsSubSystemModalOpen(true)
+  }
+
+  function openEditSubSystemModal(subSystem: SubSystem) {
+    setParentSystemId(subSystem.system_id)
+    setSelectedSubSystem(subSystem)
+    setSubSystemFormData({
+      user_id: subSystem.user_id,
+      system_id: subSystem.system_id,
+      name: subSystem.name,
+      entry_rules: subSystem.entry_rules,
+      sl_rules: subSystem.sl_rules,
+      tp_rules: subSystem.tp_rules,
+      description: subSystem.description,
+    })
+    setIsSubSystemModalOpen(true)
+  }
+
+  function closeSubSystemModal() {
+    setIsSubSystemModalOpen(false)
+    setSelectedSubSystem(null)
+    setParentSystemId(null)
+  }
+
+  async function handleSubSystemSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!user) return
+
+    setSaving(true)
+    setError(null)
+
+    try {
+      const data = { ...subSystemFormData, user_id: user.id }
+      
+      if (selectedSubSystem) {
+        await updateSubSystem(selectedSubSystem.id, data)
+      } else {
+        await createSubSystem(data)
+      }
+      
+      await refreshData()
+      closeSubSystemModal()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save sub-system')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDeleteSubSystem(subSystem: SubSystem) {
+    if (!confirm(`Are you sure you want to delete "${subSystem.name}"?`)) {
+      return
+    }
+
+    try {
+      await deleteSubSystem(subSystem.id)
+      await refreshData()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete sub-system')
+    }
+  }
+
+  function updateSubSystemField<K extends keyof SubSystemInsert>(field: K, value: SubSystemInsert[K]) {
+    setSubSystemFormData(prev => ({ ...prev, [field]: value }))
   }
 
   function closeModal() {
@@ -211,6 +316,12 @@ export default function SystemsPage() {
                 </div>
                 <div className="flex gap-2 ml-4">
                   <button
+                    onClick={() => openCreateSubSystemModal(system.id)}
+                    className="px-3 py-1 text-xs text-green-600 hover:text-green-800"
+                  >
+                    + Sub-System
+                  </button>
+                  <button
                     onClick={() => openEditModal(system)}
                     className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800"
                   >
@@ -224,6 +335,36 @@ export default function SystemsPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Sub-systems */}
+              {getSubSystemsForSystem(system.id).length > 0 && (
+                <div className="mt-4 pl-4 border-l-2 border-gray-200 space-y-2">
+                  {getSubSystemsForSystem(system.id).map((subSystem) => (
+                    <div key={subSystem.id} className="flex justify-between items-start bg-gray-50 p-2 rounded">
+                      <div>
+                        <span className="font-medium">{subSystem.name}</span>
+                        {subSystem.entry_rules && (
+                          <span className="ml-2 text-xs text-gray-500">Entry: {subSystem.entry_rules}</span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openEditSubSystemModal(subSystem)}
+                          className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSubSystem(subSystem)}
+                          className="px-2 py-1 text-xs text-red-600 hover:text-red-800"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -312,6 +453,100 @@ export default function SystemsPage() {
                 <button
                   type="button"
                   onClick={closeModal}
+                  disabled={saving}
+                  className="px-6 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Sub-System Modal */}
+      {isSubSystemModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">
+                {selectedSubSystem ? 'Edit Sub-System' : 'Create Sub-System'}
+              </h2>
+              <button onClick={closeSubSystemModal} className="text-gray-500 hover:text-gray-700">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSubSystemSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Sub-System Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={subSystemFormData.name}
+                  onChange={(e) => updateSubSystemField('name', e.target.value)}
+                  required
+                  placeholder="e.g., Trend Follow"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                  value={subSystemFormData.description || ''}
+                  onChange={(e) => updateSubSystemField('description', e.target.value || null)}
+                  rows={2}
+                  placeholder="Brief description..."
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Entry Rules</label>
+                <textarea
+                  value={subSystemFormData.entry_rules || ''}
+                  onChange={(e) => updateSubSystemField('entry_rules', e.target.value || null)}
+                  rows={2}
+                  placeholder="Rules for entering..."
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Stop Loss Rules</label>
+                <textarea
+                  value={subSystemFormData.sl_rules || ''}
+                  onChange={(e) => updateSubSystemField('sl_rules', e.target.value || null)}
+                  rows={2}
+                  placeholder="Rules for stop loss..."
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Take Profit Rules</label>
+                <textarea
+                  value={subSystemFormData.tp_rules || ''}
+                  onChange={(e) => updateSubSystemField('tp_rules', e.target.value || null)}
+                  rows={2}
+                  placeholder="Rules for take profit..."
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : selectedSubSystem ? 'Update Sub-System' : 'Create Sub-System'}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeSubSystemModal}
                   disabled={saving}
                   className="px-6 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
                 >

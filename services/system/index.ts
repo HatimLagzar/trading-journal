@@ -1,2 +1,2 @@
 export * from './systems'
-export type { System, SystemInsert, SystemUpdate } from './types'
+export type { System, SystemInsert, SystemUpdate, SubSystem, SubSystemInsert, SubSystemUpdate } from './types'

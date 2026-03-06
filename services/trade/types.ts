@@ -21,6 +21,7 @@ export type Trade = {
   rules: string | null;
   system_number: string | null;
   system_id: string | null;
+  sub_system_id: string | null;
   notes: string | null;
 };
 

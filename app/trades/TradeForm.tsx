@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createTrade, updateTrade } from '@/services/trade'
-import { getSystems } from '@/services/system'
+import { getSystems, getSubSystems } from '@/services/system'
 import {
   uploadScreenshot,
   getTradeScreenshots,
@@ -10,7 +10,7 @@ import {
   deleteScreenshot,
 } from '@/services/upload'
 import type { Trade, TradeInsert, TradeScreenshot } from '@/services/trade'
-import type { System } from '@/services/system'
+import type { System, SubSystem } from '@/services/system'
 
 interface TradeFormProps {
   trade?: Trade | null // If provided, we're editing. If null, we're creating.
@@ -43,12 +43,14 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
     rules: trade?.rules || null,
     system_number: trade?.system_number || null,
     system_id: trade?.system_id || null,
+    sub_system_id: trade?.sub_system_id || null,
     notes: trade?.notes || null,
   })
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [systems, setSystems] = useState<System[]>([])
+  const [subSystems, setSubSystems] = useState<SubSystem[]>([])
 
   // Screenshot state
   const [existingScreenshots, setExistingScreenshots] = useState<TradeScreenshot[]>([])
@@ -123,6 +125,15 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
   useEffect(() => {
     getSystems(userId).then(setSystems).catch(console.error)
   }, [userId])
+
+  // Load sub-systems when system changes
+  useEffect(() => {
+    if (formData.system_id) {
+      getSubSystems(userId, formData.system_id).then(setSubSystems).catch(console.error)
+    } else {
+      setSubSystems([])
+    }
+  }, [userId, formData.system_id])
 
   // Clean up preview URLs when component unmounts
   useEffect(() => {
@@ -327,20 +338,42 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
       </div>
 
       {/* System Selection */}
-      <div>
-        <label className="block text-sm font-medium mb-1">System</label>
-        <select
-          value={formData.system_id || ''}
-          onChange={(e) => updateField('system_id', e.target.value || null)}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">No System</option>
-          {systems.map((system) => (
-            <option key={system.id} value={system.id}>
-              {system.name}
-            </option>
-          ))}
-        </select>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">System</label>
+          <select
+            value={formData.system_id || ''}
+            onChange={(e) => {
+              updateField('system_id', e.target.value || null)
+              updateField('sub_system_id', null)
+            }}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">No System</option>
+            {systems.map((system) => (
+              <option key={system.id} value={system.id}>
+                {system.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Sub-System</label>
+          <select
+            value={formData.sub_system_id || ''}
+            onChange={(e) => updateField('sub_system_id', e.target.value || null)}
+            disabled={!formData.system_id}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+          >
+            <option value="">No Sub-System</option>
+            {subSystems.map((subSystem) => (
+              <option key={subSystem.id} value={subSystem.id}>
+                {subSystem.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Entry Info */}
