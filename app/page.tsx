@@ -61,9 +61,7 @@ export default function Home() {
       </div>
 
       <div className="relative mx-auto w-full max-w-6xl px-5 pb-16 pt-6 sm:px-8 lg:px-12">
-        <header
-          className="animate-fade-down mb-14 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur"
-        >
+        <header className="animate-fade-down mb-14 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
           <p className={`${sora.className} text-sm font-semibold tracking-wide text-cyan-200`}>Trading Journal</p>
           <div className="flex items-center gap-2">
             <Link

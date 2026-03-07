@@ -86,6 +86,7 @@ import type { Trade } from '@/services/trade'
 - Use Tailwind CSS v4 utility classes
 - Prefer semantic HTML elements
 - Use `className` for Tailwind classes
+- Ensure clickable buttons show pointer cursor (`cursor-pointer`) unless disabled
 
 ### Error Handling
 - Throw Supabase errors directly after operations
@@ -225,6 +226,17 @@ try {
 3. Backtesting trades store theoretical results in `outcome_r` (Profit in R), not realized dollar PnL
 4. Use `/app/backtesting/ImportBacktestingTradesForm.tsx` for bulk importing theoretical trades with mapping and preview
 5. Keep `trade_date` mapping optional during backtesting import (default missing dates to today)
+
+### Premium billing and feature gating
+1. Subscription state is stored in `user_subscriptions` (see `supabase/migrations/004_create_user_subscriptions.sql`)
+2. Stripe checkout is handled by `POST /api/stripe/checkout`; Stripe webhooks are handled by `POST /api/stripe/webhook`
+3. Checkout uses Stripe Price IDs from env: `STRIPE_PREMIUM_MONTHLY_PRICE_ID` and `STRIPE_PREMIUM_ANNUAL_PRICE_ID`
+4. Premium page display prices can be set from env with `STRIPE_PREMIUM_MONTHLY_PRICE_USD` and `STRIPE_PREMIUM_ANNUAL_PRICE_USD`
+5. Customer self-service billing is handled by `POST /api/stripe/portal`
+6. Checkout redirects to `/premium/success` on success and `/premium/cancelled` when canceled
+7. Premium status for UI gating is fetched via `GET /api/subscription/status` and consumed by `lib/usePremiumAccess.ts`
+8. Premium-only features: screenshot upload, importing live trades, mirroring live trades to backtesting, and creating more than 2 systems
+9. Locked features remain visible; non-premium users are redirected to `/premium` with a `feature` query param
 
 ### Creating a new page
 1. Create directory in `/app` (e.g., `/app/analytics`)

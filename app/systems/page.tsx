@@ -3,12 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import { usePremiumAccess } from '@/lib/usePremiumAccess'
+import AuthNavbar from '@/app/components/AuthNavbar'
 import { getSystems, createSystem, updateSystem, deleteSystem, getSubSystems, createSubSystem, updateSubSystem, deleteSubSystem, mergeSystems } from '@/services/system'
 import type { System, SystemInsert, SubSystem, SubSystemInsert } from '@/services/system'
 import type { User } from '@supabase/supabase-js'
 
 export default function SystemsPage() {
   const router = useRouter()
+  const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
 
   const [user, setUser] = useState<User | null>(null)
   const [systems, setSystems] = useState<System[]>([])
@@ -88,12 +91,12 @@ export default function SystemsPage() {
     loadData()
   }, [router])
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
-
   function openCreateModal() {
+    if (!premiumLoading && !isPremium && systems.length >= 2) {
+      redirectToPremium('systems-limit')
+      return
+    }
+
     setSelectedSystem(null)
     setFormData({
       user_id: user?.id || '',
@@ -299,24 +302,13 @@ export default function SystemsPage() {
   if (loading) return <div className="p-8">Loading...</div>
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Trading Systems</h1>
-        <div className="flex gap-3">
-          <button
-            onClick={() => router.push('/trades')}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
-          >
-            ← Back to Trades
-          </button>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
-          >
-            Sign Out
-          </button>
+    <div className="min-h-screen bg-[#f4f7f9] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <AuthNavbar current="systems" onError={(message) => setError(message || null)} />
+
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-slate-900">Trading Systems</h1>
         </div>
-      </div>
 
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm mb-4">
@@ -330,7 +322,7 @@ export default function SystemsPage() {
             onClick={openCreateModal}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
           >
-            + Add System
+            + Add System {(!premiumLoading && !isPremium) ? '(2 max on free)' : ''}
           </button>
           <button
             onClick={openMergeModal}
@@ -692,6 +684,7 @@ export default function SystemsPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

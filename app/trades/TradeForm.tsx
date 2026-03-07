@@ -8,6 +8,7 @@ import {
   getBacktestingSessions,
   updateBacktestingMirrorFromLiveTrade,
 } from '@/services/backtesting'
+import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import { getSystems, getSubSystems } from '@/services/system'
 import {
   uploadScreenshot,
@@ -60,6 +61,7 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
   const [subSystems, setSubSystems] = useState<SubSystem[]>([])
   const [backtestingSessions, setBacktestingSessions] = useState<BacktestingSession[]>([])
   const [selectedBacktestingSessionId, setSelectedBacktestingSessionId] = useState('')
+  const { isPremium, redirectToPremium } = usePremiumAccess()
 
   // Screenshot state
   const [existingScreenshots, setExistingScreenshots] = useState<TradeScreenshot[]>([])
@@ -159,6 +161,11 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
   function addPendingFiles(files: File[]) {
     if (files.length === 0) return
 
+    if (!isPremium) {
+      redirectToPremium('screenshots')
+      return
+    }
+
     setPendingFiles(prev => [...prev, ...files])
 
     const newPreviews = files.map(file => URL.createObjectURL(file))
@@ -199,13 +206,18 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
 
       if (imageFiles.length === 0) return
 
+      if (!isPremium) {
+        redirectToPremium('screenshots')
+        return
+      }
+
       e.preventDefault()
       addPendingFiles(imageFiles)
     }
 
     window.addEventListener('paste', handlePaste)
     return () => window.removeEventListener('paste', handlePaste)
-  }, [])
+  }, [isPremium, redirectToPremium])
 
   // Delete existing screenshot
   async function handleDeleteScreenshot(screenshot: TradeScreenshot) {
@@ -281,6 +293,11 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
 
     try {
       if (!isEditing && selectedBacktestingSessionId) {
+        if (!isPremium) {
+          redirectToPremium('mirror-live-trades')
+          return
+        }
+
         await createBacktestingMirrorFromLiveTrade({
           ...mirrorBasePayload,
           sessionId: selectedBacktestingSessionId,
@@ -303,6 +320,11 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
       }
 
       if (selectedBacktestingSessionId) {
+        if (!isPremium) {
+          redirectToPremium('mirror-live-trades')
+          return
+        }
+
         await createBacktestingMirrorFromLiveTrade({
           ...mirrorBasePayload,
           sessionId: selectedBacktestingSessionId,
@@ -453,7 +475,14 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
         <label className="block text-sm font-medium mb-1">Backtesting Session</label>
         <select
           value={selectedBacktestingSessionId}
-          onChange={(e) => setSelectedBacktestingSessionId(e.target.value)}
+          onChange={(e) => {
+            const nextValue = e.target.value
+            if (nextValue && !isPremium) {
+              redirectToPremium('mirror-live-trades')
+              return
+            }
+            setSelectedBacktestingSessionId(nextValue)
+          }}
           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">No Backtesting Session</option>
@@ -635,7 +664,13 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
         />
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            if (!isPremium) {
+              redirectToPremium('screenshots')
+              return
+            }
+            fileInputRef.current?.click()
+          }}
           className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors"
         >
           + Add Screenshots

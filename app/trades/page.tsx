@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import { usePremiumAccess } from '@/lib/usePremiumAccess'
+import AuthNavbar from '@/app/components/AuthNavbar'
 import { getTrades, deleteTrade } from '@/services/trade'
 import { getSystems, getSubSystems } from '@/services/system'
 import type { Trade } from '@/services/trade'
@@ -44,6 +46,7 @@ type PerformanceStats = {
 
 export default function TradesPage() {
   const router = useRouter()
+  const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
 
   const [user, setUser] = useState<User | null>(null)
   const [trades, setTrades] = useState<Trade[]>([])
@@ -313,11 +316,6 @@ export default function TradesPage() {
   if (loading) return <div className="p-8">Loading trades...</div>
   if (error) return <div className="p-8 text-red-500">Error: {error}</div>
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
-
   // Open modal for creating a new trade
   function handleAddTrade() {
     setSelectedTrade(null)
@@ -337,6 +335,11 @@ export default function TradesPage() {
   }
 
   function handleOpenImportModal() {
+    if (!premiumLoading && !isPremium) {
+      redirectToPremium('import-trades')
+      return
+    }
+
     setIsImportModalOpen(true)
   }
 
@@ -428,22 +431,13 @@ export default function TradesPage() {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Live trades</h1>
-        <div className="flex gap-3">
-          <button
-            onClick={() => router.push('/systems')}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
-          >
-            Systems
-          </button>
-          <button
-            onClick={() => router.push('/backtesting')}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
-          >
-            Backtesting
-          </button>
+    <div className="min-h-screen bg-[#f4f7f9] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <AuthNavbar current="trades" onError={(message) => setError(message || null)} />
+
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold text-slate-900">Live trades</h1>
+          <div className="flex gap-3">
           <button
             onClick={handleAddTrade}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
@@ -454,16 +448,10 @@ export default function TradesPage() {
             onClick={handleOpenImportModal}
             className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium"
           >
-            Import
+            {!premiumLoading && !isPremium ? 'Import (Premium)' : 'Import'}
           </button>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
-          >
-            Sign Out
-          </button>
+          </div>
         </div>
-      </div>
 
       {/* Filters */}
       <div className="mb-6 border rounded-lg p-4 bg-gray-50">
@@ -669,7 +657,7 @@ export default function TradesPage() {
         </Modal>
       )}
 
-      {user && (
+        {user && (
         <Modal isOpen={isImportModalOpen} onClose={handleCloseImportModal}>
           <ImportTradesForm
             userId={user.id}
@@ -677,7 +665,8 @@ export default function TradesPage() {
             onSuccess={handleFormSuccess}
           />
         </Modal>
-      )}
+        )}
+      </div>
     </div>
   )
 }

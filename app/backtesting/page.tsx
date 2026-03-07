@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import AuthNavbar from '@/app/components/AuthNavbar'
 import {
   createBacktestingSession,
   createBacktestingTrade,
@@ -247,11 +248,6 @@ export default function BacktestingPage() {
     setTrades(tradesData)
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
-
   function openSessionModal() {
     setSessionForm(initialSessionFormState)
     setIsSessionModalOpen(true)
@@ -442,24 +438,13 @@ export default function BacktestingPage() {
   if (loading) return <div className="p-8">Loading backtesting...</div>
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Backtesting</h1>
-        <div className="flex gap-3">
-          <button
-            onClick={() => router.push('/trades')}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
-          >
-            Live Trades
-          </button>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
-          >
-            Sign Out
-          </button>
+    <div className="min-h-screen bg-[#f4f7f9] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <AuthNavbar current="backtesting" onError={(message) => setError(message || null)} />
+
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-slate-900">Backtesting</h1>
         </div>
-      </div>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
@@ -864,6 +849,7 @@ export default function BacktestingPage() {
           />
         </Modal>
       )}
+      </div>
     </div>
   )
 }
