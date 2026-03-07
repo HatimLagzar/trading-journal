@@ -337,34 +337,36 @@ export default function SystemsPage() {
               </div>
 
               {/* Sub-systems */}
-              {getSubSystemsForSystem(system.id).length > 0 && (
-                <div className="mt-4 pl-4 border-l-2 border-gray-200 space-y-2">
-                  {getSubSystemsForSystem(system.id).map((subSystem) => (
-                    <div key={subSystem.id} className="flex justify-between items-start bg-gray-50 p-2 rounded">
-                      <div>
-                        <span className="font-medium">{subSystem.name}</span>
-                        {subSystem.entry_rules && (
-                          <span className="ml-2 text-xs text-gray-500">Entry: {subSystem.entry_rules}</span>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => openEditSubSystemModal(subSystem)}
-                          className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSubSystem(subSystem)}
-                          className="px-2 py-1 text-xs text-red-600 hover:text-red-800"
-                        >
-                          Delete
-                        </button>
-                      </div>
+              <div className="mt-4 pl-4 border-l-2 border-gray-200 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sub-Systems</p>
+                {getSubSystemsForSystem(system.id).length === 0 && (
+                  <p className="text-sm text-gray-500">No sub-systems yet.</p>
+                )}
+                {getSubSystemsForSystem(system.id).map((subSystem) => (
+                  <div key={subSystem.id} className="flex justify-between items-start bg-gray-50 p-2 rounded">
+                    <div>
+                      <span className="font-medium">{subSystem.name}</span>
+                      {subSystem.entry_rules && (
+                        <p className="text-xs text-gray-500 mt-1">Entry: {subSystem.entry_rules}</p>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openEditSubSystemModal(subSystem)}
+                        className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSubSystem(subSystem)}
+                        className="px-2 py-1 text-xs text-red-600 hover:text-red-800"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
