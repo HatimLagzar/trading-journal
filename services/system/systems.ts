@@ -113,3 +113,25 @@ export async function deleteSubSystem(id: string) {
 
   if (error) throw error
 }
+
+export async function mergeSystems(userId: string, sourceSystemId: string, targetSystemId: string) {
+  if (sourceSystemId === targetSystemId) {
+    throw new Error('Source and target systems must be different')
+  }
+
+  const { error: reassignError } = await supabase
+    .from('trades')
+    .update({ system_id: targetSystemId })
+    .eq('user_id', userId)
+    .eq('system_id', sourceSystemId)
+
+  if (reassignError) throw reassignError
+
+  const { error: deleteError } = await supabase
+    .from('systems')
+    .delete()
+    .eq('user_id', userId)
+    .eq('id', sourceSystemId)
+
+  if (deleteError) throw deleteError
+}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { getSystems, createSystem, updateSystem, deleteSystem, getSubSystems, createSubSystem, updateSubSystem, deleteSubSystem } from '@/services/system'
+import { getSystems, createSystem, updateSystem, deleteSystem, getSubSystems, createSubSystem, updateSubSystem, deleteSubSystem, mergeSystems } from '@/services/system'
 import type { System, SystemInsert, SubSystem, SubSystemInsert } from '@/services/system'
 import type { User } from '@supabase/supabase-js'
 
@@ -27,6 +27,12 @@ export default function SystemsPage() {
     description: null,
   })
   const [saving, setSaving] = useState(false)
+
+  // Merge systems modal state
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false)
+  const [mergeSourceSystemId, setMergeSourceSystemId] = useState('')
+  const [mergeTargetSystemId, setMergeTargetSystemId] = useState('')
+  const [merging, setMerging] = useState(false)
 
   // Sub-system modal state
   const [isSubSystemModalOpen, setIsSubSystemModalOpen] = useState(false)
@@ -238,6 +244,54 @@ export default function SystemsPage() {
     }
   }
 
+  function openMergeModal() {
+    setMergeSourceSystemId('')
+    setMergeTargetSystemId('')
+    setIsMergeModalOpen(true)
+  }
+
+  function closeMergeModal() {
+    if (merging) return
+    setIsMergeModalOpen(false)
+    setMergeSourceSystemId('')
+    setMergeTargetSystemId('')
+  }
+
+  async function handleMergeSystems(e: React.FormEvent) {
+    e.preventDefault()
+    if (!user) return
+
+    if (!mergeSourceSystemId || !mergeTargetSystemId) {
+      setError('Please select both source and target systems')
+      return
+    }
+
+    if (mergeSourceSystemId === mergeTargetSystemId) {
+      setError('Source and target systems must be different')
+      return
+    }
+
+    const sourceName = systems.find((s) => s.id === mergeSourceSystemId)?.name ?? 'source system'
+    const targetName = systems.find((s) => s.id === mergeTargetSystemId)?.name ?? 'target system'
+
+    if (!confirm(`Merge "${sourceName}" into "${targetName}"? All trades from source will be moved and source system deleted.`)) {
+      return
+    }
+
+    setMerging(true)
+    setError(null)
+
+    try {
+      await mergeSystems(user.id, mergeSourceSystemId, mergeTargetSystemId)
+      await refreshData()
+      closeMergeModal()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to merge systems')
+    } finally {
+      setMerging(false)
+    }
+  }
+
   function updateField<K extends keyof SystemInsert>(field: K, value: SystemInsert[K]) {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
@@ -271,12 +325,21 @@ export default function SystemsPage() {
       )}
 
       <div className="mb-6">
-        <button
-          onClick={openCreateModal}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-        >
-          + Add System
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={openCreateModal}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+          >
+            + Add System
+          </button>
+          <button
+            onClick={openMergeModal}
+            disabled={systems.length < 2}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium disabled:opacity-50"
+          >
+            Merge Systems
+          </button>
+        </div>
       </div>
 
       {systems.length === 0 ? (
@@ -550,6 +613,76 @@ export default function SystemsPage() {
                   type="button"
                   onClick={closeSubSystemModal}
                   disabled={saving}
+                  className="px-6 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Merge Systems Modal */}
+      {isMergeModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Merge Systems</h2>
+              <button onClick={closeMergeModal} className="text-gray-500 hover:text-gray-700">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleMergeSystems} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Source System (will be deleted)</label>
+                <select
+                  value={mergeSourceSystemId}
+                  onChange={(e) => setMergeSourceSystemId(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                >
+                  <option value="">Select source system</option>
+                  {systems.map((system) => (
+                    <option key={system.id} value={system.id}>{system.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Target System (will keep trades)</label>
+                <select
+                  value={mergeTargetSystemId}
+                  onChange={(e) => setMergeTargetSystemId(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                >
+                  <option value="">Select target system</option>
+                  {systems
+                    .filter((system) => system.id !== mergeSourceSystemId)
+                    .map((system) => (
+                      <option key={system.id} value={system.id}>{system.name}</option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="text-xs text-gray-600 bg-gray-50 p-3 rounded">
+                This moves all trades from source to target and deletes the source system.
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={merging}
+                  className="flex-1 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {merging ? 'Merging...' : 'Merge Systems'}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeMergeModal}
+                  disabled={merging}
                   className="px-6 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancel

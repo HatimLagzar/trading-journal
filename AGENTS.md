@@ -179,6 +179,11 @@ try {
 2. Update `/app/trades/TradeForm.tsx` selection logic
 3. Keep sub-system options filtered by selected system
 
+### Merging systems
+1. Use merge flow on `/app/systems/page.tsx` to select source and target systems
+2. Reassign all source system trades to target system before deletion
+3. Delete source system only after successful trade reassignment
+
 ### Adding close-trade flow (quick loss close)
 1. Use `/app/trades/CloseTradeForm.tsx` for modal UI
 2. Update only `avg_exit` and `realised_loss` via `updateTrade`
