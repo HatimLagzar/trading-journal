@@ -8,6 +8,7 @@ import { getSystems, getSubSystems } from '@/services/system'
 import type { Trade } from '@/services/trade'
 import type { SubSystem, System } from '@/services/system'
 import Modal from './Modal'
+import CloseTradeForm from './CloseTradeForm'
 import TradeForm from './TradeForm'
 import type { User } from '@supabase/supabase-js'
 
@@ -37,6 +38,8 @@ export default function TradesPage() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null)
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false)
+  const [closingTrade, setClosingTrade] = useState<Trade | null>(null)
 
   // Function to refresh trades and filter data
   async function refreshData() {
@@ -189,6 +192,16 @@ export default function TradesPage() {
   function handleCloseModal() {
     setIsModalOpen(false)
     setSelectedTrade(null)
+  }
+
+  function handleOpenCloseModal(trade: Trade) {
+    setClosingTrade(trade)
+    setIsCloseModalOpen(true)
+  }
+
+  function handleCloseTradeModal() {
+    setIsCloseModalOpen(false)
+    setClosingTrade(null)
   }
 
   // Handle successful form submission
@@ -410,6 +423,12 @@ export default function TradesPage() {
                 <td className="px-4 py-3 text-right">
                   <div className="flex gap-2 justify-end">
                     <button
+                      onClick={() => handleOpenCloseModal(trade)}
+                      className="px-2 py-1 text-xs text-amber-600 hover:text-amber-800 hover:underline"
+                    >
+                      Close
+                    </button>
+                    <button
                       onClick={() => handleEditTrade(trade)}
                       className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
                     >
@@ -444,6 +463,16 @@ export default function TradesPage() {
             onClose={handleCloseModal}
             onSuccess={handleFormSuccess}
             userId={user.id}
+          />
+        </Modal>
+      )}
+
+      {closingTrade && (
+        <Modal isOpen={isCloseModalOpen} onClose={handleCloseTradeModal}>
+          <CloseTradeForm
+            trade={closingTrade}
+            onClose={handleCloseTradeModal}
+            onSuccess={handleFormSuccess}
           />
         </Modal>
       )}

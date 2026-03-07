@@ -137,6 +137,7 @@ try {
 ```
 /app              # Next.js App Router pages
   /trades         # Trades page and components
+    CloseTradeForm.tsx # Quick close-trade modal form
   /systems        # Systems + sub-systems management page
   /login          # Login page
   /signup         # Signup page
@@ -176,6 +177,16 @@ try {
 1. Ensure `system_id` and `sub_system_id` exist in `services/trade/types.ts`
 2. Update `/app/trades/TradeForm.tsx` selection logic
 3. Keep sub-system options filtered by selected system
+
+### Adding close-trade flow (quick loss close)
+1. Use `/app/trades/CloseTradeForm.tsx` for modal UI
+2. Update only `avg_exit` and `realised_loss` via `updateTrade`
+3. Wire modal open/close state from `/app/trades/page.tsx`
+
+### Updating dashboard stats filters
+1. Keep `/app/trades/page.tsx` filters driven by selected `system_id` / `sub_system_id`
+2. If checkboxes are selected, calculate stats from selected rows only
+3. If no checkboxes are selected, calculate stats from currently filtered rows
 
 ### Creating a new page
 1. Create directory in `/app` (e.g., `/app/analytics`)
