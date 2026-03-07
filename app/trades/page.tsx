@@ -17,7 +17,7 @@ type DashboardStats = {
   totalTrades: number
   winRate: number
   netPnL: number
-  avgRMultiple: number
+  totalR: number
   expectedValue: number
   profitFactor: number | null
 }
@@ -25,8 +25,8 @@ type DashboardStats = {
 type PeriodRStats = {
   today: number
   week: number
-  last3Months: number
   month: number
+  last90Days: number
   year: number
 }
 
@@ -62,6 +62,7 @@ export default function TradesPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false)
   const [closingTrade, setClosingTrade] = useState<Trade | null>(null)
+  const [openDeleteMenuTradeId, setOpenDeleteMenuTradeId] = useState<string | null>(null)
 
   // Function to refresh trades and filter data
   async function refreshData() {
@@ -155,7 +156,7 @@ export default function TradesPage() {
         totalTrades: 0,
         winRate: 0,
         netPnL: 0,
-        avgRMultiple: 0,
+        totalR: 0,
         expectedValue: 0,
         profitFactor: null,
       }
@@ -165,15 +166,9 @@ export default function TradesPage() {
     const totalProfit = statsTrades.reduce((sum, trade) => sum + (trade.realised_win ?? 0), 0)
     const totalLoss = statsTrades.reduce((sum, trade) => sum + (trade.realised_loss ?? 0), 0)
 
-    const rValues = statsTrades
-      .map((trade) => trade.r_multiple)
-      .filter((value): value is number => value !== null)
+    const totalR = statsTrades.reduce((sum, trade) => sum + (trade.r_multiple ?? 0), 0)
 
-    const avgRMultiple = rValues.length > 0
-      ? rValues.reduce((sum, value) => sum + value, 0) / rValues.length
-      : 0
-
-    const expectedValue = (totalProfit - totalLoss) / totalTrades
+    const expectedValue = totalR / totalTrades
     const profitFactor = totalLoss > 0
       ? totalProfit / totalLoss
       : totalProfit > 0
@@ -184,7 +179,7 @@ export default function TradesPage() {
       totalTrades,
       winRate: (winners / totalTrades) * 100,
       netPnL: totalProfit - totalLoss,
-      avgRMultiple,
+      totalR,
       expectedValue,
       profitFactor,
     }
@@ -192,6 +187,7 @@ export default function TradesPage() {
 
   const periodRStats = useMemo<PeriodRStats>(() => {
     const now = new Date()
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
 
     function toLocalDateString(date: Date): string {
       const year = date.getFullYear()
@@ -200,7 +196,17 @@ export default function TradesPage() {
       return `${year}-${month}-${day}`
     }
 
-    const today = toLocalDateString(now)
+    function parseTradeDate(tradeDate: string): Date | null {
+      if (!tradeDate) return null
+
+      // Prefer date-only parsing to avoid timezone drift.
+      const dateOnly = new Date(`${tradeDate}T00:00:00`)
+      if (!Number.isNaN(dateOnly.getTime())) return dateOnly
+
+      const fallback = new Date(tradeDate)
+      if (Number.isNaN(fallback.getTime())) return null
+      return fallback
+    }
 
     const startOfWeek = new Date(now)
     const dayOfWeek = startOfWeek.getDay()
@@ -211,25 +217,33 @@ export default function TradesPage() {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     const monthStart = toLocalDateString(startOfMonth)
 
-    const startOfLast3Months = new Date(now.getFullYear(), now.getMonth() - 2, 1)
-    const last3MonthsStart = toLocalDateString(startOfLast3Months)
+    const startOfLast90Days = new Date(now)
+    startOfLast90Days.setDate(startOfLast90Days.getDate() - 89)
+    const last90DaysStart = toLocalDateString(startOfLast90Days)
 
     const startOfYear = new Date(now.getFullYear(), 0, 1)
     const yearStart = toLocalDateString(startOfYear)
 
-    const sumR = (predicate: (trade: Trade) => boolean): number => {
+    const sumRInRange = (start: Date, end: Date): number => {
       return statsTrades.reduce((sum, trade) => {
-        if (!predicate(trade)) return sum
+        const tradeDate = parseTradeDate(trade.trade_date)
+        if (!tradeDate) return sum
+        if (tradeDate < start || tradeDate > end) return sum
         return sum + (trade.r_multiple ?? 0)
       }, 0)
     }
 
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const weekStartDate = new Date(`${weekStart}T00:00:00`)
+    const monthStartDate = new Date(`${monthStart}T00:00:00`)
+    const last90DaysStartDate = new Date(`${last90DaysStart}T00:00:00`)
+    const yearStartDate = new Date(`${yearStart}T00:00:00`)
     return {
-      today: sumR((trade) => trade.trade_date === today),
-      week: sumR((trade) => trade.trade_date >= weekStart),
-      last3Months: sumR((trade) => trade.trade_date >= last3MonthsStart),
-      month: sumR((trade) => trade.trade_date >= monthStart),
-      year: sumR((trade) => trade.trade_date >= yearStart),
+      today: sumRInRange(todayStart, endOfToday),
+      week: sumRInRange(weekStartDate, endOfToday),
+      month: sumRInRange(monthStartDate, endOfToday),
+      last90Days: sumRInRange(last90DaysStartDate, endOfToday),
+      year: sumRInRange(yearStartDate, endOfToday),
     }
   }, [statsTrades])
 
@@ -342,6 +356,7 @@ export default function TradesPage() {
       await deleteTrade(trade.id)
       // Refresh the list
       await refreshData()
+      setOpenDeleteMenuTradeId(null)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete trade')
     }
@@ -402,7 +417,7 @@ export default function TradesPage() {
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Trading Journal</h1>
+        <h1 className="text-2xl font-bold">Live trades</h1>
         <div className="flex gap-3">
           <button
             onClick={() => router.push('/systems')}
@@ -477,10 +492,10 @@ export default function TradesPage() {
           value={`$${stats.netPnL.toFixed(2)}`}
           className={stats.netPnL >= 0 ? 'text-green-600' : 'text-red-600'}
         />
-        <StatCard label="Avg R" value={stats.avgRMultiple.toFixed(2)} />
+        <StatCard label="Total R" value={stats.totalR.toFixed(2)} />
         <StatCard
-          label="EV / Trade"
-          value={`$${stats.expectedValue.toFixed(2)}`}
+          label="EV / Trade (R)"
+          value={`${stats.expectedValue.toFixed(2)}R`}
           className={stats.expectedValue >= 0 ? 'text-green-600' : 'text-red-600'}
         />
         <StatCard
@@ -554,24 +569,49 @@ export default function TradesPage() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex gap-2 justify-end">
+                    {trade.avg_exit === null && (
+                      <button
+                        onClick={() => {
+                          setOpenDeleteMenuTradeId(null)
+                          handleOpenCloseModal(trade)
+                        }}
+                        className="px-2 py-1 text-xs text-amber-600 hover:text-amber-800 hover:underline"
+                      >
+                        Close
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleOpenCloseModal(trade)}
-                      className="px-2 py-1 text-xs text-amber-600 hover:text-amber-800 hover:underline"
-                    >
-                      Close
-                    </button>
-                    <button
-                      onClick={() => handleEditTrade(trade)}
+                      onClick={() => {
+                        setOpenDeleteMenuTradeId(null)
+                        handleEditTrade(trade)
+                      }}
                       className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
                     >
                       Edit
                     </button>
-                    <button
-                      onClick={() => handleDeleteTrade(trade)}
-                      className="px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:underline"
-                    >
-                      Delete
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => {
+                          setOpenDeleteMenuTradeId((prev) => (prev === trade.id ? null : trade.id))
+                        }}
+                        className="px-2 py-1 text-xs text-gray-800 hover:text-black cursor-pointer"
+                        aria-expanded={openDeleteMenuTradeId === trade.id}
+                        aria-haspopup="menu"
+                      >
+                        ⋯
+                      </button>
+                      {openDeleteMenuTradeId === trade.id && (
+                        <div className="absolute right-0 mt-1 w-28 bg-white border rounded-md shadow-lg z-10">
+                          <button
+                            onClick={() => handleDeleteTrade(trade)}
+                            className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                            role="menuitem"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -642,10 +682,10 @@ function StatCard({
 function PeriodRCard({ stats }: { stats: PeriodRStats }) {
   const rows = [
     { label: 'Today', value: stats.today },
-    { label: 'Week', value: stats.week },
-    { label: 'Last 3M', value: stats.last3Months },
-    { label: 'Month', value: stats.month },
-    { label: 'Year', value: stats.year },
+    { label: 'This Week', value: stats.week },
+    { label: 'This Month', value: stats.month },
+    { label: 'Last 90 Days', value: stats.last90Days },
+    { label: 'This Year', value: stats.year },
   ]
 
   return (

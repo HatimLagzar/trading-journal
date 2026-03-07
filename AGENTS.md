@@ -188,11 +188,12 @@ try {
 1. Keep `/app/trades/page.tsx` filters driven by selected `system_id` / `sub_system_id`
 2. If checkboxes are selected, calculate stats from selected rows only
 3. If no checkboxes are selected, calculate stats from currently filtered rows
-4. Keep period R card totals in sync for: today, week, last 3 months, month, year
+4. Keep period R card totals in sync for: today, this week, this month, last 90 days, this year
 5. Keep best/worst performer cards (system + asset) calculated from the same filtered/selected rows
+6. Keep `EV / Trade` displayed in R (not dollars)
 
 ### Importing trades from sheets/files
-1. Use `/app/trades/ImportTradesForm.tsx` for CSV/TSV/XLSX upload + mapping UI
+1. Use `/app/trades/ImportTradesForm.tsx` for CSV/TSV/XLS/XLSX upload + mapping UI
 2. Let users configure `rowsToSkip` and per-field column mappings with sample preview
 3. Accept optional `trade_time` and `system_name` mappings during import
 4. If `system_name` is mapped and system doesn't exist, create it with empty rules and assign `system_id`

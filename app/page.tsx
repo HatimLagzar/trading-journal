@@ -1,4 +1,9 @@
-import Image from "next/image";
+import type { Metadata } from 'next'
+import Image from 'next/image'
+
+export const metadata: Metadata = {
+  title: 'Home',
+}
 
 export default function Home() {
   return (
