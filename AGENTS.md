@@ -210,12 +210,14 @@ try {
 4. If `system_name` is mapped and system doesn't exist, create it with empty rules and assign `system_id`
 5. Ignore non-data rows, log invalid rows in console with reason, and skip duplicate trades (existing + file-internal)
 6. Support both separate date/time columns and combined date-time in one column (users can map both fields to same source column)
+7. Keep `trade_date` mapping optional during import (default missing dates to today)
 
 ### Backtesting sessions and theoretical trades
 1. Use `/app/backtesting/page.tsx` for session management and theoretical trade journaling
 2. Backtesting sessions can link to existing `system_id` or create a new system during session creation
 3. Backtesting trades store theoretical results in `outcome_r` (Profit in R), not realized dollar PnL
 4. Use `/app/backtesting/ImportBacktestingTradesForm.tsx` for bulk importing theoretical trades with mapping and preview
+5. Keep `trade_date` mapping optional during backtesting import (default missing dates to today)
 
 ### Creating a new page
 1. Create directory in `/app` (e.g., `/app/analytics`)

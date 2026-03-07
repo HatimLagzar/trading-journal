@@ -33,7 +33,7 @@ type MappingField = {
 }
 
 const mappingFields: MappingField[] = [
-  { key: 'trade_date', label: 'Trade Date', required: true },
+  { key: 'trade_date', label: 'Trade Date' },
   { key: 'trade_time', label: 'Trade Time (optional)' },
   { key: 'asset', label: 'Asset', required: true },
   { key: 'direction', label: 'Direction (optional)' },
@@ -204,8 +204,10 @@ export default function ImportBacktestingTradesForm({
           return
         }
 
-        const parsedDateAndTime = parseDateAndOptionalTime(getCell(row, mapping.trade_date))
-        const tradeDate = parsedDateAndTime.date
+        const rawDateCell = getCell(row, mapping.trade_date)
+        const parsedDateAndTime = parseDateAndOptionalTime(rawDateCell)
+        const hasProvidedDateValue = mapping.trade_date !== null && rawDateCell.trim() !== ''
+        const tradeDate = parsedDateAndTime.date ?? getTodayDateString()
         const tradeTime = parseTimeValue(getCell(row, mapping.trade_time)) ?? parsedDateAndTime.time
         const asset = getCell(row, mapping.asset).trim()
 
@@ -219,9 +221,9 @@ export default function ImportBacktestingTradesForm({
         const calculatedProfit = calculateOutcomeR(entry, stopLoss, target, direction)
         const outcomeR = mappedProfit ?? calculatedProfit
 
-        if (!tradeDate || !asset || outcomeR === null) {
+        if ((hasProvidedDateValue && !parsedDateAndTime.date) || !asset || outcomeR === null) {
           const reasons: string[] = []
-          if (!tradeDate) reasons.push('invalid trade date')
+          if (hasProvidedDateValue && !parsedDateAndTime.date) reasons.push('invalid trade date')
           if (!asset) reasons.push('missing asset')
           if (outcomeR === null) reasons.push('missing profit R (map column or provide entry/sl/target)')
 
@@ -485,7 +487,6 @@ function normalizeNumber(value: number | null): number | null {
 
 function shouldIgnoreNonDataRow(row: string[], mapping: ColumnMapping): boolean {
   const requiredCells = [
-    getCell(row, mapping.trade_date).trim(),
     getCell(row, mapping.asset).trim(),
   ]
 
@@ -856,4 +857,9 @@ function normalizeYear(year: number): number {
 function getNullableText(value: string): string | null {
   const trimmed = value.trim()
   return trimmed === '' ? null : trimmed
+}
+
+function getTodayDateString(): string {
+  const now = new Date()
+  return formatDate(now)
 }

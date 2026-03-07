@@ -38,7 +38,7 @@ type MappingField = {
 }
 
 const mappingFields: MappingField[] = [
-  { key: 'trade_date', label: 'Trade Date', required: true },
+  { key: 'trade_date', label: 'Trade Date' },
   { key: 'trade_time', label: 'Trade Time (optional)' },
   { key: 'coin', label: 'Asset', required: true },
   { key: 'system_name', label: 'System Name (optional)' },
@@ -215,16 +215,18 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
           return
         }
 
-        const parsedDateAndTime = parseDateAndOptionalTime(getCell(row, mapping.trade_date))
-        const tradeDate = parsedDateAndTime.date
+        const rawDateCell = getCell(row, mapping.trade_date)
+        const parsedDateAndTime = parseDateAndOptionalTime(rawDateCell)
+        const hasProvidedDateValue = mapping.trade_date !== null && rawDateCell.trim() !== ''
+        const tradeDate = parsedDateAndTime.date ?? getTodayDateString()
         const tradeTime = parseTimeValue(getCell(row, mapping.trade_time)) ?? parsedDateAndTime.time
         const asset = getCell(row, mapping.coin).trim()
         const systemName = getNullableText(getCell(row, mapping.system_name))
         const avgEntry = parseNumberValue(getCell(row, mapping.avg_entry))
 
-        if (!tradeDate || !asset || avgEntry === null) {
+        if ((hasProvidedDateValue && !parsedDateAndTime.date) || !asset || avgEntry === null) {
           const reasons: string[] = []
-          if (!tradeDate) reasons.push('invalid trade date')
+          if (hasProvidedDateValue && !parsedDateAndTime.date) reasons.push('invalid trade date')
           if (!asset) reasons.push('missing asset')
           if (avgEntry === null) reasons.push('invalid entry price')
 
@@ -623,7 +625,6 @@ function getCell(row: string[], columnIndex: number | null): string {
 
 function shouldIgnoreNonDataRow(row: string[], mapping: ColumnMapping): boolean {
   const requiredCells = [
-    getCell(row, mapping.trade_date).trim(),
     getCell(row, mapping.coin).trim(),
     getCell(row, mapping.avg_entry).trim(),
   ]
@@ -874,6 +875,11 @@ function normalizeYear(year: number): number {
 function getNullableText(value: string): string | null {
   const trimmed = value.trim()
   return trimmed === '' ? null : trimmed
+}
+
+function getTodayDateString(): string {
+  const now = new Date()
+  return formatDate(now)
 }
 
 function buildTradeSignatureFromInsert(trade: TradeInsert): string {
