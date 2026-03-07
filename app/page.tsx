@@ -1,70 +1,206 @@
+import Link from 'next/link'
 import type { Metadata } from 'next'
-import Image from 'next/image'
+import { DM_Sans, Sora } from 'next/font/google'
+
+const sora = Sora({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+})
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+})
 
 export const metadata: Metadata = {
-  title: 'Home',
+  title: 'Trading Journal for Rule-Based Growth',
+  description:
+    'Build discipline, track every trade, and keep your live execution aligned with your backtesting plan.',
 }
+
+const featureCards = [
+  {
+    title: 'Live + Backtesting In One Flow',
+    text: 'Mirror live trades into a backtesting session so every execution stays accountable to your plan.',
+  },
+  {
+    title: 'R-Based Performance Clarity',
+    text: 'Review outcomes in R, not emotions. Spot your edge by system, period, and setup quality.',
+  },
+  {
+    title: 'Fast Daily Review Ritual',
+    text: 'Capture entries, exits, screenshots, and notes in minutes. Build consistency without extra friction.',
+  },
+]
+
+const processSteps = [
+  {
+    label: 'Step 1',
+    title: 'Log Trades Instantly',
+    text: 'Add your live trade with entry, stop, risk, and context while the setup is still fresh.',
+  },
+  {
+    label: 'Step 2',
+    title: 'Enforce Your Backtest',
+    text: 'Optionally attach a backtesting session and keep execution aligned with your tested rules.',
+  },
+  {
+    label: 'Step 3',
+    title: 'Review What Actually Works',
+    text: 'Use period R stats and system filters to double down on profitable behavior.',
+  },
+]
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className={`${dmSans.className} relative min-h-screen overflow-x-hidden bg-slate-950 text-slate-100`}>
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-teal-400/20 blur-3xl" />
+        <div className="absolute right-0 top-40 h-72 w-72 rounded-full bg-cyan-400/15 blur-3xl" />
+        <div className="absolute -left-20 bottom-16 h-72 w-72 rounded-full bg-amber-300/12 blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto w-full max-w-6xl px-5 pb-16 pt-6 sm:px-8 lg:px-12">
+        <header
+          className="animate-fade-down mb-14 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur"
+        >
+          <p className={`${sora.className} text-sm font-semibold tracking-wide text-cyan-200`}>Trading Journal</p>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/login"
+              className="rounded-lg border border-white/20 px-4 py-2 text-sm text-slate-100 transition hover:bg-white/10"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Log In
+            </Link>
+            <Link
+              href="/signup"
+              className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-cyan-200"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+              Start Free
+            </Link>
+          </div>
+        </header>
+
+        <section className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+          <div className="animate-fade-up">
+            <p className="mb-3 inline-flex rounded-full border border-cyan-200/30 bg-cyan-200/10 px-3 py-1 text-xs font-medium text-cyan-100">
+              Journal every trade. Enforce every rule.
+            </p>
+            <h1 className={`${sora.className} max-w-2xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl`}>
+              The trading journal built to improve behavior, not just collect data.
+            </h1>
+            <p className="mt-5 max-w-xl text-base text-slate-300 sm:text-lg">
+              Track live execution, connect it to backtesting, and review your edge in R. Turn your journal into
+              a system for disciplined growth.
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/signup"
+                className="rounded-xl bg-amber-300 px-6 py-3 text-center text-sm font-semibold text-slate-950 transition hover:bg-amber-200"
+              >
+                Create Free Account
+              </Link>
+              <a
+                href="#how-it-works"
+                className="rounded-xl border border-white/25 px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-white/10"
+              >
+                See How It Works
+              </a>
+            </div>
+
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:max-w-lg sm:grid-cols-3">
+              <Stat value="R-focused" label="performance review" delay={100} />
+              <Stat value="System-based" label="filtering" delay={180} />
+              <Stat value="Screenshot + notes" label="context capture" delay={260} />
+            </div>
+          </div>
+
+          <aside
+            className="animate-fade-up rounded-3xl border border-white/15 bg-gradient-to-b from-white/12 to-white/5 p-5 shadow-2xl shadow-cyan-900/20"
+            style={{ animationDelay: '120ms' }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+            <p className="text-sm font-semibold text-cyan-100">What improves first?</p>
+            <ul className="mt-4 space-y-3 text-sm text-slate-200">
+              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">You stop drifting from tested setups.</li>
+              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">You spot weak systems before they drain capital.</li>
+              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">You build a consistent review habit with clear feedback loops.</li>
+            </ul>
+            <p className="mt-5 text-xs text-slate-400">
+              Perfect for discretionary traders, rule-based traders, and anyone scaling accountability.
+            </p>
+          </aside>
+        </section>
+
+        <section className="mt-18 grid gap-4 md:grid-cols-3">
+          {featureCards.map((card, index) => (
+            <article
+              key={card.title}
+              className="animate-fade-up rounded-2xl border border-white/10 bg-white/[0.04] p-5"
+              style={{ animationDelay: `${220 + index * 120}ms` }}
+            >
+              <h2 className={`${sora.className} text-lg font-semibold text-white`}>{card.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-300">{card.text}</p>
+            </article>
+          ))}
+        </section>
+
+        <section id="how-it-works" className="mt-18">
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <h2 className={`${sora.className} text-2xl font-semibold text-white sm:text-3xl`}>How it works</h2>
+            <p className="text-sm text-slate-400">Simple workflow. Serious outcomes.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {processSteps.map((step, index) => (
+              <article
+                key={step.title}
+                className="animate-fade-up rounded-2xl border border-cyan-300/20 bg-cyan-300/5 p-5"
+                style={{ animationDelay: `${340 + index * 130}ms` }}
+              >
+                <p className="text-xs font-semibold uppercase tracking-wider text-cyan-100">{step.label}</p>
+                <h3 className={`${sora.className} mt-2 text-lg font-semibold text-white`}>{step.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-300">{step.text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section
+          className="animate-fade-up mt-18 rounded-3xl border border-amber-200/25 bg-gradient-to-r from-amber-200/10 to-cyan-200/10 p-7 sm:p-9"
+          style={{ animationDelay: '500ms' }}
+        >
+          <p className="text-sm font-medium text-amber-100">Ready to trade with more discipline?</p>
+          <h2 className={`${sora.className} mt-2 max-w-2xl text-2xl font-semibold text-white sm:text-3xl`}>
+            Start building your execution journal now, then connect billing when you are ready.
+          </h2>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/signup"
+              className="rounded-xl bg-white px-6 py-3 text-center text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+            >
+              Start Free Today
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-xl border border-white/40 px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              I Already Have an Account
+            </Link>
+          </div>
+        </section>
+      </div>
     </div>
-  );
+  )
+}
+
+function Stat({ value, label, delay }: { value: string; label: string; delay: number }) {
+  return (
+    <div
+      className="animate-fade-up rounded-xl border border-white/10 bg-white/[0.03] p-3"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <p className="text-sm font-semibold text-white">{value}</p>
+      <p className="text-xs text-slate-400">{label}</p>
+    </div>
+  )
 }
