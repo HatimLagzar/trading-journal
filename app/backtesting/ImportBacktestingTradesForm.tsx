@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { createTradesBulk, getTrades } from '@/services/trade'
-import { createSystem, getSystems } from '@/services/system'
-import type { Trade, TradeInsert } from '@/services/trade'
+import { createBacktestingTradesBulk, getBacktestingTrades } from '@/services/backtesting'
+import type { BacktestingTrade, BacktestingTradeInsert } from '@/services/backtesting'
 
-interface ImportTradesFormProps {
+interface ImportBacktestingTradesFormProps {
   userId: string
+  sessionId: string
   onClose: () => void
   onSuccess: () => void
 }
@@ -17,16 +17,12 @@ type Direction = 'long' | 'short'
 type ColumnMapping = {
   trade_date: number | null
   trade_time: number | null
-  coin: number | null
-  system_name: number | null
+  asset: number | null
   direction: number | null
-  avg_entry: number | null
-  avg_exit: number | null
+  entry_price: number | null
   stop_loss: number | null
-  realised_loss: number | null
-  realised_win: number | null
-  risk: number | null
-  r_multiple: number | null
+  target_price: number | null
+  outcome_r: number | null
   notes: number | null
 }
 
@@ -34,42 +30,38 @@ type MappingField = {
   key: keyof ColumnMapping
   label: string
   required?: boolean
-  numeric?: boolean
 }
 
 const mappingFields: MappingField[] = [
   { key: 'trade_date', label: 'Trade Date', required: true },
   { key: 'trade_time', label: 'Trade Time (optional)' },
-  { key: 'coin', label: 'Asset', required: true },
-  { key: 'system_name', label: 'System Name (optional)' },
-  { key: 'direction', label: 'Direction (Long/Short)' },
-  { key: 'avg_entry', label: 'Entry Price', required: true, numeric: true },
-  { key: 'avg_exit', label: 'Exit Price', numeric: true },
-  { key: 'stop_loss', label: 'Stop Loss', numeric: true },
-  { key: 'realised_loss', label: 'Realised Loss', numeric: true },
-  { key: 'realised_win', label: 'Realised Win', numeric: true },
-  { key: 'risk', label: 'Risk', numeric: true },
-  { key: 'r_multiple', label: 'R Multiple', numeric: true },
-  { key: 'notes', label: 'Notes' },
+  { key: 'asset', label: 'Asset', required: true },
+  { key: 'direction', label: 'Direction (optional)' },
+  { key: 'entry_price', label: 'Entry Price (optional)' },
+  { key: 'stop_loss', label: 'Stop Loss (optional)' },
+  { key: 'target_price', label: 'Target Price (optional)' },
+  { key: 'outcome_r', label: 'Profit (R) (optional)' },
+  { key: 'notes', label: 'Notes (optional)' },
 ]
 
 const initialMapping: ColumnMapping = {
   trade_date: null,
   trade_time: null,
-  coin: null,
-  system_name: null,
+  asset: null,
   direction: null,
-  avg_entry: null,
-  avg_exit: null,
+  entry_price: null,
   stop_loss: null,
-  realised_loss: null,
-  realised_win: null,
-  risk: null,
-  r_multiple: null,
+  target_price: null,
+  outcome_r: null,
   notes: null,
 }
 
-export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportTradesFormProps) {
+export default function ImportBacktestingTradesForm({
+  userId,
+  sessionId,
+  onClose,
+  onSuccess,
+}: ImportBacktestingTradesFormProps) {
   const [fileName, setFileName] = useState('')
   const [rowsToSkip, setRowsToSkip] = useState(0)
   const [rawRows, setRawRows] = useState<string[][]>([])
@@ -96,11 +88,10 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
         .slice(0, 3)
         .map((row) => row[index] || '')
         .filter((value) => value !== '')
-      const sampleText = samples.length > 0 ? `: ${samples.join(' | ')}` : ''
 
       return {
         value: index,
-        label: `${toColumnLetter(index)}${sampleText}`,
+        label: `${toColumnLetter(index)}${samples.length > 0 ? `: ${samples.join(' | ')}` : ''}`,
       }
     })
   }, [dataRows, maxColumns])
@@ -131,7 +122,6 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
       const text = await file.text()
       const delimiter = detectDelimiter(text)
       const parsedRows = parseDelimited(text, delimiter)
-
       setFileName(file.name)
       setRawRows(parsedRows)
       return
@@ -148,7 +138,6 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
     }
 
     const firstSheet = names[0]
-
     setFileName(file.name)
     setWorksheetNames(names)
     setSheetRowsByName(parsedSheets)
@@ -205,7 +194,7 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
     setLoading(true)
 
     try {
-      const importCandidates: Array<{ trade: TradeInsert; systemName: string | null }> = []
+      const importableTrades: BacktestingTradeInsert[] = []
       let skipped = 0
       let ignored = 0
 
@@ -218,115 +207,59 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
         const parsedDateAndTime = parseDateAndOptionalTime(getCell(row, mapping.trade_date))
         const tradeDate = parsedDateAndTime.date
         const tradeTime = parseTimeValue(getCell(row, mapping.trade_time)) ?? parsedDateAndTime.time
-        const asset = getCell(row, mapping.coin).trim()
-        const systemName = getNullableText(getCell(row, mapping.system_name))
-        const avgEntry = parseNumberValue(getCell(row, mapping.avg_entry))
+        const asset = getCell(row, mapping.asset).trim()
 
-        if (!tradeDate || !asset || avgEntry === null) {
+        const entry = parseNumberValue(getCell(row, mapping.entry_price))
+        const stopLoss = parseNumberValue(getCell(row, mapping.stop_loss))
+        const target = parseNumberValue(getCell(row, mapping.target_price))
+
+        const direction = parseDirectionValue(getCell(row, mapping.direction)) ?? detectDirection(entry, stopLoss) ?? defaultDirection
+
+        const mappedProfit = parseNumberValue(getCell(row, mapping.outcome_r))
+        const calculatedProfit = calculateOutcomeR(entry, stopLoss, target, direction)
+        const outcomeR = mappedProfit ?? calculatedProfit
+
+        if (!tradeDate || !asset || outcomeR === null) {
           const reasons: string[] = []
           if (!tradeDate) reasons.push('invalid trade date')
           if (!asset) reasons.push('missing asset')
-          if (avgEntry === null) reasons.push('invalid entry price')
+          if (outcomeR === null) reasons.push('missing profit R (map column or provide entry/sl/target)')
 
           const sourceRowNumber = rowsToSkip + rowIndex + 1
-          console.warn(
-            `[ImportTrades] Skipping row ${sourceRowNumber}: ${reasons.join(', ')}`,
-            { row },
-          )
-
+          console.warn(`[ImportBacktesting] Skipping row ${sourceRowNumber}: ${reasons.join(', ')}`, { row })
           skipped += 1
           return
         }
 
-        const directionValue = parseDirectionValue(getCell(row, mapping.direction))
-        const direction: Direction = directionValue ?? defaultDirection
-
-        importCandidates.push({
-          trade: {
-            user_id: userId,
-            trade_date: tradeDate,
-            trade_time: tradeTime,
-            coin: asset,
-            direction,
-            entry_order_type: null,
-            avg_entry: avgEntry,
-            stop_loss: parseNumberValue(getCell(row, mapping.stop_loss)),
-            avg_exit: parseNumberValue(getCell(row, mapping.avg_exit)),
-            risk: parseNumberValue(getCell(row, mapping.risk)),
-            expected_loss: null,
-            realised_loss: parseNumberValue(getCell(row, mapping.realised_loss)),
-            realised_win: parseNumberValue(getCell(row, mapping.realised_win)),
-            deviation: null,
-            r_multiple: parseNumberValue(getCell(row, mapping.r_multiple)),
-            early_exit_reason: null,
-            rules: null,
-            system_number: null,
-            system_id: null,
-            sub_system_id: null,
-            notes: getNullableText(getCell(row, mapping.notes)),
-          },
-          systemName,
+        importableTrades.push({
+          user_id: userId,
+          session_id: sessionId,
+          trade_date: tradeDate,
+          trade_time: tradeTime,
+          asset,
+          direction,
+          entry_price: entry,
+          stop_loss: stopLoss,
+          target_price: target,
+          outcome_r: outcomeR,
+          notes: getNullableText(getCell(row, mapping.notes)),
         })
       })
 
-      if (importCandidates.length === 0) {
+      if (importableTrades.length === 0) {
         setError('No valid rows found after mapping. Please verify your column mapping.')
         return
       }
 
-      const existingSystems = await getSystems(userId)
-      const systemIdByName = new Map<string, string>()
-
-      existingSystems.forEach((system) => {
-        const key = normalizeSystemName(system.name)
-        if (!key) return
-        systemIdByName.set(key, system.id)
-      })
-
-      let createdSystems = 0
-
-      for (const candidate of importCandidates) {
-        const systemNameText = candidate.systemName
-        if (!systemNameText) continue
-
-        const normalizedSystemName = normalizeSystemName(systemNameText)
-        if (!normalizedSystemName) continue
-
-        let systemId = systemIdByName.get(normalizedSystemName)
-
-        if (!systemId) {
-          const created = await createSystem({
-            user_id: userId,
-            name: systemNameText,
-            entry_rules: null,
-            sl_rules: null,
-            tp_rules: null,
-            description: null,
-          })
-          const createdId = created.id
-          if (!createdId) {
-            throw new Error(`Failed to create system for "${systemNameText}"`)
-          }
-          systemId = createdId
-          systemIdByName.set(normalizedSystemName, createdId)
-          createdSystems += 1
-        }
-
-        if (!systemId) continue
-
-        candidate.trade.system_id = systemId
-      }
-
-      const existingTrades = await getTrades(userId)
+      const existingTrades = await getBacktestingTrades(userId, sessionId)
       const existingSignatures = new Set(existingTrades.map(buildTradeSignatureFromExisting))
       const batchSignatures = new Set<string>()
 
-      const newTrades: TradeInsert[] = []
+      const newTrades: BacktestingTradeInsert[] = []
       let duplicatesExisting = 0
       let duplicatesInFile = 0
 
-      importCandidates.forEach((candidate) => {
-        const trade = candidate.trade
+      importableTrades.forEach((trade) => {
         const signature = buildTradeSignatureFromInsert(trade)
 
         if (existingSignatures.has(signature)) {
@@ -345,7 +278,6 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
 
       if (newTrades.length === 0) {
         const summaryParts = ['No new trades imported.']
-        if (createdSystems > 0) summaryParts.push(`Created ${createdSystems} systems.`)
         if (duplicatesExisting > 0) summaryParts.push(`Found ${duplicatesExisting} already existing rows.`)
         if (duplicatesInFile > 0) summaryParts.push(`Found ${duplicatesInFile} duplicate rows in file.`)
         if (ignored > 0) summaryParts.push(`Ignored ${ignored} non-data rows.`)
@@ -354,17 +286,19 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
         return
       }
 
-      await createTradesBulk(newTrades)
-      const summaryParts = [`Imported ${newTrades.length} trades.`]
-      if (createdSystems > 0) summaryParts.push(`Created ${createdSystems} new systems.`)
+      await createBacktestingTradesBulk(newTrades)
+
+      const summaryParts = [`Imported ${newTrades.length} backtesting trades.`]
       if (duplicatesExisting > 0) summaryParts.push(`Skipped ${duplicatesExisting} existing duplicates.`)
       if (duplicatesInFile > 0) summaryParts.push(`Skipped ${duplicatesInFile} file duplicates.`)
       if (ignored > 0) summaryParts.push(`Ignored ${ignored} non-data rows.`)
       if (skipped > 0) summaryParts.push(`Skipped ${skipped} invalid rows.`)
       setSummary(summaryParts.join(' '))
+
       onSuccess()
+      onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to import trades')
+      setError(err instanceof Error ? err.message : 'Failed to import backtesting trades')
     } finally {
       setLoading(false)
     }
@@ -373,15 +307,11 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
   return (
     <form onSubmit={handleImport} className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold">Import Trades</h2>
-        <button type="button" onClick={onClose} className="text-gray-500 hover:text-gray-700">
-          ✕
-        </button>
+        <h2 className="text-xl font-bold">Import Backtesting Trades</h2>
+        <button type="button" onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
       </div>
 
-      <p className="text-sm text-gray-600">
-        Upload CSV/TSV/XLSX, map columns, preview values, and import in bulk.
-      </p>
+      <p className="text-sm text-gray-600">Upload CSV/TSV/XLSX, map columns, preview values, and import in bulk.</p>
 
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm">{error}</div>}
       {summary && <div className="p-3 bg-green-50 border border-green-200 rounded text-green-700 text-sm">{summary}</div>}
@@ -425,7 +355,7 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
       )}
 
       <div>
-        <label className="block text-sm font-medium mb-1">Default Direction (if not mapped)</label>
+        <label className="block text-sm font-medium mb-1">Default Direction (if not mapped/detected)</label>
         <select
           value={defaultDirection}
           onChange={(e) => setDefaultDirection(e.target.value as Direction)}
@@ -469,9 +399,7 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
                 <thead className="bg-gray-50 border-t">
                   <tr>
                     {Array.from({ length: maxColumns }, (_, index) => (
-                      <th key={index} className="px-2 py-1 text-left border-r last:border-r-0">
-                        {toColumnLetter(index)}
-                      </th>
+                      <th key={index} className="px-2 py-1 text-left border-r last:border-r-0">{toColumnLetter(index)}</th>
                     ))}
                   </tr>
                 </thead>
@@ -479,17 +407,13 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
                   {previewRows.map((row, rowIndex) => (
                     <tr key={rowIndex} className="border-t">
                       {Array.from({ length: maxColumns }, (_, colIndex) => (
-                        <td key={colIndex} className="px-2 py-1 border-r last:border-r-0 whitespace-nowrap">
-                          {row[colIndex] || '-'}
-                        </td>
+                        <td key={colIndex} className="px-2 py-1 border-r last:border-r-0 whitespace-nowrap">{row[colIndex] || '-'}</td>
                       ))}
                     </tr>
                   ))}
                   {previewRows.length === 0 && (
                     <tr>
-                      <td colSpan={Math.max(maxColumns, 1)} className="px-2 py-3 text-center text-gray-500">
-                        No preview rows available after skip.
-                      </td>
+                      <td colSpan={Math.max(maxColumns, 1)} className="px-2 py-3 text-center text-gray-500">No preview rows available after skip.</td>
                     </tr>
                   )}
                 </tbody>
@@ -518,6 +442,81 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
       </div>
     </form>
   )
+}
+
+function buildTradeSignatureFromInsert(trade: BacktestingTradeInsert): string {
+  return JSON.stringify([
+    trade.trade_date,
+    trade.trade_time,
+    normalizeText(trade.asset),
+    trade.direction,
+    normalizeNumber(trade.entry_price),
+    normalizeNumber(trade.stop_loss),
+    normalizeNumber(trade.target_price),
+    normalizeNumber(trade.outcome_r),
+    normalizeText(trade.notes),
+  ])
+}
+
+function buildTradeSignatureFromExisting(trade: BacktestingTrade): string {
+  return JSON.stringify([
+    trade.trade_date,
+    trade.trade_time,
+    normalizeText(trade.asset),
+    trade.direction,
+    normalizeNumber(trade.entry_price),
+    normalizeNumber(trade.stop_loss),
+    normalizeNumber(trade.target_price),
+    normalizeNumber(trade.outcome_r),
+    normalizeText(trade.notes),
+  ])
+}
+
+function normalizeText(value: string | null): string | null {
+  if (value === null) return null
+  const trimmed = value.trim()
+  return trimmed === '' ? null : trimmed.toLowerCase()
+}
+
+function normalizeNumber(value: number | null): number | null {
+  if (value === null) return null
+  return Number(value.toFixed(8))
+}
+
+function shouldIgnoreNonDataRow(row: string[], mapping: ColumnMapping): boolean {
+  const requiredCells = [
+    getCell(row, mapping.trade_date).trim(),
+    getCell(row, mapping.asset).trim(),
+  ]
+
+  return requiredCells.every((value) => value === '')
+}
+
+function detectDirection(entry: number | null, stopLoss: number | null): Direction | null {
+  if (entry === null || stopLoss === null) return null
+  if (entry > 0 && stopLoss > 0) {
+    return entry > stopLoss ? 'long' : 'short'
+  }
+  return null
+}
+
+function calculateOutcomeR(
+  entry: number | null,
+  stopLoss: number | null,
+  target: number | null,
+  direction: Direction,
+): number | null {
+  if (entry === null || stopLoss === null || target === null) return null
+
+  if (direction === 'long') {
+    const risk = entry - stopLoss
+    if (risk <= 0) return null
+    return (target - entry) / risk
+  }
+
+  const risk = stopLoss - entry
+  if (risk <= 0) return null
+  return (entry - target) / risk
 }
 
 function toColumnLetter(index: number): string {
@@ -621,17 +620,6 @@ function getCell(row: string[], columnIndex: number | null): string {
   return row[columnIndex] ?? ''
 }
 
-function shouldIgnoreNonDataRow(row: string[], mapping: ColumnMapping): boolean {
-  const requiredCells = [
-    getCell(row, mapping.trade_date).trim(),
-    getCell(row, mapping.coin).trim(),
-    getCell(row, mapping.avg_entry).trim(),
-  ]
-
-  // If every required mapped field is empty, treat as a non-data row.
-  return requiredCells.every((value) => value === '')
-}
-
 function parseNumberValue(value: string): number | null {
   if (!value) return null
   const trimmed = value.trim()
@@ -681,7 +669,6 @@ function parseDateValue(value: string): string | null {
     const second = Number(secondText)
     const year = normalizeYear(Number(thirdText))
 
-    // Prefer DD/MM if first > 12, MM/DD if second > 12, otherwise default to DD/MM.
     const ddMmCandidate = fromDateParts(year, second, first)
     const mmDdCandidate = fromDateParts(year, first, second)
 
@@ -701,7 +688,6 @@ function parseDateValue(value: string): string | null {
     const ddMmCandidate = fromDateParts(currentYear, second, first)
     const mmDdCandidate = fromDateParts(currentYear, first, second)
 
-    // Default to day/month unless only month/day is valid.
     if (ddMmCandidate) return formatDate(ddMmCandidate)
     if (mmDdCandidate) return formatDate(mmDdCandidate)
     return null
@@ -795,7 +781,6 @@ function parseTimeValue(value: string): string | null {
   const trimmed = value.trim()
   if (!trimmed) return null
 
-  // Excel time serial (fraction of a day)
   if (/^\d+(\.\d+)?$/.test(trimmed)) {
     const serial = Number(trimmed)
     if (!Number.isFinite(serial)) return null
@@ -808,7 +793,6 @@ function parseTimeValue(value: string): string | null {
     return `${`${hours}`.padStart(2, '0')}:${`${minutes}`.padStart(2, '0')}:${`${seconds}`.padStart(2, '0')}`
   }
 
-  // 24h: HH:MM or HH:MM:SS
   const time24 = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
   if (time24) {
     const hours = Number(time24[1])
@@ -818,7 +802,6 @@ function parseTimeValue(value: string): string | null {
     return `${`${hours}`.padStart(2, '0')}:${`${minutes}`.padStart(2, '0')}:${`${seconds}`.padStart(2, '0')}`
   }
 
-  // 12h: h:mm AM/PM
   const time12 = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])$/)
   if (time12) {
     let hours = Number(time12[1])
@@ -836,7 +819,6 @@ function parseTimeValue(value: string): string | null {
   const hasTimeHint = /:\d{2}/.test(trimmed) || /[AaPp][Mm]/.test(trimmed)
   if (!hasTimeHint) return null
 
-  // Date-time strings
   const parsed = new Date(trimmed)
   if (Number.isNaN(parsed.getTime())) return null
   return `${`${parsed.getHours()}`.padStart(2, '0')}:${`${parsed.getMinutes()}`.padStart(2, '0')}:${`${parsed.getSeconds()}`.padStart(2, '0')}`
@@ -874,71 +856,4 @@ function normalizeYear(year: number): number {
 function getNullableText(value: string): string | null {
   const trimmed = value.trim()
   return trimmed === '' ? null : trimmed
-}
-
-function buildTradeSignatureFromInsert(trade: TradeInsert): string {
-  return JSON.stringify([
-    trade.trade_date,
-    trade.trade_time,
-    normalizeText(trade.coin),
-    trade.direction,
-    normalizeText(trade.entry_order_type),
-    normalizeNumber(trade.avg_entry),
-    normalizeNumber(trade.stop_loss),
-    normalizeNumber(trade.avg_exit),
-    normalizeNumber(trade.risk),
-    normalizeNumber(trade.expected_loss),
-    normalizeNumber(trade.realised_loss),
-    normalizeNumber(trade.realised_win),
-    normalizeNumber(trade.deviation),
-    normalizeNumber(trade.r_multiple),
-    normalizeText(trade.early_exit_reason),
-    normalizeText(trade.rules),
-    normalizeText(trade.system_number),
-    trade.system_id,
-    trade.sub_system_id,
-    normalizeText(trade.notes),
-  ])
-}
-
-function buildTradeSignatureFromExisting(trade: Trade): string {
-  return JSON.stringify([
-    trade.trade_date,
-    trade.trade_time,
-    normalizeText(trade.coin),
-    trade.direction,
-    normalizeText(trade.entry_order_type),
-    normalizeNumber(trade.avg_entry),
-    normalizeNumber(trade.stop_loss),
-    normalizeNumber(trade.avg_exit),
-    normalizeNumber(trade.risk),
-    normalizeNumber(trade.expected_loss),
-    normalizeNumber(trade.realised_loss),
-    normalizeNumber(trade.realised_win),
-    normalizeNumber(trade.deviation),
-    normalizeNumber(trade.r_multiple),
-    normalizeText(trade.early_exit_reason),
-    normalizeText(trade.rules),
-    normalizeText(trade.system_number),
-    trade.system_id,
-    trade.sub_system_id,
-    normalizeText(trade.notes),
-  ])
-}
-
-function normalizeSystemName(value: string | null): string | null {
-  if (value === null) return null
-  const trimmed = value.trim()
-  return trimmed === '' ? null : trimmed.toLowerCase()
-}
-
-function normalizeText(value: string | null): string | null {
-  if (value === null) return null
-  const trimmed = value.trim()
-  return trimmed === '' ? null : trimmed.toLowerCase()
-}
-
-function normalizeNumber(value: number | null): number | null {
-  if (value === null) return null
-  return Number(value.toFixed(8))
 }

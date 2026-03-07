@@ -136,6 +136,8 @@ try {
 
 ```
 /app              # Next.js App Router pages
+  /backtesting    # Backtesting sessions + theoretical trades page
+    ImportBacktestingTradesForm.tsx # Backtesting sheet import modal with mapping preview
   /trades         # Trades page and components
     CloseTradeForm.tsx # Quick close-trade modal form
     ImportTradesForm.tsx # Sheet/CSV import modal with mapping preview
@@ -148,6 +150,10 @@ try {
   /supabase       # Supabase client setup
   AuthContext.tsx # Authentication context
 /services         # Backend logic (Supabase operations)
+  /backtesting    # Backtesting sessions + theoretical trades CRUD
+    index.ts      # Re-exports
+    backtesting.ts # Backtesting data operations
+    types.ts      # Backtesting types
   /trade          # Trade CRUD operations
     index.ts      # Re-exports
     trades.ts     # Trade CRUD functions
@@ -159,7 +165,7 @@ try {
   /upload         # File upload operations
     index.ts      # Re-exports
 /supabase
-  /migrations     # SQL migrations (systems, sub-systems, schema updates)
+  /migrations     # SQL migrations (systems, sub-systems, backtesting, schema updates)
 ```
 
 ## Common Tasks
@@ -203,6 +209,13 @@ try {
 3. Accept optional `trade_time` and `system_name` mappings during import
 4. If `system_name` is mapped and system doesn't exist, create it with empty rules and assign `system_id`
 5. Ignore non-data rows, log invalid rows in console with reason, and skip duplicate trades (existing + file-internal)
+6. Support both separate date/time columns and combined date-time in one column (users can map both fields to same source column)
+
+### Backtesting sessions and theoretical trades
+1. Use `/app/backtesting/page.tsx` for session management and theoretical trade journaling
+2. Backtesting sessions can link to existing `system_id` or create a new system during session creation
+3. Backtesting trades store theoretical results in `outcome_r` (Profit in R), not realized dollar PnL
+4. Use `/app/backtesting/ImportBacktestingTradesForm.tsx` for bulk importing theoretical trades with mapping and preview
 
 ### Creating a new page
 1. Create directory in `/app` (e.g., `/app/analytics`)

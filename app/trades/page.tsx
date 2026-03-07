@@ -426,6 +426,12 @@ export default function TradesPage() {
             Systems
           </button>
           <button
+            onClick={() => router.push('/backtesting')}
+            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+          >
+            Backtesting
+          </button>
+          <button
             onClick={handleAddTrade}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
           >
