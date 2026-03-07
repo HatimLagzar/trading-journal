@@ -96,7 +96,7 @@ export default function AuthNavbar({ current, onError }: AuthNavbarProps) {
               <button
                 onClick={handleOpenBillingPortal}
                 disabled={openingPortal}
-                className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-60"
+                className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
               >
                 {openingPortal ? 'Opening...' : 'Manage Subscription'}
               </button>
@@ -104,7 +104,7 @@ export default function AuthNavbar({ current, onError }: AuthNavbarProps) {
               <button
                 onClick={handleSignOut}
                 disabled={signingOut}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
               >
                 {signingOut ? 'Signing out...' : 'Sign Out'}
               </button>
