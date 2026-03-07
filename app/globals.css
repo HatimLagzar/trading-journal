@@ -30,7 +30,19 @@
   animation: fade-down 700ms ease-out both;
 }
 
-button:not(:disabled),
-[role='button']:not([aria-disabled='true']) {
+button,
+input[type='button'],
+input[type='submit'],
+input[type='reset'],
+[role='button'],
+a {
   cursor: pointer;
+}
+
+button:disabled,
+input[type='button']:disabled,
+input[type='submit']:disabled,
+input[type='reset']:disabled,
+[role='button'][aria-disabled='true'] {
+  cursor: not-allowed;
 }

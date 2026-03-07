@@ -13,6 +13,7 @@ import Modal from './Modal'
 import CloseTradeForm from './CloseTradeForm'
 import ImportTradesForm from './ImportTradesForm'
 import TradeForm from './TradeForm'
+import TradeChartView from './TradeChartView'
 import type { User } from '@supabase/supabase-js'
 
 type DashboardStats = {
@@ -65,6 +66,9 @@ export default function TradesPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false)
   const [closingTrade, setClosingTrade] = useState<Trade | null>(null)
+  const [chartTrade, setChartTrade] = useState<Trade | null>(null)
+  const [chartSystemLabel, setChartSystemLabel] = useState('-')
+  const [isChartModalOpen, setIsChartModalOpen] = useState(false)
   const [openDeleteMenuTradeId, setOpenDeleteMenuTradeId] = useState<string | null>(null)
 
   // Function to refresh trades and filter data
@@ -357,6 +361,12 @@ export default function TradesPage() {
     setClosingTrade(null)
   }
 
+  function handleCloseChartModal() {
+    setIsChartModalOpen(false)
+    setChartTrade(null)
+    setChartSystemLabel('-')
+  }
+
   // Handle successful form submission
   function handleFormSuccess() {
     refreshData()
@@ -428,6 +438,17 @@ export default function TradesPage() {
     }
 
     setSelectedTradeIds(filteredTrades.map((trade) => trade.id))
+  }
+
+  function handleViewChart(trade: Trade) {
+    if (!premiumLoading && !isPremium) {
+      redirectToPremium('chart-view')
+      return
+    }
+
+    setChartTrade(trade)
+    setChartSystemLabel(getSystemName(trade.system_id))
+    setIsChartModalOpen(true)
   }
 
   return (
@@ -590,6 +611,15 @@ export default function TradesPage() {
                     <button
                       onClick={() => {
                         setOpenDeleteMenuTradeId(null)
+                        handleViewChart(trade)
+                      }}
+                      className="px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
+                    >
+                      {!premiumLoading && !isPremium ? 'Chart (Premium)' : 'Chart'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setOpenDeleteMenuTradeId(null)
                         handleEditTrade(trade)
                       }}
                       className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
@@ -653,6 +683,21 @@ export default function TradesPage() {
             userId={user.id}
             onClose={handleCloseTradeModal}
             onSuccess={handleFormSuccess}
+          />
+        </Modal>
+      )}
+
+      {chartTrade && (
+        <Modal
+          isOpen={isChartModalOpen}
+          onClose={handleCloseChartModal}
+          closeOnOverlayClick={false}
+          contentClassName="max-w-[75vw]"
+        >
+          <TradeChartView
+            trade={chartTrade}
+            systemLabel={chartSystemLabel}
+            onClose={handleCloseChartModal}
           />
         </Modal>
       )}

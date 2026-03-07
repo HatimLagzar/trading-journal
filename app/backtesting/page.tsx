@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
 import {
   createBacktestingSession,
@@ -16,6 +17,7 @@ import {
 import { createSystem, getSystems } from '@/services/system'
 import Modal from '@/app/trades/Modal'
 import ImportBacktestingTradesForm from './ImportBacktestingTradesForm'
+import BacktestingTradeChartView from './BacktestingTradeChartView'
 import type {
   BacktestingSession,
   BacktestingSessionInsert,
@@ -65,6 +67,7 @@ const initialTradeFormState: TradeFormState = {
 
 export default function BacktestingPage() {
   const router = useRouter()
+  const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
 
   const [user, setUser] = useState<User | null>(null)
   const [systems, setSystems] = useState<System[]>([])
@@ -85,6 +88,8 @@ export default function BacktestingPage() {
   const [savingTrade, setSavingTrade] = useState(false)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [openTradeMenuId, setOpenTradeMenuId] = useState<string | null>(null)
+  const [chartTrade, setChartTrade] = useState<BacktestingTrade | null>(null)
+  const [isChartModalOpen, setIsChartModalOpen] = useState(false)
 
   useEffect(() => {
     const entry = toNullableNumber(tradeForm.entry_price)
@@ -366,6 +371,21 @@ export default function BacktestingPage() {
     setIsImportModalOpen(false)
   }
 
+  function handleOpenChart(trade: BacktestingTrade) {
+    if (!premiumLoading && !isPremium) {
+      redirectToPremium('chart-view')
+      return
+    }
+
+    setChartTrade(trade)
+    setIsChartModalOpen(true)
+  }
+
+  function handleCloseChart() {
+    setIsChartModalOpen(false)
+    setChartTrade(null)
+  }
+
   async function handleSaveTrade(e: React.FormEvent) {
     e.preventDefault()
     if (!user || !selectedSessionId) return
@@ -591,7 +611,17 @@ export default function BacktestingPage() {
                                 ⋯
                               </button>
                               {openTradeMenuId === trade.id && (
-                                <div className="absolute right-0 mt-1 w-28 bg-white border rounded-md shadow-lg z-10">
+                                <div className="absolute right-0 mt-1 w-32 bg-white border rounded-md shadow-lg z-10">
+                                  <button
+                                    onClick={() => {
+                                      setOpenTradeMenuId(null)
+                                      handleOpenChart(trade)
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs text-indigo-600 hover:bg-indigo-50"
+                                    role="menuitem"
+                                  >
+                                    {!premiumLoading && !isPremium ? 'Chart (Premium)' : 'Chart'}
+                                  </button>
                                   <button
                                     onClick={() => openEditTradeModal(trade)}
                                     className="w-full text-left px-3 py-2 text-xs text-blue-600 hover:bg-blue-50"
@@ -846,6 +876,22 @@ export default function BacktestingPage() {
             sessionId={selectedSessionId}
             onClose={closeImportModal}
             onSuccess={refreshTrades}
+          />
+        </Modal>
+      )}
+
+      {chartTrade && selectedSession && (
+        <Modal
+          isOpen={isChartModalOpen}
+          onClose={handleCloseChart}
+          closeOnOverlayClick={false}
+          contentClassName="max-w-[75vw]"
+        >
+          <BacktestingTradeChartView
+            trade={chartTrade}
+            sessionName={selectedSession.name}
+            systemLabel={selectedSystemName}
+            onClose={handleCloseChart}
           />
         </Modal>
       )}

@@ -10,6 +10,7 @@ const PREMIUM_FEATURES = [
   'Create more than 2 trading systems',
   'Mirror live trades to backtesting sessions',
   'Import live trades from CSV/XLSX files',
+  'Open one-click trade charts on TradingView',
 ];
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -17,6 +18,7 @@ const FEATURE_LABELS: Record<string, string> = {
   'systems-limit': 'More than 2 systems',
   'mirror-live-trades': 'Live-to-backtesting mirroring',
   'import-trades': 'Trade importing',
+  'chart-view': 'Trade chart view',
 };
 
 interface PremiumClientProps {

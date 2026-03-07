@@ -227,6 +227,13 @@ try {
 4. Use `/app/backtesting/ImportBacktestingTradesForm.tsx` for bulk importing theoretical trades with mapping and preview
 5. Keep `trade_date` mapping optional during backtesting import (default missing dates to today)
 
+### Viewing trade charts
+1. Live trades use `/app/trades/TradeChartView.tsx`; backtesting trades use `/app/backtesting/BacktestingTradeChartView.tsx`
+2. Fetch candles from Binance REST klines API with symbols normalized to `BINANCE:<BASE>USDT`
+3. Treat `trade_date` and `trade_time` as UTC when anchoring chart context and entry markers
+4. Persist last selected chart timeframe in localStorage key `trade_chart_timeframe` and fallback to `1h`
+5. Support loading more context candles and keep entry-time vertical marker + entry/stop/exit lines visible
+
 ### Premium billing and feature gating
 1. Subscription state is stored in `user_subscriptions` (see `supabase/migrations/004_create_user_subscriptions.sql`)
 2. Stripe checkout is handled by `POST /api/stripe/checkout`; Stripe webhooks are handled by `POST /api/stripe/webhook`
@@ -235,7 +242,7 @@ try {
 5. Customer self-service billing is handled by `POST /api/stripe/portal`
 6. Checkout redirects to `/premium/success` on success and `/premium/cancelled` when canceled
 7. Premium status for UI gating is fetched via `GET /api/subscription/status` and consumed by `lib/usePremiumAccess.ts`
-8. Premium-only features: screenshot upload, importing live trades, mirroring live trades to backtesting, and creating more than 2 systems
+8. Premium-only features: screenshot upload, importing live trades, mirroring live trades to backtesting, one-click trade chart view, and creating more than 2 systems
 9. Locked features remain visible; non-premium users are redirected to `/premium` with a `feature` query param
 
 ### Creating a new page
