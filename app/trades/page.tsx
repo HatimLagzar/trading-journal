@@ -187,7 +187,6 @@ export default function TradesPage() {
 
   const periodRStats = useMemo<PeriodRStats>(() => {
     const now = new Date()
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
 
     function toLocalDateString(date: Date): string {
       const year = date.getFullYear()
@@ -196,16 +195,33 @@ export default function TradesPage() {
       return `${year}-${month}-${day}`
     }
 
-    function parseTradeDate(tradeDate: string): Date | null {
+    function normalizeTradeDate(tradeDate: string): string | null {
       if (!tradeDate) return null
 
-      // Prefer date-only parsing to avoid timezone drift.
-      const dateOnly = new Date(`${tradeDate}T00:00:00`)
-      if (!Number.isNaN(dateOnly.getTime())) return dateOnly
+      const trimmed = tradeDate.trim()
+      if (!trimmed) return null
 
-      const fallback = new Date(tradeDate)
+      const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/)
+      if (isoMatch) {
+        return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
+      }
+
+      const slashYmdMatch = trimmed.match(/^(\d{4})\/(\d{2})\/(\d{2})/)
+      if (slashYmdMatch) {
+        return `${slashYmdMatch[1]}-${slashYmdMatch[2]}-${slashYmdMatch[3]}`
+      }
+
+      const dmyMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
+      if (dmyMatch) {
+        const day = dmyMatch[1].padStart(2, '0')
+        const month = dmyMatch[2].padStart(2, '0')
+        const year = dmyMatch[3]
+        return `${year}-${month}-${day}`
+      }
+
+      const fallback = new Date(trimmed)
       if (Number.isNaN(fallback.getTime())) return null
-      return fallback
+      return toLocalDateString(fallback)
     }
 
     const startOfWeek = new Date(now)
@@ -223,27 +239,24 @@ export default function TradesPage() {
 
     const startOfYear = new Date(now.getFullYear(), 0, 1)
     const yearStart = toLocalDateString(startOfYear)
+    const yearEnd = `${now.getFullYear()}-12-31`
+    const today = toLocalDateString(now)
 
-    const sumRInRange = (start: Date, end: Date): number => {
+    const sumRInRange = (start: string, end: string): number => {
       return statsTrades.reduce((sum, trade) => {
-        const tradeDate = parseTradeDate(trade.trade_date)
+        const tradeDate = normalizeTradeDate(trade.trade_date)
         if (!tradeDate) return sum
         if (tradeDate < start || tradeDate > end) return sum
         return sum + (trade.r_multiple ?? 0)
       }, 0)
     }
 
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const weekStartDate = new Date(`${weekStart}T00:00:00`)
-    const monthStartDate = new Date(`${monthStart}T00:00:00`)
-    const last90DaysStartDate = new Date(`${last90DaysStart}T00:00:00`)
-    const yearStartDate = new Date(`${yearStart}T00:00:00`)
     return {
-      today: sumRInRange(todayStart, endOfToday),
-      week: sumRInRange(weekStartDate, endOfToday),
-      month: sumRInRange(monthStartDate, endOfToday),
-      last90Days: sumRInRange(last90DaysStartDate, endOfToday),
-      year: sumRInRange(yearStartDate, endOfToday),
+      today: sumRInRange(today, today),
+      week: sumRInRange(weekStart, today),
+      month: sumRInRange(monthStart, today),
+      last90Days: sumRInRange(last90DaysStart, today),
+      year: sumRInRange(yearStart, yearEnd),
     }
   }, [statsTrades])
 
