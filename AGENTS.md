@@ -138,6 +138,7 @@ try {
 /app              # Next.js App Router pages
   /trades         # Trades page and components
     CloseTradeForm.tsx # Quick close-trade modal form
+    ImportTradesForm.tsx # Sheet/CSV import modal with mapping preview
   /systems        # Systems + sub-systems management page
   /login          # Login page
   /signup         # Signup page
@@ -189,6 +190,13 @@ try {
 3. If no checkboxes are selected, calculate stats from currently filtered rows
 4. Keep period R card totals in sync for: today, week, last 3 months, month, year
 5. Keep best/worst performer cards (system + asset) calculated from the same filtered/selected rows
+
+### Importing trades from sheets/files
+1. Use `/app/trades/ImportTradesForm.tsx` for CSV/TSV/XLSX upload + mapping UI
+2. Let users configure `rowsToSkip` and per-field column mappings with sample preview
+3. Accept optional `trade_time` and `system_name` mappings during import
+4. If `system_name` is mapped and system doesn't exist, create it with empty rules and assign `system_id`
+5. Ignore non-data rows, log invalid rows in console with reason, and skip duplicate trades (existing + file-internal)
 
 ### Creating a new page
 1. Create directory in `/app` (e.g., `/app/analytics`)

@@ -62,6 +62,18 @@ export async function createTrade(trade: TradeInsert) {
   return data
 }
 
+export async function createTradesBulk(trades: TradeInsert[]) {
+  if (trades.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('trades')
+    .insert(trades)
+    .select()
+
+  if (error) throw error
+  return data
+}
+
 // ============================================
 // UPDATE TRADE
 // ============================================

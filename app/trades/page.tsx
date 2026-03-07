@@ -9,6 +9,7 @@ import type { Trade } from '@/services/trade'
 import type { SubSystem, System } from '@/services/system'
 import Modal from './Modal'
 import CloseTradeForm from './CloseTradeForm'
+import ImportTradesForm from './ImportTradesForm'
 import TradeForm from './TradeForm'
 import type { User } from '@supabase/supabase-js'
 
@@ -58,6 +59,7 @@ export default function TradesPage() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false)
   const [closingTrade, setClosingTrade] = useState<Trade | null>(null)
 
@@ -307,6 +309,14 @@ export default function TradesPage() {
     setSelectedTrade(null)
   }
 
+  function handleOpenImportModal() {
+    setIsImportModalOpen(true)
+  }
+
+  function handleCloseImportModal() {
+    setIsImportModalOpen(false)
+  }
+
   function handleOpenCloseModal(trade: Trade) {
     setClosingTrade(trade)
     setIsCloseModalOpen(true)
@@ -405,6 +415,12 @@ export default function TradesPage() {
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
           >
             + Add Trade
+          </button>
+          <button
+            onClick={handleOpenImportModal}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium"
+          >
+            Import
           </button>
           <button
             onClick={handleLogout}
@@ -588,6 +604,16 @@ export default function TradesPage() {
           <CloseTradeForm
             trade={closingTrade}
             onClose={handleCloseTradeModal}
+            onSuccess={handleFormSuccess}
+          />
+        </Modal>
+      )}
+
+      {user && (
+        <Modal isOpen={isImportModalOpen} onClose={handleCloseImportModal}>
+          <ImportTradesForm
+            userId={user.id}
+            onClose={handleCloseImportModal}
             onSuccess={handleFormSuccess}
           />
         </Modal>
