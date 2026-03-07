@@ -16,6 +16,8 @@ type DashboardStats = {
   winRate: number
   netPnL: number
   avgRMultiple: number
+  expectedValue: number
+  profitFactor: number | null
 }
 
 export default function TradesPage() {
@@ -129,6 +131,8 @@ export default function TradesPage() {
         winRate: 0,
         netPnL: 0,
         avgRMultiple: 0,
+        expectedValue: 0,
+        profitFactor: null,
       }
     }
 
@@ -144,11 +148,20 @@ export default function TradesPage() {
       ? rValues.reduce((sum, value) => sum + value, 0) / rValues.length
       : 0
 
+    const expectedValue = (totalProfit - totalLoss) / totalTrades
+    const profitFactor = totalLoss > 0
+      ? totalProfit / totalLoss
+      : totalProfit > 0
+        ? Number.POSITIVE_INFINITY
+        : null
+
     return {
       totalTrades,
       winRate: (winners / totalTrades) * 100,
       netPnL: totalProfit - totalLoss,
       avgRMultiple,
+      expectedValue,
+      profitFactor,
     }
   }, [statsTrades])
 
@@ -215,6 +228,20 @@ export default function TradesPage() {
     if (!systemId) return '-'
     const system = systems.find(s => s.id === systemId)
     return system?.name || '-'
+  }
+
+  function getSystemInitials(systemId: string | null): string {
+    const fullName = getSystemName(systemId)
+    if (fullName === '-') return '-'
+
+    const initials = fullName
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => word[0]?.toUpperCase() ?? '')
+      .join('')
+
+    return initials || '-'
   }
 
   function toggleTradeSelection(tradeId: string) {
@@ -300,7 +327,7 @@ export default function TradesPage() {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <StatCard label="Total Trades" value={stats.totalTrades} />
         <StatCard label="Win Rate" value={`${stats.winRate.toFixed(1)}%`} />
         <StatCard
@@ -309,6 +336,21 @@ export default function TradesPage() {
           className={stats.netPnL >= 0 ? 'text-green-600' : 'text-red-600'}
         />
         <StatCard label="Avg R" value={stats.avgRMultiple.toFixed(2)} />
+        <StatCard
+          label="EV / Trade"
+          value={`$${stats.expectedValue.toFixed(2)}`}
+          className={stats.expectedValue >= 0 ? 'text-green-600' : 'text-red-600'}
+        />
+        <StatCard
+          label="Profit Factor"
+          value={
+            stats.profitFactor === null
+              ? '-'
+              : Number.isFinite(stats.profitFactor)
+                ? stats.profitFactor.toFixed(2)
+                : '∞'
+          }
+        />
       </div>
 
       {/* Trades Table */}
@@ -348,7 +390,7 @@ export default function TradesPage() {
                 </td>
                 <td className="px-4 py-3">{trade.trade_number}</td>
                 <td className="px-4 py-3">{formatTradeDateTime(trade)}</td>
-                <td className="px-4 py-3 text-gray-600">{getSystemName(trade.system_id)}</td>
+                <td className="px-4 py-3 text-gray-600">{getSystemInitials(trade.system_id)}</td>
                 <td className="px-4 py-3 font-medium">{trade.coin}</td>
                 <td className="px-4 py-3">
                   <span className={trade.direction === 'long' ? 'text-green-600' : 'text-red-600'}>
