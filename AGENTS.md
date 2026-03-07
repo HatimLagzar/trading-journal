@@ -192,8 +192,15 @@ try {
 
 ### Adding close-trade flow (quick loss close)
 1. Use `/app/trades/CloseTradeForm.tsx` for modal UI
-2. Update only `avg_exit` and `realised_loss` via `updateTrade`
+2. Update `avg_exit`, `realised_loss`, and `r_multiple` via `updateTrade`
 3. Wire modal open/close state from `/app/trades/page.tsx`
+
+### Mirroring live trades into backtesting sessions
+1. Use `/app/trades/TradeForm.tsx` to allow optional backtesting session selection when creating or editing live trades
+2. Always save the live trade first, then mirror to `backtesting_trades` through `services/backtesting/backtesting.ts`
+3. Match an existing mirror by `asset` + `entry_price` + `stop_loss`; if multiple matches exist, update the most recent one
+4. If no mirror exists and a session is selected, create one with `outcome_r` defaulting to `0` when `r_multiple` is missing
+5. Keep close/edit flows in sync by updating mirrored `outcome_r` after live-trade updates
 
 ### Updating dashboard stats filters
 1. Keep `/app/trades/page.tsx` filters driven by selected `system_id` / `sub_system_id`

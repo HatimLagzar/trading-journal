@@ -2,6 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createTrade, updateTrade } from '@/services/trade'
+import {
+  createBacktestingMirrorFromLiveTrade,
+  findMatchingBacktestingTrade,
+  getBacktestingSessions,
+  updateBacktestingMirrorFromLiveTrade,
+} from '@/services/backtesting'
 import { getSystems, getSubSystems } from '@/services/system'
 import {
   uploadScreenshot,
@@ -11,6 +17,7 @@ import {
 } from '@/services/upload'
 import type { Trade, TradeInsert, TradeScreenshot } from '@/services/trade'
 import type { System, SubSystem } from '@/services/system'
+import type { BacktestingSession } from '@/services/backtesting'
 
 interface TradeFormProps {
   trade?: Trade | null // If provided, we're editing. If null, we're creating.
@@ -51,6 +58,8 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
   const [error, setError] = useState<string | null>(null)
   const [systems, setSystems] = useState<System[]>([])
   const [subSystems, setSubSystems] = useState<SubSystem[]>([])
+  const [backtestingSessions, setBacktestingSessions] = useState<BacktestingSession[]>([])
+  const [selectedBacktestingSessionId, setSelectedBacktestingSessionId] = useState('')
 
   // Screenshot state
   const [existingScreenshots, setExistingScreenshots] = useState<TradeScreenshot[]>([])
@@ -124,6 +133,11 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
   // Load systems
   useEffect(() => {
     getSystems(userId).then(setSystems).catch(console.error)
+  }, [userId])
+
+  // Load backtesting sessions
+  useEffect(() => {
+    getBacktestingSessions(userId).then(setBacktestingSessions).catch(console.error)
   }, [userId])
 
   // Load sub-systems when system changes
@@ -222,6 +236,8 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
         tradeId = newTrade.id
       }
 
+      await syncBacktestingMirror()
+
       // Upload any pending screenshots
       if (pendingFiles.length > 0) {
         setUploadingScreenshots(true)
@@ -237,6 +253,63 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
       setError(err instanceof Error ? err.message : 'Failed to save trade')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function syncBacktestingMirror() {
+    const asset = formData.coin.trim()
+    if (!asset || formData.avg_entry <= 0) return
+
+    const mirrorBasePayload = {
+      userId,
+      tradeDate: formData.trade_date,
+      tradeTime: formData.trade_time,
+      asset,
+      direction: formData.direction,
+      entryPrice: formData.avg_entry,
+      stopLoss: formData.stop_loss,
+      notes: formData.notes,
+      outcomeR: formData.r_multiple,
+    }
+
+    const lookupInput = {
+      userId,
+      asset,
+      entryPrice: formData.avg_entry,
+      stopLoss: formData.stop_loss,
+    }
+
+    try {
+      if (!isEditing && selectedBacktestingSessionId) {
+        await createBacktestingMirrorFromLiveTrade({
+          ...mirrorBasePayload,
+          sessionId: selectedBacktestingSessionId,
+        })
+        return
+      }
+
+      const preferredMatch = selectedBacktestingSessionId
+        ? await findMatchingBacktestingTrade({
+          ...lookupInput,
+          sessionId: selectedBacktestingSessionId,
+        })
+        : null
+
+      const existingMatch = preferredMatch ?? await findMatchingBacktestingTrade(lookupInput)
+
+      if (existingMatch) {
+        await updateBacktestingMirrorFromLiveTrade(existingMatch.id, mirrorBasePayload)
+        return
+      }
+
+      if (selectedBacktestingSessionId) {
+        await createBacktestingMirrorFromLiveTrade({
+          ...mirrorBasePayload,
+          sessionId: selectedBacktestingSessionId,
+        })
+      }
+    } catch (err) {
+      console.error('Backtesting sync failed:', err)
     }
   }
 
@@ -374,6 +447,27 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
             ))}
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Backtesting Session</label>
+        <select
+          value={selectedBacktestingSessionId}
+          onChange={(e) => setSelectedBacktestingSessionId(e.target.value)}
+          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">No Backtesting Session</option>
+          {backtestingSessions.map((session) => (
+            <option key={session.id} value={session.id}>
+              {session.name}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-gray-500">
+          {isEditing
+            ? 'Pick a session to create or prioritize backtesting sync for this trade.'
+            : 'Optionally mirror this live trade into a backtesting session.'}
+        </p>
       </div>
 
       {/* Entry Info */}

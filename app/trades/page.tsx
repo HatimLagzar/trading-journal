@@ -645,10 +645,11 @@ export default function TradesPage() {
         </Modal>
       )}
 
-      {closingTrade && (
+      {user && closingTrade && (
         <Modal isOpen={isCloseModalOpen} onClose={handleCloseTradeModal}>
           <CloseTradeForm
             trade={closingTrade}
+            userId={user.id}
             onClose={handleCloseTradeModal}
             onSuccess={handleFormSuccess}
           />
