@@ -29,6 +29,18 @@ type PeriodRStats = {
   year: number
 }
 
+type PerformanceEntry = {
+  label: string
+  netPnL: number
+}
+
+type PerformanceStats = {
+  bestSystem: PerformanceEntry | null
+  worstSystem: PerformanceEntry | null
+  bestAsset: PerformanceEntry | null
+  worstAsset: PerformanceEntry | null
+}
+
 export default function TradesPage() {
   const router = useRouter()
 
@@ -219,6 +231,56 @@ export default function TradesPage() {
     }
   }, [statsTrades])
 
+  const performanceStats = useMemo<PerformanceStats>(() => {
+    const systemTotals = new Map<string, number>()
+    const assetTotals = new Map<string, number>()
+
+    statsTrades.forEach((trade) => {
+      const tradePnL = (trade.realised_win ?? 0) - (trade.realised_loss ?? 0)
+
+      const systemKey = trade.system_id ?? '__unassigned__'
+      systemTotals.set(systemKey, (systemTotals.get(systemKey) ?? 0) + tradePnL)
+
+      const assetKey = trade.coin?.trim() || 'Unknown'
+      assetTotals.set(assetKey, (assetTotals.get(assetKey) ?? 0) + tradePnL)
+    })
+
+    function resolveSystemLabel(systemId: string): string {
+      if (systemId === '__unassigned__') return 'Unassigned'
+      const system = systems.find((item) => item.id === systemId)
+      return system?.name || '-'
+    }
+
+    function pickBest(map: Map<string, number>, labelResolver?: (key: string) => string): PerformanceEntry | null {
+      const entries = Array.from(map.entries())
+      if (entries.length === 0) return null
+
+      const [key, value] = entries.reduce((best, current) => (current[1] > best[1] ? current : best))
+      return {
+        label: labelResolver ? labelResolver(key) : key,
+        netPnL: value,
+      }
+    }
+
+    function pickWorst(map: Map<string, number>, labelResolver?: (key: string) => string): PerformanceEntry | null {
+      const entries = Array.from(map.entries())
+      if (entries.length === 0) return null
+
+      const [key, value] = entries.reduce((worst, current) => (current[1] < worst[1] ? current : worst))
+      return {
+        label: labelResolver ? labelResolver(key) : key,
+        netPnL: value,
+      }
+    }
+
+    return {
+      bestSystem: pickBest(systemTotals, resolveSystemLabel),
+      worstSystem: pickWorst(systemTotals, resolveSystemLabel),
+      bestAsset: pickBest(assetTotals),
+      worstAsset: pickWorst(assetTotals),
+    }
+  }, [statsTrades, systems])
+
   if (loading) return <div className="p-8">Loading trades...</div>
   if (error) return <div className="p-8 text-red-500">Error: {error}</div>
 
@@ -391,7 +453,7 @@ export default function TradesPage() {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <StatCard label="Total Trades" value={stats.totalTrades} />
         <StatCard label="Win Rate" value={`${stats.winRate.toFixed(1)}%`} />
         <StatCard
@@ -416,6 +478,8 @@ export default function TradesPage() {
           }
         />
         <PeriodRCard stats={periodRStats} />
+        <BestPerformersCard stats={performanceStats} />
+        <WorstPerformersCard stats={performanceStats} />
       </div>
 
       {/* Trades Table */}
@@ -559,15 +623,69 @@ function PeriodRCard({ stats }: { stats: PeriodRStats }) {
   ]
 
   return (
-    <div className="bg-white border rounded-lg p-4 lg:col-span-2">
-      <div className="text-sm text-gray-500 mb-2">Total R</div>
+    <div className="bg-white border rounded-lg p-4 col-span-full">
+      <div className="text-sm text-gray-500 mb-2">Total R by Period</div>
+      <div className="grid grid-cols-2 md:grid-cols-5 divide-x divide-gray-200">
+        {rows.map((row) => (
+          <div key={row.label} className="px-4 py-2 text-center">
+            <div className="text-xs text-gray-500">{row.label}</div>
+            <div className={`mt-1 text-lg font-semibold ${row.value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {`${row.value >= 0 ? '+' : ''}${row.value.toFixed(2)}R`}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function BestPerformersCard({ stats }: { stats: PerformanceStats }) {
+  const rows = [
+    { label: 'System', data: stats.bestSystem },
+    { label: 'Asset', data: stats.bestAsset },
+  ]
+
+  return (
+    <div className="bg-white border rounded-lg p-4 col-span-full lg:col-span-3">
+      <div className="text-sm text-gray-500 mb-2">Best Performers</div>
       <div className="space-y-1 text-sm">
         {rows.map((row) => (
-          <div key={row.label} className="flex justify-between items-center">
-            <span className="text-gray-600">{row.label}</span>
-            <span className={row.value >= 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-              {`${row.value >= 0 ? '+' : ''}${row.value.toFixed(2)}R`}
-            </span>
+          <div key={row.label} className="flex justify-between items-center gap-3">
+            <span className="text-gray-600 truncate">{row.label}</span>
+            {row.data ? (
+              <span className="text-green-600 font-medium text-right">
+                {`${row.data.label} (${row.data.netPnL >= 0 ? '+' : ''}$${row.data.netPnL.toFixed(2)})`}
+              </span>
+            ) : (
+              <span className="text-gray-400">-</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function WorstPerformersCard({ stats }: { stats: PerformanceStats }) {
+  const rows = [
+    { label: 'System', data: stats.worstSystem },
+    { label: 'Asset', data: stats.worstAsset },
+  ]
+
+  return (
+    <div className="bg-white border rounded-lg p-4 col-span-full lg:col-span-3">
+      <div className="text-sm text-gray-500 mb-2">Worst Performers</div>
+      <div className="space-y-1 text-sm">
+        {rows.map((row) => (
+          <div key={row.label} className="flex justify-between items-center gap-3">
+            <span className="text-gray-600 truncate">{row.label}</span>
+            {row.data ? (
+              <span className="text-red-600 font-medium text-right">
+                {`${row.data.label} (${row.data.netPnL >= 0 ? '+' : ''}$${row.data.netPnL.toFixed(2)})`}
+              </span>
+            ) : (
+              <span className="text-gray-400">-</span>
+            )}
           </div>
         ))}
       </div>

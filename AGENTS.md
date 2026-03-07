@@ -188,6 +188,7 @@ try {
 2. If checkboxes are selected, calculate stats from selected rows only
 3. If no checkboxes are selected, calculate stats from currently filtered rows
 4. Keep period R card totals in sync for: today, week, last 3 months, month, year
+5. Keep best/worst performer cards (system + asset) calculated from the same filtered/selected rows
 
 ### Creating a new page
 1. Create directory in `/app` (e.g., `/app/analytics`)
