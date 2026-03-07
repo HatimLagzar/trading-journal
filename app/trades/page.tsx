@@ -296,12 +296,6 @@ export default function TradesPage() {
               ))}
             </select>
           </div>
-
-          <div className="text-sm text-gray-600">
-            {selectedTradeIds.length > 0
-              ? `Stats use ${selectedTradeIds.length} checked trade${selectedTradeIds.length > 1 ? 's' : ''}.`
-              : 'No checkboxes selected: stats use the system/sub-system filter.'}
-          </div>
         </div>
       </div>
 
