@@ -11,7 +11,7 @@ export async function getTrades(userId: string) {
     .from('trades')
     .select('*')
     .eq('user_id', userId)
-    .order('trade_date', { ascending: false })
+    .order('created_at', { ascending: false })
 
   if (error) throw error
   return data
