@@ -21,6 +21,14 @@ type DashboardStats = {
   profitFactor: number | null
 }
 
+type PeriodRStats = {
+  today: number
+  week: number
+  last3Months: number
+  month: number
+  year: number
+}
+
 export default function TradesPage() {
   const router = useRouter()
 
@@ -165,6 +173,49 @@ export default function TradesPage() {
       avgRMultiple,
       expectedValue,
       profitFactor,
+    }
+  }, [statsTrades])
+
+  const periodRStats = useMemo<PeriodRStats>(() => {
+    const now = new Date()
+
+    function toLocalDateString(date: Date): string {
+      const year = date.getFullYear()
+      const month = `${date.getMonth() + 1}`.padStart(2, '0')
+      const day = `${date.getDate()}`.padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
+    const today = toLocalDateString(now)
+
+    const startOfWeek = new Date(now)
+    const dayOfWeek = startOfWeek.getDay()
+    const daysFromMonday = (dayOfWeek + 6) % 7
+    startOfWeek.setDate(startOfWeek.getDate() - daysFromMonday)
+    const weekStart = toLocalDateString(startOfWeek)
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const monthStart = toLocalDateString(startOfMonth)
+
+    const startOfLast3Months = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+    const last3MonthsStart = toLocalDateString(startOfLast3Months)
+
+    const startOfYear = new Date(now.getFullYear(), 0, 1)
+    const yearStart = toLocalDateString(startOfYear)
+
+    const sumR = (predicate: (trade: Trade) => boolean): number => {
+      return statsTrades.reduce((sum, trade) => {
+        if (!predicate(trade)) return sum
+        return sum + (trade.r_multiple ?? 0)
+      }, 0)
+    }
+
+    return {
+      today: sumR((trade) => trade.trade_date === today),
+      week: sumR((trade) => trade.trade_date >= weekStart),
+      last3Months: sumR((trade) => trade.trade_date >= last3MonthsStart),
+      month: sumR((trade) => trade.trade_date >= monthStart),
+      year: sumR((trade) => trade.trade_date >= yearStart),
     }
   }, [statsTrades])
 
@@ -340,7 +391,7 @@ export default function TradesPage() {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
         <StatCard label="Total Trades" value={stats.totalTrades} />
         <StatCard label="Win Rate" value={`${stats.winRate.toFixed(1)}%`} />
         <StatCard
@@ -364,6 +415,7 @@ export default function TradesPage() {
                 : '∞'
           }
         />
+        <PeriodRCard stats={periodRStats} />
       </div>
 
       {/* Trades Table */}
@@ -493,6 +545,32 @@ function StatCard({
     <div className="bg-white border rounded-lg p-4">
       <div className="text-sm text-gray-500">{label}</div>
       <div className={`text-2xl font-semibold ${className}`}>{value}</div>
+    </div>
+  )
+}
+
+function PeriodRCard({ stats }: { stats: PeriodRStats }) {
+  const rows = [
+    { label: 'Today', value: stats.today },
+    { label: 'Week', value: stats.week },
+    { label: 'Last 3M', value: stats.last3Months },
+    { label: 'Month', value: stats.month },
+    { label: 'Year', value: stats.year },
+  ]
+
+  return (
+    <div className="bg-white border rounded-lg p-4 lg:col-span-2">
+      <div className="text-sm text-gray-500 mb-2">Total R</div>
+      <div className="space-y-1 text-sm">
+        {rows.map((row) => (
+          <div key={row.label} className="flex justify-between items-center">
+            <span className="text-gray-600">{row.label}</span>
+            <span className={row.value >= 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+              {`${row.value >= 0 ? '+' : ''}${row.value.toFixed(2)}R`}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
