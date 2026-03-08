@@ -11,6 +11,7 @@ const PREMIUM_FEATURES = [
   'Mirror live trades to backtesting sessions',
   'Import live trades from CSV/XLSX files',
   'Open one-click trade charts on TradingView',
+  'AI-assisted trade prefill from TradingView screenshots',
 ];
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -19,6 +20,7 @@ const FEATURE_LABELS: Record<string, string> = {
   'mirror-live-trades': 'Live-to-backtesting mirroring',
   'import-trades': 'Trade importing',
   'chart-view': 'Trade chart view',
+  'ai-screenshot-import': 'AI screenshot trade prefill',
 };
 
 interface PremiumClientProps {

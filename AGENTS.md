@@ -245,6 +245,12 @@ try {
 8. Premium-only features: screenshot upload, importing live trades, mirroring live trades to backtesting, one-click trade chart view, and creating more than 2 systems
 9. Locked features remain visible; non-premium users are redirected to `/premium` with a `feature` query param
 
+### AI screenshot trade prefill
+1. Use `POST /api/ai/extract-trade-from-image` to parse a TradingView screenshot into trade field suggestions
+2. Keep extraction as prefill-only assistance; user must review/edit and explicitly save the trade
+3. Return `null` for missing/uncertain fields and surface warnings instead of guessing values
+4. Gate this feature for premium users and redirect free users with `feature=ai-screenshot-import`
+
 ### Creating a new page
 1. Create directory in `/app` (e.g., `/app/analytics`)
 2. Create `page.tsx` in the new directory
