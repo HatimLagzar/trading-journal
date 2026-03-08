@@ -6,12 +6,12 @@ import AuthNavbar from '@/app/components/AuthNavbar';
 import type { CheckoutPlan } from '@/services/subscription';
 
 const PREMIUM_FEATURES = [
+  'AI-assisted trade prefill from TradingView screenshots',
+  'Open one-click trade charts on TradingView',
+  'Import live trades from CSV/XLSX files',
+  'Mirror live trades to backtesting sessions',
   'Upload and manage trade screenshots',
   'Create more than 2 trading systems',
-  'Mirror live trades to backtesting sessions',
-  'Import live trades from CSV/XLSX files',
-  'Open one-click trade charts on TradingView',
-  'AI-assisted trade prefill from TradingView screenshots',
 ];
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -22,6 +22,21 @@ const FEATURE_LABELS: Record<string, string> = {
   'chart-view': 'Trade chart view',
   'ai-screenshot-import': 'AI screenshot trade prefill',
 };
+
+const PREMIUM_RESULTS = [
+  {
+    title: 'Manage open risk faster',
+    text: 'Use the ongoing-trades desk as your control center, then jump straight into chart context when decisions matter.',
+  },
+  {
+    title: 'Study every win and loss visually',
+    text: 'Open the trade chart with entry, stop, and exit markers to review execution quality and decision timing.',
+  },
+  {
+    title: 'Journal with less friction',
+    text: 'Prefill trade fields from TradingView screenshots and import history in bulk when you need speed.',
+  },
+];
 
 interface PremiumClientProps {
   checkoutState: string | null;
@@ -36,9 +51,8 @@ export default function PremiumClient({
   monthlyPriceUsd,
   annualPriceUsd,
 }: PremiumClientProps) {
-  const { isPremium, subscription, loading } = usePremiumAccess();
+  const { isPremium } = usePremiumAccess();
   const [checkoutLoading, setCheckoutLoading] = useState<CheckoutPlan | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const annualMonthlyEquivalent = annualPriceUsd / 12;
@@ -76,61 +90,50 @@ export default function PremiumClient({
     }
   }
 
-  async function openBillingPortal() {
-    setPortalLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/stripe/portal', {
-        method: 'POST',
-      });
-
-      const payload = (await response.json()) as { url?: string; error?: string };
-
-      if (!response.ok || !payload.url) {
-        throw new Error(payload.error || 'Failed to open billing portal');
-      }
-
-      window.location.assign(payload.url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to open billing portal');
-    } finally {
-      setPortalLoading(false);
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-[#f4f7f9] px-4 py-8 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <AuthNavbar current="premium" onError={(message) => setError(message || null)} />
+        <AuthNavbar current="premium" variant="dark" onError={(message) => setError(message || null)} />
 
-        <div className="mb-8">
-          <p className="text-xs font-semibold uppercase tracking-wider text-cyan-700">Trading Journal Premium</p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-900 sm:text-4xl">Trade with structure, not impulse</h1>
-        </div>
-
-        <div className="mb-8 grid gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-          <div>
-            <p className="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
-              Built for serious consistency
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold text-slate-900">
-              Keep your live execution aligned with your backtesting edge.
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-              Premium removes the friction between planning and execution. Mirror trades to your backtesting workflow,
-              import faster, and keep visual evidence with screenshots.
-            </p>
+        <section className="relative mb-8 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/70 p-6 shadow-2xl shadow-cyan-900/20 sm:p-8">
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -left-12 top-0 h-48 w-48 rounded-full bg-cyan-400/15 blur-3xl" />
+            <div className="absolute bottom-0 right-0 h-56 w-56 rounded-full bg-amber-300/10 blur-3xl" />
           </div>
-          <div className="rounded-xl bg-gradient-to-br from-cyan-600 to-blue-700 p-5 text-white shadow-lg">
-            <p className="text-sm font-medium text-cyan-100">Best-value option</p>
-            <p className="mt-2 text-3xl font-bold">${formatPrice(annualPriceUsd)}</p>
-            <p className="text-sm text-cyan-100">per year • ${formatPrice(annualMonthlyEquivalent)}/mo effective</p>
-            <p className="mt-3 text-sm text-cyan-100">
-              Save ${formatPrice(annualSavings)} vs paying monthly all year.
-            </p>
+          <div className="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+            <div>
+              <p className="inline-flex rounded-full border border-cyan-200/30 bg-cyan-200/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-100">
+                Trading Journal Premium
+              </p>
+              <h1 className="mt-3 text-3xl font-semibold leading-tight text-white sm:text-4xl">
+                Your execution desk, upgraded for speed and accountability
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
+                Premium helps you act faster after entry: AI screenshot prefill, one-click chart context, bulk import,
+                and live-to-backtesting mirroring to keep every decision tied to your system. Review each trade with
+                entry, stop, and exit levels directly on chart to understand what created the outcome.
+              </p>
+              <div className="mt-5 grid gap-2 sm:grid-cols-3">
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">AI prefill (review before save)</div>
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">Chart replay with entry/stop/exit</div>
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">CSV/XLSX import + mirroring</div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-cyan-200/25 bg-cyan-300/10 p-5 text-white">
+              <p className="text-sm font-medium text-cyan-100">Best value</p>
+              <p className="mt-2 text-4xl font-bold">${formatPrice(annualPriceUsd)}</p>
+              <p className="text-sm text-cyan-100">per year • ${formatPrice(annualMonthlyEquivalent)}/mo effective</p>
+              <p className="mt-3 text-sm text-cyan-100">Save ${formatPrice(annualSavings)} compared to monthly billing.</p>
+              <button
+                onClick={() => startCheckout('annual')}
+                disabled={checkoutLoading !== null}
+                className="mt-4 w-full rounded-lg bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-200 disabled:opacity-60"
+              >
+                {checkoutLoading === 'annual' ? 'Redirecting...' : 'Start Annual Plan'}
+              </button>
+            </div>
           </div>
-        </div>
+        </section>
 
         {checkoutState === 'success' && (
           <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
@@ -145,8 +148,8 @@ export default function PremiumClient({
         )}
 
         {featureMessage && !isPremium && (
-          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
-            {featureMessage} is a premium feature. Upgrade to unlock it.
+          <div className="mb-4 rounded-lg border border-blue-200/60 bg-blue-50 p-3 text-sm text-blue-800">
+            You just hit <strong>{featureMessage}</strong>, which is included in Premium. Upgrade to unlock it now.
           </div>
         )}
 
@@ -154,29 +157,22 @@ export default function PremiumClient({
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
         )}
 
-        {!loading && subscription?.stripe_customer_id && (
-          <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-            <p className="text-sm font-semibold text-emerald-800">
-              {isPremium ? 'You are on Premium' : 'Manage your billing'}
-            </p>
-            <p className="mt-1 text-sm text-emerald-700">
-              Plan: {subscription.plan.replace('premium_', '').replace('_', ' ')}
-            </p>
-            <button
-              onClick={openBillingPortal}
-              disabled={portalLoading}
-              className="mt-3 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
-            >
-              {portalLoading ? 'Opening portal...' : 'Manage Subscription'}
-            </button>
-          </div>
-        )}
+        <div className="mb-8 grid gap-4 md:grid-cols-3">
+          {PREMIUM_RESULTS.map((item) => (
+            <article key={item.title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+              <h2 className="text-lg font-semibold text-white">{item.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-300">{item.text}</p>
+            </article>
+          ))}
+        </div>
 
         <div className="grid gap-5 md:grid-cols-2">
           <PlanCard
             title="Monthly"
             price={`$${formatPrice(monthlyPriceUsd)}`}
             subtitle="per month"
+            description="Same full Premium feature access. Ideal if you want flexible month-to-month billing."
+            highlights={['Includes all Premium features', 'Billed monthly', 'Switch or cancel anytime']}
             cta="Choose Monthly"
             loading={checkoutLoading === 'monthly'}
             onSelect={() => startCheckout('monthly')}
@@ -185,6 +181,8 @@ export default function PremiumClient({
             title="Annual"
             price={`$${formatPrice(annualPriceUsd)}`}
             subtitle="per year"
+            description="Same full Premium feature access with discounted yearly billing for committed traders."
+            highlights={['Includes all Premium features', `Save $${formatPrice(annualSavings)}/year`, `Effective $${formatPrice(annualMonthlyEquivalent)}/mo`]}
             badge={`Save $${formatPrice(annualSavings)}/year`}
             cta="Choose Annual"
             loading={checkoutLoading === 'annual'}
@@ -194,29 +192,31 @@ export default function PremiumClient({
         </div>
 
         <div className="mt-8 grid gap-5 lg:grid-cols-[1fr_0.9fr]">
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <h2 className="text-lg font-semibold text-slate-900">Everything you unlock</h2>
-            <ul className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6">
+            <h2 className="text-lg font-semibold text-white">Everything you unlock</h2>
+            <ul className="mt-3 grid gap-2 text-sm text-slate-200 sm:grid-cols-2">
               {PREMIUM_FEATURES.map((feature) => (
-                <li key={feature} className="rounded-md bg-slate-50 px-3 py-2">
+                <li key={feature} className="rounded-md border border-white/10 bg-slate-900/40 px-3 py-2">
                   {feature}
                 </li>
               ))}
             </ul>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <h2 className="text-lg font-semibold text-slate-900">Why traders upgrade</h2>
-            <ul className="mt-3 space-y-2 text-sm text-slate-700">
-              <li className="rounded-md bg-emerald-50 px-3 py-2">Fewer rule breaks because setup-to-session accountability stays visible.</li>
-              <li className="rounded-md bg-sky-50 px-3 py-2">Faster weekly review with imports and richer context from screenshots.</li>
-              <li className="rounded-md bg-amber-50 px-3 py-2">Clearer strategy decisions by comparing execution against backtested expectations.</li>
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6">
+            <h2 className="text-lg font-semibold text-white">Why traders upgrade</h2>
+            <ul className="mt-3 space-y-2 text-sm text-slate-200">
+              <li className="rounded-md border border-cyan-300/20 bg-cyan-300/10 px-3 py-2">Open trades stay visible first, so management decisions happen faster under pressure.</li>
+              <li className="rounded-md border border-indigo-300/20 bg-indigo-300/10 px-3 py-2">Replay wins and losses on chart with entry/stop/exit levels to improve next execution.</li>
+              <li className="rounded-md border border-emerald-300/20 bg-emerald-300/10 px-3 py-2">AI prefill speeds journaling while you still confirm every field before save.</li>
+              <li className="rounded-md border border-sky-300/20 bg-sky-300/10 px-3 py-2">Imports and screenshots reduce weekly review overhead.</li>
+              <li className="rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2">Mirroring keeps execution accountable to backtested expectations.</li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Frequently asked</h2>
+        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+          <h2 className="text-lg font-semibold text-white">Frequently asked</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <FaqCard
               question="Can I switch plans later?"
@@ -226,13 +226,17 @@ export default function PremiumClient({
               question="Will my data stay if I cancel?"
               answer="Yes. Your existing data remains. Premium-only actions become locked until you reactivate."
             />
+            <FaqCard
+              question="Does AI auto-execute trades or auto-save?"
+              answer="No. AI only prefills draft fields from screenshots. You review and confirm before any trade is saved."
+            />
           </div>
         </div>
 
         <div className="mt-8 rounded-2xl bg-slate-900 p-6 text-white">
           <h2 className="text-xl font-semibold">Ready to trade with tighter discipline?</h2>
           <p className="mt-2 text-sm text-slate-300">
-            Pick your plan and activate premium in minutes.
+            Activate Premium in minutes and keep your ongoing-trade workflow fast, visible, and accountable.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <button
@@ -260,6 +264,8 @@ function PlanCard({
   title,
   price,
   subtitle,
+  description,
+  highlights,
   badge,
   cta,
   loading,
@@ -269,6 +275,8 @@ function PlanCard({
   title: string;
   price: string;
   subtitle: string;
+  description: string;
+  highlights: string[];
   badge?: string;
   cta: string;
   loading: boolean;
@@ -276,13 +284,26 @@ function PlanCard({
   highlighted?: boolean;
 }) {
   return (
-    <div className={`rounded-xl border bg-white p-6 shadow-sm ${highlighted ? 'border-cyan-300 ring-2 ring-cyan-200' : 'border-slate-200'}`}>
+    <div
+      className={`rounded-xl border p-6 ${
+        highlighted
+          ? 'border-cyan-300 bg-cyan-300/10 ring-2 ring-cyan-200/40'
+          : 'border-white/10 bg-white/[0.04]'
+      }`}
+    >
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+        <h2 className="text-xl font-semibold text-white">{title}</h2>
         {badge && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">{badge}</span>}
       </div>
-      <p className="text-3xl font-bold text-slate-900">{price}</p>
-      <p className="text-sm text-slate-500">{subtitle}</p>
+      <p className="text-3xl font-bold text-white">{price}</p>
+      <p className="text-sm text-slate-300">{subtitle}</p>
+      <p className="mt-1 text-xs text-cyan-100">Same Premium feature set on both plans.</p>
+      <p className="mt-2 text-sm text-slate-300">{description}</p>
+      <ul className="mt-4 space-y-1 text-xs text-slate-200">
+        {highlights.map((highlight) => (
+          <li key={highlight}>{`- ${highlight}`}</li>
+        ))}
+      </ul>
       <button
         onClick={onSelect}
         disabled={loading}
@@ -296,9 +317,9 @@ function PlanCard({
 
 function FaqCard({ question, answer }: { question: string; answer: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-semibold text-slate-900">{question}</p>
-      <p className="mt-1 text-sm text-slate-600">{answer}</p>
+    <div className="rounded-lg border border-white/10 bg-slate-900/40 p-4">
+      <p className="text-sm font-semibold text-white">{question}</p>
+      <p className="mt-1 text-sm text-slate-300">{answer}</p>
     </div>
   );
 }

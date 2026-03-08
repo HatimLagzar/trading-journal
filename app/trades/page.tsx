@@ -468,16 +468,18 @@ export default function TradesPage() {
     setIsChartModalOpen(true)
   }
 
-  function renderTradeRow(trade: Trade) {
+  function renderTradeRow(trade: Trade, selectable: boolean) {
     return (
       <tr key={trade.id} className="border-t hover:bg-gray-50">
-        <td className="px-4 py-3">
-          <input
-            type="checkbox"
-            checked={selectedTradeIds.includes(trade.id)}
-            onChange={() => toggleTradeSelection(trade.id)}
-          />
-        </td>
+        {selectable && (
+          <td className="px-4 py-3">
+            <input
+              type="checkbox"
+              checked={selectedTradeIds.includes(trade.id)}
+              onChange={() => toggleTradeSelection(trade.id)}
+            />
+          </td>
+        )}
         <td className="px-4 py-3">{trade.trade_number}</td>
         <td className="px-4 py-3">{formatTradeDateTime(trade)}</td>
         <td className="px-4 py-3 text-gray-600">{getSystemInitials(trade.system_id)}</td>
@@ -655,19 +657,10 @@ export default function TradesPage() {
       <div className="mb-6 border border-amber-200 rounded-lg overflow-hidden bg-amber-50/40">
         <div className="px-4 py-3 border-b border-amber-200 bg-amber-100/40 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-amber-900">Ongoing trades ({ongoingTrades.length})</h2>
-          {ongoingTrades.length > 0 && (
-            <button
-              onClick={() => toggleSelectAllTrades(ongoingTrades.map((trade) => trade.id))}
-              className="text-xs text-amber-700 hover:text-amber-900 hover:underline cursor-pointer"
-            >
-              {areAllTradesSelected(ongoingTrades.map((trade) => trade.id)) ? 'Unselect all' : 'Select all'}
-            </button>
-          )}
         </div>
         <table className="w-full text-sm">
           <thead className="bg-amber-50">
             <tr>
-              <th className="px-4 py-3 text-left" />
               <th className="px-4 py-3 text-left">#</th>
               <th className="px-4 py-3 text-left">Date</th>
               <th className="px-4 py-3 text-left">System</th>
@@ -681,10 +674,10 @@ export default function TradesPage() {
             </tr>
           </thead>
           <tbody>
-            {ongoingTrades.map((trade) => renderTradeRow(trade))}
+            {ongoingTrades.map((trade) => renderTradeRow(trade, false))}
             {ongoingTrades.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                   No ongoing trades in this filter.
                 </td>
               </tr>
@@ -723,7 +716,7 @@ export default function TradesPage() {
             </tr>
           </thead>
           <tbody>
-            {completedTrades.map((trade) => renderTradeRow(trade))}
+            {completedTrades.map((trade) => renderTradeRow(trade, true))}
             {completedTrades.length === 0 && (
               <tr>
                 <td colSpan={11} className="px-4 py-8 text-center text-gray-500">

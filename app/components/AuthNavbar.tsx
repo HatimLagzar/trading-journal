@@ -11,6 +11,7 @@ type NavSection = 'trades' | 'systems' | 'backtesting' | 'premium'
 interface AuthNavbarProps {
   current: NavSection
   onError?: (message: string) => void
+  variant?: 'light' | 'dark'
 }
 
 const NAV_ITEMS: Array<{ key: NavSection; label: string; href: string }> = [
@@ -20,7 +21,7 @@ const NAV_ITEMS: Array<{ key: NavSection; label: string; href: string }> = [
   { key: 'premium', label: 'Premium', href: '/premium' },
 ]
 
-export default function AuthNavbar({ current, onError }: AuthNavbarProps) {
+export default function AuthNavbar({ current, onError, variant = 'light' }: AuthNavbarProps) {
   const router = useRouter()
   const { user, signOut } = useAuth()
   const { isPremium, loading: premiumLoading } = usePremiumAccess()
@@ -59,14 +60,30 @@ export default function AuthNavbar({ current, onError }: AuthNavbarProps) {
     }
   }
 
+  const isDark = variant === 'dark'
+
   return (
-    <header className="mb-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+    <header
+      className={`mb-6 rounded-2xl px-4 py-3 ${
+        isDark ? 'border border-white/10 bg-white/5 backdrop-blur' : 'border border-slate-200 bg-white shadow-sm'
+      }`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-cyan-700">Trading Journal</p>
+          <p
+            className={`text-xs font-semibold uppercase tracking-wider ${
+              isDark ? 'text-cyan-200' : 'text-cyan-700'
+            }`}
+          >
+            Trading Journal
+          </p>
           <div className="mt-1 flex items-center gap-2">
             {!premiumLoading && isPremium && (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${
+                  isDark ? 'bg-emerald-300/20 text-emerald-100' : 'bg-emerald-100 text-emerald-700'
+                }`}
+              >
                 Premium
               </span>
             )}
@@ -83,7 +100,9 @@ export default function AuthNavbar({ current, onError }: AuthNavbarProps) {
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                   isActive
                     ? 'bg-blue-600 text-white'
-                    : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                    : isDark
+                      ? 'border border-white/20 bg-white/5 text-slate-100 hover:bg-white/10'
+                      : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 {item.label}
@@ -96,7 +115,11 @@ export default function AuthNavbar({ current, onError }: AuthNavbarProps) {
               <button
                 onClick={handleOpenBillingPortal}
                 disabled={openingPortal}
-                className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60 ${
+                  isDark
+                    ? 'border border-white/20 bg-white/5 text-slate-100 hover:bg-white/10'
+                    : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
               >
                 {openingPortal ? 'Opening...' : 'Manage Subscription'}
               </button>
@@ -104,7 +127,11 @@ export default function AuthNavbar({ current, onError }: AuthNavbarProps) {
               <button
                 onClick={handleSignOut}
                 disabled={signingOut}
-                className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60 ${
+                  isDark
+                    ? 'border border-white/20 bg-white/5 text-slate-100 hover:bg-white/10'
+                    : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
               >
                 {signingOut ? 'Signing out...' : 'Sign Out'}
               </button>
@@ -113,7 +140,11 @@ export default function AuthNavbar({ current, onError }: AuthNavbarProps) {
             <>
               <Link
                 href="/login"
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                  isDark
+                    ? 'border border-white/20 bg-white/5 text-slate-100 hover:bg-white/10'
+                    : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
               >
                 Log In
               </Link>

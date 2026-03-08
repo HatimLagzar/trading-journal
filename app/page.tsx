@@ -13,41 +13,45 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Trading Journal for Rule-Based Growth',
+  title: 'Trading Journal for Active Trade Control',
   description:
-    'Build discipline, track every trade, and keep your live execution aligned with your backtesting plan.',
+    'Control active risk with a dedicated ongoing-trades desk, log faster with AI screenshot prefill, and review your edge in R.',
 }
 
 const featureCards = [
   {
+    title: 'Dedicated Ongoing Trades Desk',
+    text: 'Open positions stay in a separate top table so active risk is always visible and one click away.',
+  },
+  {
+    title: 'AI Screenshot Trade Prefill',
+    text: 'Upload a TradingView screenshot and get suggested trade fields instantly. You review, edit, and save.',
+  },
+  {
+    title: 'One-Click Chart Context',
+    text: 'Open your trade chart with entry, stop, and exit levels to study exactly why a setup won or failed.',
+  },
+  {
     title: 'Live + Backtesting In One Flow',
     text: 'Mirror live trades into a backtesting session so every execution stays accountable to your plan.',
-  },
-  {
-    title: 'R-Based Performance Clarity',
-    text: 'Review outcomes in R, not emotions. Spot your edge by system, period, and setup quality.',
-  },
-  {
-    title: 'Fast Daily Review Ritual',
-    text: 'Capture entries, exits, screenshots, and notes in minutes. Build consistency without extra friction.',
   },
 ]
 
 const processSteps = [
   {
     label: 'Step 1',
-    title: 'Log Trades Instantly',
-    text: 'Add your live trade with entry, stop, risk, and context while the setup is still fresh.',
+    title: 'Capture Fast, Stay Accurate',
+    text: 'Log manually or use AI screenshot prefill to draft coin, direction, entry, and stop in seconds.',
   },
   {
     label: 'Step 2',
-    title: 'Enforce Your Backtest',
-    text: 'Optionally attach a backtesting session and keep execution aligned with your tested rules.',
+    title: 'Manage Ongoing Trades Fast',
+    text: 'Keep open positions front and center in their own table so closing, editing, and chart checks happen faster.',
   },
   {
     label: 'Step 3',
-    title: 'Review What Actually Works',
-    text: 'Use period R stats and system filters to double down on profitable behavior.',
+    title: 'Review in R, Improve Weekly',
+    text: 'Use period R stats and system filters to reinforce what works and cut what does not.',
   },
 ]
 
@@ -82,14 +86,14 @@ export default function Home() {
         <section className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
           <div className="animate-fade-up">
             <p className="mb-3 inline-flex rounded-full border border-cyan-200/30 bg-cyan-200/10 px-3 py-1 text-xs font-medium text-cyan-100">
-              Journal every trade. Enforce every rule.
+              New workflow: Ongoing trades desk + AI screenshot prefill
             </p>
             <h1 className={`${sora.className} max-w-2xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl`}>
-              The trading journal built to improve behavior, not just collect data.
+              Control open risk first. Improve results faster.
             </h1>
             <p className="mt-5 max-w-xl text-base text-slate-300 sm:text-lg">
-              Track live execution, connect it to backtesting, and review your edge in R. Turn your journal into
-              a system for disciplined growth.
+              Keep active trades front and center, prefill journals from screenshots, and review your edge in R.
+              Built for traders who want cleaner execution and clearer decisions.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -108,9 +112,9 @@ export default function Home() {
             </div>
 
             <div className="mt-8 grid grid-cols-2 gap-3 sm:max-w-lg sm:grid-cols-3">
-              <Stat value="R-focused" label="performance review" delay={100} />
-              <Stat value="System-based" label="filtering" delay={180} />
-              <Stat value="Screenshot + notes" label="context capture" delay={260} />
+              <Stat value="Ongoing desk" label="active risk control" delay={100} />
+              <Stat value="R-focused" label="performance review" delay={180} />
+              <Stat value="Entry/stop/exit chart" label="loss & win replay" delay={260} />
             </div>
           </div>
 
@@ -120,9 +124,10 @@ export default function Home() {
           >
             <p className="text-sm font-semibold text-cyan-100">What improves first?</p>
             <ul className="mt-4 space-y-3 text-sm text-slate-200">
-              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">You stop drifting from tested setups.</li>
-              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">You spot weak systems before they drain capital.</li>
-              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">You build a consistent review habit with clear feedback loops.</li>
+              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Your open positions are impossible to ignore, so trade management gets faster.</li>
+              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">You can replay trades on chart with entry, stop, and exit to diagnose mistakes and strengths.</li>
+              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Your journaling speed increases with AI-assisted prefill and imports.</li>
+              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Your strategy feedback loop gets clearer through R-based review and system filters.</li>
             </ul>
             <p className="mt-5 text-xs text-slate-400">
               Perfect for discretionary traders, rule-based traders, and anyone scaling accountability.
@@ -130,7 +135,7 @@ export default function Home() {
           </aside>
         </section>
 
-        <section className="mt-18 grid gap-4 md:grid-cols-3">
+        <section className="mt-18 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {featureCards.map((card, index) => (
             <article
               key={card.title}
@@ -169,7 +174,7 @@ export default function Home() {
         >
           <p className="text-sm font-medium text-amber-100">Ready to trade with more discipline?</p>
           <h2 className={`${sora.className} mt-2 max-w-2xl text-2xl font-semibold text-white sm:text-3xl`}>
-            Start building your execution journal now, then connect billing when you are ready.
+            Start free with the ongoing-trades desk, then unlock AI prefill, charts, and imports when ready.
           </h2>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link

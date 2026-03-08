@@ -215,7 +215,7 @@ try {
 1. Keep ongoing trades (`avg_exit` is `null`) in a dedicated top table on `/app/trades/page.tsx`
 2. Keep closed trades (`avg_exit` is not `null`) in a separate table below for history scanning
 3. Preserve per-row actions (`Close`, `Chart`, `Edit`, `Delete`) across both tables
-4. Keep row selection compatible with stats cards by sharing selected trade IDs across both sections
+4. Keep row selection for closed trades compatible with stats cards and filtered rows
 
 ### Importing trades from sheets/files
 1. Use `/app/trades/ImportTradesForm.tsx` for CSV/TSV/XLS/XLSX upload + mapping UI
