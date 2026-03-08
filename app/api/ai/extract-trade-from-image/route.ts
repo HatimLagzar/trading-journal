@@ -96,14 +96,7 @@ export async function POST(request: Request) {
 
     const candidateModels = configuredModels.length > 0
       ? configuredModels
-      : [
-          'google/gemma-3-12b-it:free',
-          'google/gemma-3-4b-it:free',
-          'google/gemma-3-27b-it:free',
-          'google/gemma-3n-e4b-it:free',
-          'google/gemma-3n-e2b-it:free',
-          'nvidia/nemotron-nano-12b-v2-vl:free',
-        ];
+      : ['qwen/qwen3-vl-8b-instruct'];
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 

@@ -136,6 +136,14 @@ export default function TradesPage() {
     })
   }, [selectedSubSystemId, selectedSystemId, trades])
 
+  const ongoingTrades = useMemo(() => {
+    return filteredTrades.filter((trade) => trade.avg_exit === null)
+  }, [filteredTrades])
+
+  const completedTrades = useMemo(() => {
+    return filteredTrades.filter((trade) => trade.avg_exit !== null)
+  }, [filteredTrades])
+
   useEffect(() => {
     if (!selectedSubSystemId) return
 
@@ -431,13 +439,22 @@ export default function TradesPage() {
     })
   }
 
-  function toggleSelectAllManualTrades() {
-    if (selectedTradeIds.length === filteredTrades.length) {
-      setSelectedTradeIds([])
-      return
-    }
+  function areAllTradesSelected(tradeIds: string[]): boolean {
+    return tradeIds.length > 0 && tradeIds.every((tradeId) => selectedTradeIds.includes(tradeId))
+  }
 
-    setSelectedTradeIds(filteredTrades.map((trade) => trade.id))
+  function toggleSelectAllTrades(tradeIds: string[]) {
+    setSelectedTradeIds((prev) => {
+      const allSelected = tradeIds.length > 0 && tradeIds.every((tradeId) => prev.includes(tradeId))
+
+      if (allSelected) {
+        return prev.filter((tradeId) => !tradeIds.includes(tradeId))
+      }
+
+      const nextSelectedIds = new Set(prev)
+      tradeIds.forEach((tradeId) => nextSelectedIds.add(tradeId))
+      return Array.from(nextSelectedIds)
+    })
   }
 
   function handleViewChart(trade: Trade) {
@@ -449,6 +466,99 @@ export default function TradesPage() {
     setChartTrade(trade)
     setChartSystemLabel(getSystemName(trade.system_id))
     setIsChartModalOpen(true)
+  }
+
+  function renderTradeRow(trade: Trade) {
+    return (
+      <tr key={trade.id} className="border-t hover:bg-gray-50">
+        <td className="px-4 py-3">
+          <input
+            type="checkbox"
+            checked={selectedTradeIds.includes(trade.id)}
+            onChange={() => toggleTradeSelection(trade.id)}
+          />
+        </td>
+        <td className="px-4 py-3">{trade.trade_number}</td>
+        <td className="px-4 py-3">{formatTradeDateTime(trade)}</td>
+        <td className="px-4 py-3 text-gray-600">{getSystemInitials(trade.system_id)}</td>
+        <td className="px-4 py-3 font-medium">{trade.coin}</td>
+        <td className="px-4 py-3">
+          <span className={trade.direction === 'long' ? 'text-green-600' : 'text-red-600'}>
+            {trade.direction.toUpperCase()}
+          </span>
+        </td>
+        <td className="px-4 py-3 text-right">{trade.avg_entry}</td>
+        <td className="px-4 py-3 text-right">{trade.avg_exit ?? '-'}</td>
+        <td className="px-4 py-3 text-right">{trade.r_multiple?.toFixed(2) ?? '-'}</td>
+        <td
+          className={`px-4 py-3 text-right ${
+            (trade.realised_win ?? 0) > 0
+              ? 'text-green-600'
+              : (trade.realised_loss ?? 0) > 0
+                ? 'text-red-600'
+                : ''
+          }`}
+        >
+          {trade.realised_win ? `+$${trade.realised_win}` : trade.realised_loss ? `-$${trade.realised_loss}` : '-'}
+        </td>
+        <td className="px-4 py-3 text-right">
+          <div className="flex gap-2 justify-end">
+            {trade.avg_exit === null && (
+              <button
+                onClick={() => {
+                  setOpenDeleteMenuTradeId(null)
+                  handleOpenCloseModal(trade)
+                }}
+                className="px-2 py-1 text-xs text-amber-600 hover:text-amber-800 hover:underline"
+              >
+                Close
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setOpenDeleteMenuTradeId(null)
+                handleViewChart(trade)
+              }}
+              className="px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
+            >
+              {!premiumLoading && !isPremium ? 'Chart (Premium)' : 'Chart'}
+            </button>
+            <button
+              onClick={() => {
+                setOpenDeleteMenuTradeId(null)
+                handleEditTrade(trade)
+              }}
+              className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              Edit
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setOpenDeleteMenuTradeId((prev) => (prev === trade.id ? null : trade.id))
+                }}
+                className="px-2 py-1 text-xs text-gray-800 hover:text-black cursor-pointer"
+                aria-expanded={openDeleteMenuTradeId === trade.id}
+                aria-haspopup="menu"
+              >
+                ⋯
+              </button>
+              {openDeleteMenuTradeId === trade.id && (
+                <div className="absolute right-0 mt-1 w-28 bg-white border rounded-md shadow-lg z-10">
+                  <button
+                    onClick={() => handleDeleteTrade(trade)}
+                    className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                    role="menuitem"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </td>
+      </tr>
+    )
   }
 
   return (
@@ -541,19 +651,23 @@ export default function TradesPage() {
         <WorstPerformersCard stats={performanceStats} />
       </div>
 
-      {/* Trades Table */}
-      <div className="border rounded-lg overflow-hidden">
+      {/* Ongoing Trades Table */}
+      <div className="mb-6 border border-amber-200 rounded-lg overflow-hidden bg-amber-50/40">
+        <div className="px-4 py-3 border-b border-amber-200 bg-amber-100/40 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-amber-900">Ongoing trades ({ongoingTrades.length})</h2>
+          {ongoingTrades.length > 0 && (
+            <button
+              onClick={() => toggleSelectAllTrades(ongoingTrades.map((trade) => trade.id))}
+              className="text-xs text-amber-700 hover:text-amber-900 hover:underline cursor-pointer"
+            >
+              {areAllTradesSelected(ongoingTrades.map((trade) => trade.id)) ? 'Unselect all' : 'Select all'}
+            </button>
+          )}
+        </div>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-amber-50">
             <tr>
-              <th className="px-4 py-3 text-left">
-                <input
-                  type="checkbox"
-                  checked={filteredTrades.length > 0 && selectedTradeIds.length === filteredTrades.length}
-                  onChange={toggleSelectAllManualTrades}
-                  disabled={filteredTrades.length === 0}
-                />
-              </th>
+              <th className="px-4 py-3 text-left" />
               <th className="px-4 py-3 text-left">#</th>
               <th className="px-4 py-3 text-left">Date</th>
               <th className="px-4 py-3 text-left">System</th>
@@ -567,96 +681,53 @@ export default function TradesPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredTrades.map((trade) => (
-              <tr key={trade.id} className="border-t hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedTradeIds.includes(trade.id)}
-                    onChange={() => toggleTradeSelection(trade.id)}
-                  />
-                </td>
-                <td className="px-4 py-3">{trade.trade_number}</td>
-                <td className="px-4 py-3">{formatTradeDateTime(trade)}</td>
-                <td className="px-4 py-3 text-gray-600">{getSystemInitials(trade.system_id)}</td>
-                <td className="px-4 py-3 font-medium">{trade.coin}</td>
-                <td className="px-4 py-3">
-                  <span className={trade.direction === 'long' ? 'text-green-600' : 'text-red-600'}>
-                    {trade.direction.toUpperCase()}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right">{trade.avg_entry}</td>
-                <td className="px-4 py-3 text-right">{trade.avg_exit ?? '-'}</td>
-                <td className="px-4 py-3 text-right">{trade.r_multiple?.toFixed(2) ?? '-'}</td>
-                <td className={`px-4 py-3 text-right ${
-                  (trade.realised_win ?? 0) > 0 ? 'text-green-600' :
-                  (trade.realised_loss ?? 0) > 0 ? 'text-red-600' : ''
-                }`}>
-                  {trade.realised_win ? `+$${trade.realised_win}` :
-                   trade.realised_loss ? `-$${trade.realised_loss}` : '-'}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex gap-2 justify-end">
-                    {trade.avg_exit === null && (
-                      <button
-                        onClick={() => {
-                          setOpenDeleteMenuTradeId(null)
-                          handleOpenCloseModal(trade)
-                        }}
-                        className="px-2 py-1 text-xs text-amber-600 hover:text-amber-800 hover:underline"
-                      >
-                        Close
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setOpenDeleteMenuTradeId(null)
-                        handleViewChart(trade)
-                      }}
-                      className="px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
-                    >
-                      {!premiumLoading && !isPremium ? 'Chart (Premium)' : 'Chart'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setOpenDeleteMenuTradeId(null)
-                        handleEditTrade(trade)
-                      }}
-                      className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      Edit
-                    </button>
-                    <div className="relative">
-                      <button
-                        onClick={() => {
-                          setOpenDeleteMenuTradeId((prev) => (prev === trade.id ? null : trade.id))
-                        }}
-                        className="px-2 py-1 text-xs text-gray-800 hover:text-black cursor-pointer"
-                        aria-expanded={openDeleteMenuTradeId === trade.id}
-                        aria-haspopup="menu"
-                      >
-                        ⋯
-                      </button>
-                      {openDeleteMenuTradeId === trade.id && (
-                        <div className="absolute right-0 mt-1 w-28 bg-white border rounded-md shadow-lg z-10">
-                          <button
-                            onClick={() => handleDeleteTrade(trade)}
-                            className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
-                            role="menuitem"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {filteredTrades.length === 0 && (
+            {ongoingTrades.map((trade) => renderTradeRow(trade))}
+            {ongoingTrades.length === 0 && (
               <tr>
                 <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
-                  No trades match this filter.
+                  No ongoing trades in this filter.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Completed Trades Table */}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-gray-700">Closed trades ({completedTrades.length})</h2>
+          {completedTrades.length > 0 && (
+            <button
+              onClick={() => toggleSelectAllTrades(completedTrades.map((trade) => trade.id))}
+              className="text-xs text-gray-600 hover:text-gray-900 hover:underline cursor-pointer"
+            >
+              {areAllTradesSelected(completedTrades.map((trade) => trade.id)) ? 'Unselect all' : 'Select all'}
+            </button>
+          )}
+        </div>
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left" />
+              <th className="px-4 py-3 text-left">#</th>
+              <th className="px-4 py-3 text-left">Date</th>
+              <th className="px-4 py-3 text-left">System</th>
+              <th className="px-4 py-3 text-left">Coin</th>
+              <th className="px-4 py-3 text-left">Direction</th>
+              <th className="px-4 py-3 text-right">Entry</th>
+              <th className="px-4 py-3 text-right">Exit</th>
+              <th className="px-4 py-3 text-right">R-Multiple</th>
+              <th className="px-4 py-3 text-right">P&L</th>
+              <th className="px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {completedTrades.map((trade) => renderTradeRow(trade))}
+            {completedTrades.length === 0 && (
+              <tr>
+                <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                  No closed trades in this filter.
                 </td>
               </tr>
             )}

@@ -211,6 +211,12 @@ try {
 5. Keep best/worst performer cards (system + asset) calculated from the same filtered/selected rows
 6. Keep `EV / Trade` displayed in R (not dollars)
 
+### Organizing live trades table
+1. Keep ongoing trades (`avg_exit` is `null`) in a dedicated top table on `/app/trades/page.tsx`
+2. Keep closed trades (`avg_exit` is not `null`) in a separate table below for history scanning
+3. Preserve per-row actions (`Close`, `Chart`, `Edit`, `Delete`) across both tables
+4. Keep row selection compatible with stats cards by sharing selected trade IDs across both sections
+
 ### Importing trades from sheets/files
 1. Use `/app/trades/ImportTradesForm.tsx` for CSV/TSV/XLS/XLSX upload + mapping UI
 2. Let users configure `rowsToSkip` and per-field column mappings with sample preview
@@ -250,6 +256,9 @@ try {
 2. Keep extraction as prefill-only assistance; user must review/edit and explicitly save the trade
 3. Return `null` for missing/uncertain fields and surface warnings instead of guessing values
 4. Gate this feature for premium users and redirect free users with `feature=ai-screenshot-import`
+5. Configure OpenRouter with `OPENROUTER_API_KEY`
+6. Preferred model list env is `OPENROUTER_VISION_MODELS` (comma-separated); legacy fallbacks `OPENROUTER_QWEN_MODELS` and `OPENROUTER_QWEN_MODEL` are still supported
+7. Default fallback model is `qwen/qwen3-vl-8b-instruct` when no model env vars are set
 
 ### Creating a new page
 1. Create directory in `/app` (e.g., `/app/analytics`)
