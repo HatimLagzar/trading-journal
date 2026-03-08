@@ -20,6 +20,8 @@ import type { Trade, TradeInsert, TradeScreenshot } from '@/services/trade'
 import type { System, SubSystem } from '@/services/system'
 import type { BacktestingSession } from '@/services/backtesting'
 
+const LAST_RISK_STORAGE_KEY = 'trade_form_last_risk'
+
 type AiExtractedFields = {
   coin: string | null
   direction: 'long' | 'short' | null
@@ -47,6 +49,7 @@ interface TradeFormProps {
 
 export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFormProps) {
   const isEditing = !!trade
+  const storedRisk = getStoredRisk()
 
   // Form state - initialize with trade data if editing, or empty if creating
   const [formData, setFormData] = useState<TradeInsert>({
@@ -59,7 +62,7 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
     avg_entry: trade?.avg_entry || 0,
     stop_loss: trade?.stop_loss || null,
     avg_exit: trade?.avg_exit || null,
-    risk: trade?.risk || null,
+    risk: trade?.risk ?? (!isEditing ? storedRisk : null),
     expected_loss: trade?.expected_loss || null,
     realised_loss: trade?.realised_loss || null,
     realised_win: trade?.realised_win || null,
@@ -138,6 +141,16 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.risk, formData.realised_win, formData.realised_loss])
+
+  useEffect(() => {
+    if (formData.risk === null || formData.risk <= 0) return
+
+    try {
+      window.localStorage.setItem(LAST_RISK_STORAGE_KEY, String(formData.risk))
+    } catch {
+      // Ignore storage failures
+    }
+  }, [formData.risk])
 
   // Load existing screenshots when editing
   useEffect(() => {
@@ -270,27 +283,16 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
   function applyAiExtraction(fields: AiExtractedFields) {
     setFormData((prev) => {
       const next = { ...prev }
-      const today = new Date().toISOString().split('T')[0]
 
-      if (isEmptyText(prev.coin) && fields.coin) next.coin = fields.coin
-      if ((prev.avg_entry <= 0) && fields.avg_entry !== null) next.avg_entry = fields.avg_entry
-      if (prev.stop_loss === null && fields.stop_loss !== null) next.stop_loss = fields.stop_loss
-      if (prev.avg_exit === null && fields.avg_exit !== null) next.avg_exit = fields.avg_exit
-      if (prev.risk === null && fields.risk !== null) next.risk = fields.risk
-      if (prev.r_multiple === null && fields.r_multiple !== null) next.r_multiple = fields.r_multiple
-
-      if ((!prev.trade_time || prev.trade_time.trim() === '') && fields.trade_time) next.trade_time = fields.trade_time
-
-      const isDefaultDate = !prev.trade_date || prev.trade_date === today
-      if (isDefaultDate && fields.trade_date) next.trade_date = fields.trade_date
-
-      if (fields.direction) {
-        const canApplyDirection =
-          (prev.avg_entry <= 0 && prev.stop_loss === null) ||
-          (fields.avg_entry !== null && fields.stop_loss !== null)
-
-        if (canApplyDirection) next.direction = fields.direction
-      }
+      if (fields.coin && !isEmptyText(fields.coin)) next.coin = fields.coin
+      if (fields.avg_entry !== null) next.avg_entry = fields.avg_entry
+      if (fields.stop_loss !== null) next.stop_loss = fields.stop_loss
+      if (fields.avg_exit !== null) next.avg_exit = fields.avg_exit
+      if (fields.risk !== null) next.risk = fields.risk
+      if (fields.r_multiple !== null) next.r_multiple = fields.r_multiple
+      if (fields.trade_time) next.trade_time = fields.trade_time
+      if (fields.trade_date) next.trade_date = fields.trade_date
+      if (fields.direction) next.direction = fields.direction
 
       return next
     })
@@ -698,7 +700,8 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
             value={formData.avg_entry}
             onChange={(e) => updateField('avg_entry', parseFloat(e.target.value) || 0)}
             required
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={aiExtracting}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
         </div>
 
@@ -709,7 +712,8 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
             step="0.000001"
             value={formData.stop_loss || ''}
             onChange={(e) => updateField('stop_loss', e.target.value ? parseFloat(e.target.value) : null)}
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={aiExtracting}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
         </div>
       </div>
@@ -918,4 +922,19 @@ function extractFirstImageFromClipboard(event: ClipboardEvent): File | null {
   }
 
   return null
+}
+
+function getStoredRisk(): number | null {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const rawValue = window.localStorage.getItem(LAST_RISK_STORAGE_KEY)
+    if (!rawValue) return null
+
+    const parsed = Number(rawValue)
+    if (!Number.isFinite(parsed) || parsed <= 0) return null
+    return parsed
+  } catch {
+    return null
+  }
 }

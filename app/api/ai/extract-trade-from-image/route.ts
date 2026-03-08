@@ -19,10 +19,13 @@ type ExtractedFields = {
 };
 
 type GeminiExtractionPayload = {
+  screenshot_type?: unknown;
   coin?: unknown;
   direction?: unknown;
+  entry?: unknown;
   avg_entry?: unknown;
   stop_loss?: unknown;
+  target_price?: unknown;
   avg_exit?: unknown;
   risk?: unknown;
   risk_percentage?: unknown;
@@ -222,68 +225,117 @@ async function requestModelWithRetry(
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
 function buildPrompt(): string {
   return [
-    'You are an expert TradingView trade screenshot parser.',
-    'Your input is ONE screenshot, and it will be exactly one of these types:',
-    'Type A: Position tool settings/input panel screenshot',
-    'Type B: Chart screenshot with a TradingView long/short position box',
-    'Return ONLY valid JSON with this exact shape:',
+    'The image contains a TradingView chart region focused on the active position tool near the latest candles on the right side, plus the right-side price axis.',
+    'It may still include other chart drawings, indicators, labels, and lines. Ignore them unless they belong to the active position tool.',
+    '',
+    'Extract ONLY:',
+    '- direction',
+    '- coin',
+    '- entry',
+    '- stop_loss',
+    '- trade_date',
+    '- trade_time',
+    '',
+    'Return ONLY valid JSON:',
     '{',
-    '  "screenshot_type": "panel" | "chart" | null,',
-    '  "coin": string|null,',
-    '  "direction": "long"|"short"|null,',
-    '  "avg_entry": number|null,',
-    '  "stop_loss": number|null,',
-    '  "avg_exit": number|null,',
-    '  "risk": number|null,',
-    '  "risk_percentage": number|null,',
-    '  "account_size": number|null,',
-    '  "r_multiple": number|null,',
-    '  "trade_date": string|null,',
-    '  "trade_time": string|null,',
-    '  "notes": null',
+    '  "direction": "long" | "short" | null,',
+    '  "coin": string | null,',
+    '  "entry": number | null,',
+    '  "stop_loss": number | null,',
+    '  "trade_date": string | null,',
+    '  "trade_time": string | null',
     '}',
-    'Rules:',
-    '- Return JSON only.',
-    '- Do not hallucinate.',
-    '- If a field is missing or not reliably inferable, return null.',
-    '- Return numbers as JSON numbers only (no %, $, commas, or strings).',
-    '- notes must always be null.',
-    '- coin must be base asset ticker only, e.g. BTC, ETH, SOL, TAO.',
-    '- trade_date must be YYYY-MM-DD when explicitly visible.',
-    '- trade_time must be HH:mm:ss in UTC when explicitly visible.',
-    '- If exact trade date/time is not visible, return null for those fields.',
-    '- Only return avg_exit if the screenshot indicates the trade has actually reached/closed at target AFTER entry time; otherwise set avg_exit to null.',
-    'Branching logic:',
-    '1) Detect screenshot type',
-    '- If the screenshot shows a TradingView settings/input panel with fields like Account size, Risk, Entry price, Profit level, Stop level, set screenshot_type = "panel".',
-    '- If the screenshot shows the chart with the long/short position box, set screenshot_type = "chart".',
-    '2) For panel screenshots',
-    '- Read explicit numeric values directly from visible fields.',
-    '- avg_entry = Entry price.',
-    '- avg_exit = Profit level price if visible.',
-    '- stop_loss = Stop level price if visible.',
-    '- account_size = Account size if visible.',
-    '- risk_percentage = Risk if shown as %.',
-    '- If account_size and risk_percentage are both visible, compute risk = account_size * (risk_percentage / 100).',
-    '- Determine direction: if profit level price > entry price and stop level price < entry price => long; if profit level price < entry price and stop level price > entry price => short.',
-    '- r_multiple: if profit level and stop level and entry are visible, compute for long: (avg_exit - avg_entry) / (avg_entry - stop_loss), for short: (avg_entry - avg_exit) / (stop_loss - avg_entry).',
-    '- If denominator is zero or negative, return r_multiple as null.',
-    '3) For chart screenshots',
-    '- Extract coin from chart header if visible.',
-    '- Infer direction from position box: target above and stop below => long; target below and stop above => short.',
-    '- Read price values primarily from the right price axis labels when they are visible.',
-    '- In chart screenshots, the right-axis labels are color-coded: entry in gray, stop loss in red, take profit in green.',
-    '- avg_entry = gray right-axis label (or boundary where target and stop zones meet if label is absent).',
-    '- stop_loss = red right-axis label (or outer boundary of red stop zone if label is absent).',
-    '- avg_exit = green right-axis label only when there is clear visual evidence target was hit after entry (for example hit markers, closed position labels, or candle movement through target after entry). Otherwise return null.',
-    '- Only fill account_size, risk_percentage, risk, and r_multiple if explicitly visible in screenshot.',
-    '- Do not compute account metrics from chart geometry alone.',
-    '4) Prioritize explicit labels over visual estimation.',
-    '5) If a value is partially cut off or ambiguous, return null.',
-  ].join('\n');
+    '',
+    'Primary object to parse:',
+    '- Parse ONLY the single active TradingView position tool nearest the latest candles on the far right side of the chart.',
+    '- Do not parse any older drawings, unrelated zones, indicator levels, or horizontal lines elsewhere on the chart.',
+    '',
+    'Definitions of the TradingView position tool:',
+    '- The active position tool has exactly two colored zones that touch each other.',
+    '- The horizontal border where the two colored zones touch is the entry line.',
+    '- The red zone is always the loss zone.',
+    '- The green zone is always the take-profit zone.',
+    '- stop_loss always comes from the RED zone, never from the green zone.',
+    '',
+    'Direction teaching:',
+    '- If the red zone is ABOVE the green zone, direction = short.',
+    '- If the green zone is ABOVE the red zone, direction = long.',
+    '- Determine direction from zone order only, before reading any prices.',
+    '',
+    'Critical current-price teaching:',
+    '- On TradingView, the black right-axis label attached to the dotted horizontal line is the CURRENT MARKET PRICE.',
+    '- The black current-price label is NEVER the entry.',
+    '- The dotted horizontal line is NEVER the entry.',
+    '- If both a black label and a gray label are near the tool, ignore the black label for entry extraction.',
+    '',
+    'Critical entry teaching:',
+    '- entry must come from the split line between the red and green zones of the active position tool.',
+    '- If a gray right-axis label is horizontally aligned with that split line, that gray label MUST be used as entry.',
+    '- If no explicit gray split-line label exists, estimate entry by projecting the split line horizontally to the right axis ticks.',
+    '',
+    'Critical stop-loss teaching:',
+    '- stop_loss must come only from the OUTER EDGE OF THE RED ZONE of the same active position tool.',
+    '- For a SHORT setup, red is above green, so stop_loss = TOP edge of the red zone and must be ABOVE entry.',
+    '- For a LONG setup, green is above red, so stop_loss = BOTTOM edge of the red zone and must be BELOW entry.',
+    '- The green zone boundary must never be used as stop_loss.',
+    '- Any label above or below the active red-zone boundary that does not exactly align with that boundary must be ignored.',
+    '',
+    'Projection and label-reading procedure:',
+    '1. Locate the active position tool nearest the latest candles on the right side.',
+    '2. Determine direction from red/green vertical order only.',
+    '3. Identify the exact horizontal split line between red and green. That is entry.',
+    '4. Identify the exact outer boundary of the red zone. That is stop_loss.',
+    '5. Project those exact two horizontal boundaries to the right price axis.',
+    '6. Use only labels that are horizontally aligned with those exact projected boundaries.',
+    '7. If a label is merely nearby but not aligned with the exact boundary, ignore it.',
+    '',
+    'Extraction rules:',
+    '1. direction is derived only from the zone order of the active position tool.',
+    '2. entry is derived only from the split line of the active position tool.',
+    '3. stop_loss is derived only from the red-zone outer boundary of the active position tool.',
+    '4. Extract coin from the chart header if clearly visible; return base ticker only, e.g. BTC, ETH, SOL, ZEC.',
+    '5. Extract trade_date only when explicitly visible and format as YYYY-MM-DD; otherwise null.',
+    '6. Extract trade_time only when explicitly visible and format as HH:mm:ss in UTC; otherwise null.',
+    '',
+    'Ignore completely:',
+    '- dotted line',
+    '- black current-price label',
+    '- live price projection',
+    '- text inside the position tool',
+    '- drag handles',
+    '- candles except for locating the active tool near the latest candles',
+    '- unrelated chart labels',
+    '- fib labels',
+    '- moving averages',
+    '- support/resistance lines',
+    '- annotations',
+    '- labels from older drawings or zones elsewhere on the chart',
+    '',
+    'Hard constraints:',
+    '- entry must be the split line between the red and green zones',
+    '- entry must NEVER be the black current-price label',
+    '- if a gray split-line label exists, entry must equal that gray label',
+    '- stop_loss must come only from the red-zone outer boundary',
+    '- stop_loss must NEVER come from the green zone',
+    '- for a short setup, stop_loss must be above entry',
+    '- for a long setup, stop_loss must be below entry',
+    '- if exact horizontal alignment is unclear, return null',
+    '- if coin/date/time are not explicitly visible, return null for those fields',
+    '',
+    'Sanity checks before answering:',
+    '- If direction = short, red must be above green, entry must be the split line, and stop_loss must be above entry on the red-zone top boundary.',
+    '- If direction = long, green must be above red, entry must be the split line, and stop_loss must be below entry on the red-zone bottom boundary.',
+    '- If a candidate stop_loss comes from the green zone or from an unrelated chart line, reject it and return null instead of guessing.',
+    '',
+    'Worked example:',
+    '- If black current-price label = 199.17 and gray split-line label = 196.34, then entry = 196.34.',
+    '- If red zone is above green zone, direction = short.',
+    '- If the top edge of the red zone aligns with 203.75, then stop_loss = 203.75.',
+    '- If the green-zone outer boundary aligns with 181.52, that is NOT stop_loss and must be ignored.',
+    '- In that case, 199.17 must be ignored for entry and 181.52 must be ignored for stop_loss.',
+  ].join("\n");
 }
 
 function extractOpenRouterText(payload: unknown): string | null {
@@ -341,12 +393,12 @@ function sanitizeFields(payload: GeminiExtractionPayload | null): {
   }
 
   const coin = normalizeCoin(payload.coin);
-  const avgEntry = toPositiveNumber(payload.avg_entry);
+  const avgEntry = toPositiveNumber(payload.entry ?? payload.avg_entry);
   const stopLoss = toPositiveNumber(payload.stop_loss);
-  const avgExit = toPositiveNumber(payload.avg_exit);
+  const avgExit = toPositiveNumber(payload.target_price ?? payload.avg_exit);
 
-  let direction = normalizeDirection(payload.direction);
-  if (!direction && avgEntry !== null && stopLoss !== null) {
+  let direction: 'long' | 'short' | null = null;
+  if (avgEntry !== null && stopLoss !== null && avgEntry !== stopLoss) {
     direction = avgEntry > stopLoss ? 'long' : 'short';
   }
 
@@ -371,7 +423,7 @@ function sanitizeFields(payload: GeminiExtractionPayload | null): {
       stop_loss: stopLoss,
       avg_exit: avgExit,
       risk,
-      r_multiple: toNumber(payload.r_multiple),
+      r_multiple: null,
       trade_date: normalizeDate(payload.trade_date),
       trade_time: normalizeTime(payload.trade_time),
       notes: null,
@@ -400,13 +452,6 @@ function normalizeCoin(value: unknown): string | null {
   const cleaned = value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!cleaned) return null;
   return cleaned.endsWith('USDT') ? cleaned.slice(0, -4) : cleaned;
-}
-
-function normalizeDirection(value: unknown): 'long' | 'short' | null {
-  if (typeof value !== 'string') return null;
-  const cleaned = value.trim().toLowerCase();
-  if (cleaned === 'long' || cleaned === 'short') return cleaned;
-  return null;
 }
 
 function normalizeDate(value: unknown): string | null {

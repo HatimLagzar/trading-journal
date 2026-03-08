@@ -256,9 +256,11 @@ try {
 2. Keep extraction as prefill-only assistance; user must review/edit and explicitly save the trade
 3. Return `null` for missing/uncertain fields and surface warnings instead of guessing values
 4. Gate this feature for premium users and redirect free users with `feature=ai-screenshot-import`
-5. Configure OpenRouter with `OPENROUTER_API_KEY`
-6. Preferred model list env is `OPENROUTER_VISION_MODELS` (comma-separated); legacy fallbacks `OPENROUTER_QWEN_MODELS` and `OPENROUTER_QWEN_MODEL` are still supported
-7. Default fallback model is `qwen/qwen3-vl-8b-instruct` when no model env vars are set
+5. For chart screenshots, prioritize extracting `entry` and `stop_loss` from the TradingView position tool boundaries (split line + red-zone outer edge) and ignore current-price labels/dotted lines
+6. Direction and `r_multiple` should be concluded/calculated by app logic from extracted prices, not trusted from model output
+7. Configure OpenRouter with `OPENROUTER_API_KEY`
+8. Preferred model list env is `OPENROUTER_VISION_MODELS` (comma-separated); legacy fallbacks `OPENROUTER_QWEN_MODELS` and `OPENROUTER_QWEN_MODEL` are still supported
+9. Default fallback model is `qwen/qwen3-vl-8b-instruct` when no model env vars are set
 
 ### Creating a new page
 1. Create directory in `/app` (e.g., `/app/analytics`)
