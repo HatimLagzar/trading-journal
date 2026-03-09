@@ -222,7 +222,6 @@ export default function TradesPage() {
 
     const startOfYear = new Date(now.getFullYear(), 0, 1)
     const yearStart = toLocalDateString(startOfYear)
-    const yearEnd = `${now.getFullYear()}-12-31`
     const today = toLocalDateString(now)
 
     const sumRInRange = (start: string, end: string): number => {
@@ -239,7 +238,7 @@ export default function TradesPage() {
       week: sumRInRange(weekStart, today),
       month: sumRInRange(monthStart, today),
       last90Days: sumRInRange(last90DaysStart, today),
-      year: sumRInRange(yearStart, yearEnd),
+      year: sumRInRange(yearStart, today),
     }
   }, [statsTrades])
 
