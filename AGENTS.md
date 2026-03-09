@@ -241,6 +241,7 @@ try {
 12. Backtesting performance cards include best/worst `Asset`, plus day/time rankings with #1 and #2 entries (day names and `HH:00` time buckets)
 13. Add-trade modal supports a `Keep modal open after adding` checkbox; on add success it keeps modal open and clears only entry/SL/TP (and recalculated outcome field)
 14. Disable add/update submit while AI screenshot extraction is running
+15. Show a subtle session status line for `Time spent backtesting` based on elapsed time between first and last trade `created_at`
 
 ### Exporting backtesting sessions
 1. Export is available from `/app/backtesting/page.tsx` as `Export CSV`

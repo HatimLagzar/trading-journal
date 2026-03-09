@@ -211,6 +211,22 @@ export default function BacktestingPage() {
   const sessionStats = useMemo(() => calculateBacktestingSessionStats(statsTrades), [statsTrades])
   const performanceStats = useMemo(() => calculateBacktestingPerformanceStats(statsTrades), [statsTrades])
 
+  const sessionDurationLabel = useMemo(() => {
+    if (trades.length === 0) return 'Time spent backtesting: -'
+
+    const timestamps = trades
+      .map((trade) => Date.parse(trade.created_at))
+      .filter((timestamp) => Number.isFinite(timestamp))
+
+    if (timestamps.length === 0) return 'Time spent backtesting: -'
+
+    const firstCreatedAt = Math.min(...timestamps)
+    const lastCreatedAt = Math.max(...timestamps)
+    const diffMs = Math.max(0, lastCreatedAt - firstCreatedAt)
+
+    return `Time spent backtesting: ${formatDuration(diffMs)}`
+  }, [trades])
+
   useEffect(() => {
     async function loadData() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -733,6 +749,7 @@ export default function BacktestingPage() {
                     {selectedSession.notes && (
                       <p className="text-sm text-gray-500 mt-1">{selectedSession.notes}</p>
                     )}
+                    <p className="mt-1 text-xs text-gray-500">{sessionDurationLabel}</p>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -1587,6 +1604,26 @@ function toCsvCell(value: string, delimiter: string): string {
   const needsQuotes = new RegExp(`${escapedDelimiter}|"|\n`).test(value)
   if (!needsQuotes) return value
   return `"${value.replace(/"/g, '""')}"`
+}
+
+function formatDuration(milliseconds: number): string {
+  if (milliseconds <= 0) return 'less than 1 minute'
+
+  const totalMinutes = Math.floor(milliseconds / 60000)
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m`
+  }
+
+  const days = Math.floor(totalMinutes / 1440)
+  const hours = Math.floor((totalMinutes % 1440) / 60)
+  const minutes = totalMinutes % 60
+  const parts: string[] = []
+
+  if (days > 0) parts.push(`${days}d`)
+  if (hours > 0) parts.push(`${hours}h`)
+  if (minutes > 0) parts.push(`${minutes}m`)
+
+  return parts.join(' ')
 }
 
 function calculateOutcomeR(
