@@ -288,7 +288,7 @@ export default function TradeFocusPage() {
                   Trade Focus · #{trade.trade_number}
                 </h1>
                 <p className="mt-1 text-sm text-slate-500">
-                  {trade.coin.toUpperCase()} · {trade.direction.toUpperCase()} · {trade.trade_date} {trade.trade_time || '00:00'} UTC
+                  {trade.coin.toUpperCase()} · {trade.direction.toUpperCase()} · {formatTradeDateTimeDisplay(trade.trade_date, trade.trade_time)}
                 </p>
               </div>
 
@@ -407,12 +407,40 @@ export default function TradeFocusPage() {
 function formatTimestamp(value: string): string {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+
+  const day = String(parsed.getDate()).padStart(2, '0')
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const year = String(parsed.getFullYear()).slice(-2)
+  const hours = String(parsed.getHours()).padStart(2, '0')
+  const minutes = String(parsed.getMinutes()).padStart(2, '0')
+
+  return `${day}/${month}/${year} ${hours}:${minutes}`
+}
+
+function formatTradeDateTimeDisplay(tradeDate: string, tradeTime: string | null): string {
+  const normalizedTime = normalizeDisplayTime(tradeTime)
+  const parsed = new Date(`${tradeDate}T${normalizedTime}`)
+
+  if (Number.isNaN(parsed.getTime())) {
+    return `${tradeDate} ${normalizedTime.slice(0, 5)}`
+  }
+
+  const day = String(parsed.getDate()).padStart(2, '0')
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const year = String(parsed.getFullYear()).slice(-2)
+  const hours = String(parsed.getHours()).padStart(2, '0')
+  const minutes = String(parsed.getMinutes()).padStart(2, '0')
+
+  return `${day}/${month}/${year} ${hours}:${minutes}`
+}
+
+function normalizeDisplayTime(tradeTime: string | null): string {
+  if (!tradeTime) return '00:00:00'
+  const trimmed = tradeTime.trim()
+  if (!trimmed) return '00:00:00'
+  if (/^\d{2}:\d{2}$/.test(trimmed)) return `${trimmed}:00`
+  if (/^\d{2}:\d{2}:\d{2}$/.test(trimmed)) return trimmed
+  return '00:00:00'
 }
 
 function formatNumber(value: number): string {

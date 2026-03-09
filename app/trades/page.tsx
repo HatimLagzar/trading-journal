@@ -410,17 +410,22 @@ export default function TradesPage() {
     }
   }
 
-  // Format date and time as "Monday 10:00"
+  // Format date and time as "DD/MM/YY HH:mm"
   function formatTradeDateTime(trade: Trade): string {
-    const date = new Date(trade.trade_date)
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })
-    
-    if (trade.trade_time) {
-      const time = trade.trade_time.substring(0, 5)
-      return `${dayName} ${time}`
+    const normalizedTime = normalizeDisplayTime(trade.trade_time)
+    const parsed = new Date(`${trade.trade_date}T${normalizedTime}`)
+
+    if (Number.isNaN(parsed.getTime())) {
+      return `${trade.trade_date} ${normalizedTime.slice(0, 5)}`
     }
-    
-    return dayName
+
+    const day = String(parsed.getDate()).padStart(2, '0')
+    const month = String(parsed.getMonth() + 1).padStart(2, '0')
+    const year = String(parsed.getFullYear()).slice(-2)
+    const hours = String(parsed.getHours()).padStart(2, '0')
+    const minutes = String(parsed.getMinutes()).padStart(2, '0')
+
+    return `${day}/${month}/${year} ${hours}:${minutes}`
   }
 
   function getSystemName(systemId: string | null): string {
@@ -509,6 +514,7 @@ export default function TradesPage() {
           </span>
         </td>
         <td className="px-4 py-3 text-right">{trade.avg_entry}</td>
+        <td className="px-4 py-3 text-right">{trade.stop_loss ?? '-'}</td>
         <td className="px-4 py-3 text-right">{trade.avg_exit ?? '-'}</td>
         <td className="px-4 py-3 text-right">{trade.r_multiple?.toFixed(2) ?? '-'}</td>
         <td
@@ -692,6 +698,7 @@ export default function TradesPage() {
               <th className="px-4 py-3 text-left">Coin</th>
               <th className="px-4 py-3 text-left">Direction</th>
               <th className="px-4 py-3 text-right">Entry</th>
+              <th className="px-4 py-3 text-right">Stop Loss</th>
               <th className="px-4 py-3 text-right">Exit</th>
               <th className="px-4 py-3 text-right">R-Multiple</th>
               <th className="px-4 py-3 text-right">P&L</th>
@@ -702,7 +709,7 @@ export default function TradesPage() {
             {ongoingTrades.map((trade) => renderTradeRow(trade, false))}
             {ongoingTrades.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
                   No ongoing trades in this filter.
                 </td>
               </tr>
@@ -734,6 +741,7 @@ export default function TradesPage() {
               <th className="px-4 py-3 text-left">Coin</th>
               <th className="px-4 py-3 text-left">Direction</th>
               <th className="px-4 py-3 text-right">Entry</th>
+              <th className="px-4 py-3 text-right">Stop Loss</th>
               <th className="px-4 py-3 text-right">Exit</th>
               <th className="px-4 py-3 text-right">R-Multiple</th>
               <th className="px-4 py-3 text-right">P&L</th>
@@ -744,7 +752,7 @@ export default function TradesPage() {
             {completedTrades.map((trade) => renderTradeRow(trade, true))}
             {completedTrades.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={12} className="px-4 py-8 text-center text-gray-500">
                   No closed trades in this filter.
                 </td>
               </tr>
@@ -864,6 +872,23 @@ function getHourLabelFromTradeTime(tradeTime: string | null): string | null {
   if (!Number.isInteger(hour) || hour < 0 || hour > 23) return null
 
   return `${String(hour).padStart(2, '0')}:00`
+}
+
+function normalizeDisplayTime(tradeTime: string | null): string {
+  if (!tradeTime) return '00:00:00'
+
+  const trimmed = tradeTime.trim()
+  if (!trimmed) return '00:00:00'
+
+  if (/^\d{2}:\d{2}$/.test(trimmed)) {
+    return `${trimmed}:00`
+  }
+
+  if (/^\d{2}:\d{2}:\d{2}$/.test(trimmed)) {
+    return trimmed
+  }
+
+  return '00:00:00'
 }
 
 function StatCard({

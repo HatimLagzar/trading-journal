@@ -217,8 +217,10 @@ try {
 ### Organizing live trades table
 1. Keep ongoing trades (`avg_exit` is `null`) in a dedicated top table on `/app/trades/page.tsx`
 2. Keep closed trades (`avg_exit` is not `null`) in a separate table below for history scanning
-3. Preserve per-row actions (`Close`, `Chart`, `Edit`, `Delete`) across both tables
-4. Keep row selection for closed trades compatible with stats cards and filtered rows
+3. Include `Stop Loss` as a dedicated column in both ongoing and closed tables
+4. Display trade date/time in `DD/MM/YY HH:mm` format in table rows
+5. Preserve per-row actions (`Close`, `Focus`, `Chart`, `Edit`, `Delete`) across both tables
+6. Keep row selection for closed trades compatible with stats cards and filtered rows
 
 ### Importing trades from sheets/files
 1. Use `/app/trades/ImportTradesForm.tsx` for CSV/TSV/XLS/XLSX upload + mapping UI
