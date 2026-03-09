@@ -17,7 +17,7 @@ interface CloseTradeFormProps {
 
 export default function CloseTradeForm({ trade, userId, onClose, onSuccess }: CloseTradeFormProps) {
   const [avgExit, setAvgExit] = useState<number>(trade.avg_exit ?? 0)
-  const [realisedLoss, setRealisedLoss] = useState<number>(trade.realised_loss ?? 0)
+  const [realisedPnl, setRealisedPnl] = useState<number>(getInitialPnl(trade))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,10 +27,12 @@ export default function CloseTradeForm({ trade, userId, onClose, onSuccess }: Cl
     setError(null)
 
     try {
-      const nextRMultiple = calculateRMultiple(trade.risk, trade.realised_win, realisedLoss)
+      const nextRMultiple = calculateRMultiple(trade.risk, realisedPnl)
+      const { realisedWin, realisedLoss } = toWinLoss(realisedPnl)
 
       await updateTrade(trade.id, {
         avg_exit: avgExit,
+        realised_win: realisedWin,
         realised_loss: realisedLoss,
         r_multiple: nextRMultiple,
       })
@@ -111,17 +113,19 @@ export default function CloseTradeForm({ trade, userId, onClose, onSuccess }: Cl
 
       <div>
         <label className="block text-sm font-medium mb-1">
-          Realised Loss <span className="text-red-500">*</span>
+          Realised P&L <span className="text-red-500">*</span>
         </label>
         <input
           type="number"
           step="0.01"
-          min="0"
-          value={realisedLoss || ''}
-          onChange={(e) => setRealisedLoss(parseFloat(e.target.value) || 0)}
+          value={realisedPnl || ''}
+          onChange={(e) => setRealisedPnl(parseFloat(e.target.value) || 0)}
           required
           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+        <p className="mt-1 text-xs text-gray-500">
+          Enter positive for win, negative for loss.
+        </p>
       </div>
 
       <div className="flex gap-3 pt-4">
@@ -147,18 +151,44 @@ export default function CloseTradeForm({ trade, userId, onClose, onSuccess }: Cl
 
 function calculateRMultiple(
   risk: number | null,
-  realisedWin: number | null,
-  realisedLoss: number | null,
+  realisedPnl: number,
 ): number | null {
   if (risk === null || risk <= 0) return null
 
-  if (realisedWin !== null && realisedWin > 0) {
-    return realisedWin / risk
+  if (realisedPnl === 0) return 0
+
+  return realisedPnl / risk
+}
+
+function toWinLoss(realisedPnl: number): { realisedWin: number | null; realisedLoss: number | null } {
+  if (realisedPnl > 0) {
+    return {
+      realisedWin: realisedPnl,
+      realisedLoss: null,
+    }
   }
 
-  if (realisedLoss !== null && realisedLoss > 0) {
-    return -realisedLoss / risk
+  if (realisedPnl < 0) {
+    return {
+      realisedWin: null,
+      realisedLoss: Math.abs(realisedPnl),
+    }
   }
 
-  return null
+  return {
+    realisedWin: null,
+    realisedLoss: null,
+  }
+}
+
+function getInitialPnl(trade: Trade): number {
+  if (trade.realised_win !== null && trade.realised_win > 0) {
+    return trade.realised_win
+  }
+
+  if (trade.realised_loss !== null && trade.realised_loss > 0) {
+    return -trade.realised_loss
+  }
+
+  return 0
 }

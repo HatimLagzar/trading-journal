@@ -140,7 +140,7 @@ try {
   /backtesting    # Backtesting sessions + theoretical trades page
     ImportBacktestingTradesForm.tsx # Backtesting sheet import modal with mapping preview
   /trades         # Trades page and components
-    CloseTradeForm.tsx # Quick close-trade modal form
+    CloseTradeForm.tsx # Quick close-trade modal form (win/loss P&L input)
     ImportTradesForm.tsx # Sheet/CSV import modal with mapping preview
   /systems        # Systems + sub-systems management page
   /login          # Login page
@@ -191,10 +191,11 @@ try {
 2. Reassign all source system trades to target system before deletion
 3. Delete source system only after successful trade reassignment
 
-### Adding close-trade flow (quick loss close)
+### Adding close-trade flow
 1. Use `/app/trades/CloseTradeForm.tsx` for modal UI
-2. Update `avg_exit`, `realised_loss`, and `r_multiple` via `updateTrade`
-3. Wire modal open/close state from `/app/trades/page.tsx`
+2. Capture signed realized P&L (`+` win / `-` loss), then map to `realised_win` or `realised_loss` accordingly
+3. Update `avg_exit` and `r_multiple` via `updateTrade` using the signed P&L to calculate R
+4. Wire modal open/close state from `/app/trades/page.tsx`
 
 ### Mirroring live trades into backtesting sessions
 1. Use `/app/trades/TradeForm.tsx` to allow optional backtesting session selection when creating or editing live trades
