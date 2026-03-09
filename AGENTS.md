@@ -142,6 +142,7 @@ try {
   /trades         # Trades page and components
     CloseTradeForm.tsx # Quick close-trade modal form (win/loss P&L input)
     ImportTradesForm.tsx # Sheet/CSV import modal with mapping preview
+    /[tradeId]/page.tsx # Per-trade focus workspace (thinking discussion + chart snippet)
   /systems        # Systems + sub-systems management page
   /login          # Login page
   /signup         # Signup page
@@ -157,8 +158,9 @@ try {
     types.ts      # Backtesting types
   /trade          # Trade CRUD operations
     index.ts      # Re-exports
+    thinking-quotes.ts # Trade focus discussion CRUD helpers
     trades.ts     # Trade CRUD functions
-    types.ts      # Trade + screenshot types
+    types.ts      # Trade + screenshot + thinking quote types
   /system         # System CRUD operations
     index.ts      # Re-exports
     systems.ts    # System + sub-system CRUD functions
@@ -259,6 +261,15 @@ try {
 3. Treat `trade_date` and `trade_time` as UTC when anchoring chart context and entry markers
 4. Persist last selected chart timeframe in localStorage key `trade_chart_timeframe` and fallback to `1h`
 5. Support loading more context candles and keep entry-time vertical marker + entry/stop/exit lines visible
+
+### Trade focus thinking workflow
+1. Open per-trade focus from `/app/trades/page.tsx` row action `Focus` (route `/app/trades/[tradeId]/page.tsx`)
+2. Keep the discussion timeline sorted by `created_at` ascending (oldest to newest)
+3. Store discussion entries in `trade_thinking_quotes` (migration `supabase/migrations/005_create_trade_thinking_quotes.sql`)
+4. A discussion entry supports text and/or image (`quote_text`, `image_storage_path`, `image_filename`)
+5. Allow posting only while the trade is ongoing (`avg_exit` is `null`); closed trades are read-only
+6. Support image attachments via file picker and clipboard paste (`Cmd+V` / `Ctrl+V`), with premium gating for image upload
+7. Keep discussion sidebar sticky on desktop and place composer at the bottom of the sidebar for continuous journaling
 
 ### Premium billing and feature gating
 1. Subscription state is stored in `user_subscriptions` (see `supabase/migrations/004_create_user_subscriptions.sql`)

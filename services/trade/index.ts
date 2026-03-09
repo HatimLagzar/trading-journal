@@ -1,2 +1,11 @@
 export * from './trades'
-export type { Trade, TradeInsert, TradeUpdate, TradeScreenshot, TradeScreenshotInsert } from './types'
+export * from './thinking-quotes'
+export type {
+  Trade,
+  TradeInsert,
+  TradeUpdate,
+  TradeScreenshot,
+  TradeScreenshotInsert,
+  TradeThinkingQuote,
+  TradeThinkingQuoteInsert,
+} from './types'

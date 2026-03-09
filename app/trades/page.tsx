@@ -482,6 +482,11 @@ export default function TradesPage() {
     setIsChartModalOpen(true)
   }
 
+  function handleOpenFocus(trade: Trade) {
+    setOpenDeleteMenuTradeId(null)
+    router.push(`/trades/${trade.id}`)
+  }
+
   function renderTradeRow(trade: Trade, selectable: boolean) {
     return (
       <tr key={trade.id} className="border-t hover:bg-gray-50">
@@ -530,6 +535,12 @@ export default function TradesPage() {
                 Close
               </button>
             )}
+            <button
+              onClick={() => handleOpenFocus(trade)}
+              className="px-2 py-1 text-xs text-sky-700 hover:text-sky-900 hover:underline"
+            >
+              Focus
+            </button>
             <button
               onClick={() => {
                 setOpenDeleteMenuTradeId(null)

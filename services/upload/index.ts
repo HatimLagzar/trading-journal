@@ -111,3 +111,33 @@ export async function updateScreenshotCaption(
 
   if (error) throw error
 }
+
+export async function uploadTradeThinkingQuoteImage(
+  userId: string,
+  tradeId: string,
+  file: File,
+): Promise<{ storagePath: string; originalFilename: string }> {
+  const timestamp = Date.now()
+  const fileExt = file.name.split('.').pop()
+  const filename = `${timestamp}.${fileExt}`
+  const storagePath = `${userId}/${tradeId}/thinking-quotes/${filename}`
+
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(storagePath, file)
+
+  if (error) throw error
+
+  return {
+    storagePath,
+    originalFilename: file.name,
+  }
+}
+
+export async function deleteStoredTradeAsset(storagePath: string): Promise<void> {
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .remove([storagePath])
+
+  if (error) throw error
+}

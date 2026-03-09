@@ -40,3 +40,15 @@ export type TradeScreenshot = {
 };
 
 export type TradeScreenshotInsert = Omit<TradeScreenshot, "id" | "created_at">;
+
+export type TradeThinkingQuote = {
+  id: string;
+  created_at: string;
+  trade_id: string;
+  user_id: string;
+  quote_text: string | null;
+  image_storage_path: string | null;
+  image_filename: string | null;
+};
+
+export type TradeThinkingQuoteInsert = Omit<TradeThinkingQuote, 'id' | 'created_at'>;
