@@ -43,6 +43,10 @@ type PerformanceStats = {
   worstSystem: PerformanceEntry | null
   bestAsset: PerformanceEntry | null
   worstAsset: PerformanceEntry | null
+  bestDay: PerformanceEntry | null
+  worstDay: PerformanceEntry | null
+  bestHour: PerformanceEntry | null
+  worstHour: PerformanceEntry | null
 }
 
 export default function TradesPage() {
@@ -203,42 +207,6 @@ export default function TradesPage() {
   const periodRStats = useMemo<PeriodRStats>(() => {
     const now = new Date()
 
-    function toLocalDateString(date: Date): string {
-      const year = date.getFullYear()
-      const month = `${date.getMonth() + 1}`.padStart(2, '0')
-      const day = `${date.getDate()}`.padStart(2, '0')
-      return `${year}-${month}-${day}`
-    }
-
-    function normalizeTradeDate(tradeDate: string): string | null {
-      if (!tradeDate) return null
-
-      const trimmed = tradeDate.trim()
-      if (!trimmed) return null
-
-      const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/)
-      if (isoMatch) {
-        return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
-      }
-
-      const slashYmdMatch = trimmed.match(/^(\d{4})\/(\d{2})\/(\d{2})/)
-      if (slashYmdMatch) {
-        return `${slashYmdMatch[1]}-${slashYmdMatch[2]}-${slashYmdMatch[3]}`
-      }
-
-      const dmyMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
-      if (dmyMatch) {
-        const day = dmyMatch[1].padStart(2, '0')
-        const month = dmyMatch[2].padStart(2, '0')
-        const year = dmyMatch[3]
-        return `${year}-${month}-${day}`
-      }
-
-      const fallback = new Date(trimmed)
-      if (Number.isNaN(fallback.getTime())) return null
-      return toLocalDateString(fallback)
-    }
-
     const startOfWeek = new Date(now)
     const dayOfWeek = startOfWeek.getDay()
     const daysFromMonday = (dayOfWeek + 6) % 7
@@ -278,6 +246,8 @@ export default function TradesPage() {
   const performanceStats = useMemo<PerformanceStats>(() => {
     const systemTotals = new Map<string, number>()
     const assetTotals = new Map<string, number>()
+    const weekdayTotals = new Map<string, number>()
+    const hourTotals = new Map<string, number>()
 
     statsTrades.forEach((trade) => {
       const tradePnL = (trade.realised_win ?? 0) - (trade.realised_loss ?? 0)
@@ -287,6 +257,16 @@ export default function TradesPage() {
 
       const assetKey = trade.coin?.trim() || 'Unknown'
       assetTotals.set(assetKey, (assetTotals.get(assetKey) ?? 0) + tradePnL)
+
+      const weekdayKey = getWeekdayLabelFromTradeDate(trade.trade_date)
+      if (weekdayKey) {
+        weekdayTotals.set(weekdayKey, (weekdayTotals.get(weekdayKey) ?? 0) + tradePnL)
+      }
+
+      const hourKey = getHourLabelFromTradeTime(trade.trade_time)
+      if (hourKey) {
+        hourTotals.set(hourKey, (hourTotals.get(hourKey) ?? 0) + tradePnL)
+      }
     })
 
     function resolveSystemLabel(systemId: string): string {
@@ -322,6 +302,10 @@ export default function TradesPage() {
       worstSystem: pickWorst(systemTotals, resolveSystemLabel),
       bestAsset: pickBest(assetTotals),
       worstAsset: pickWorst(assetTotals),
+      bestDay: pickBest(weekdayTotals),
+      worstDay: pickWorst(weekdayTotals),
+      bestHour: pickBest(hourTotals),
+      worstHour: pickWorst(hourTotals),
     }
   }, [statsTrades, systems])
 
@@ -780,6 +764,67 @@ export default function TradesPage() {
   )
 }
 
+function toLocalDateString(date: Date): string {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function normalizeTradeDate(tradeDate: string): string | null {
+  if (!tradeDate) return null
+
+  const trimmed = tradeDate.trim()
+  if (!trimmed) return null
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
+  }
+
+  const slashYmdMatch = trimmed.match(/^(\d{4})\/(\d{2})\/(\d{2})/)
+  if (slashYmdMatch) {
+    return `${slashYmdMatch[1]}-${slashYmdMatch[2]}-${slashYmdMatch[3]}`
+  }
+
+  const dmyMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0')
+    const month = dmyMatch[2].padStart(2, '0')
+    const year = dmyMatch[3]
+    return `${year}-${month}-${day}`
+  }
+
+  const fallback = new Date(trimmed)
+  if (Number.isNaN(fallback.getTime())) return null
+  return toLocalDateString(fallback)
+}
+
+function getWeekdayLabelFromTradeDate(tradeDate: string): string | null {
+  const normalizedDate = normalizeTradeDate(tradeDate)
+  if (!normalizedDate) return null
+
+  const date = new Date(`${normalizedDate}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return null
+
+  return date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
+}
+
+function getHourLabelFromTradeTime(tradeTime: string | null): string | null {
+  if (!tradeTime) return null
+
+  const trimmed = tradeTime.trim()
+  if (!trimmed) return null
+
+  const match = trimmed.match(/^(\d{1,2})/)
+  if (!match) return null
+
+  const hour = Number(match[1])
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) return null
+
+  return `${String(hour).padStart(2, '0')}:00`
+}
+
 function StatCard({
   label,
   value,
@@ -827,6 +872,8 @@ function BestPerformersCard({ stats }: { stats: PerformanceStats }) {
   const rows = [
     { label: 'System', data: stats.bestSystem },
     { label: 'Asset', data: stats.bestAsset },
+    { label: 'Day', data: stats.bestDay },
+    { label: 'Time', data: stats.bestHour },
   ]
 
   return (
@@ -854,6 +901,8 @@ function WorstPerformersCard({ stats }: { stats: PerformanceStats }) {
   const rows = [
     { label: 'System', data: stats.worstSystem },
     { label: 'Asset', data: stats.worstAsset },
+    { label: 'Day', data: stats.worstDay },
+    { label: 'Time', data: stats.worstHour },
   ]
 
   return (

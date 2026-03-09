@@ -77,8 +77,6 @@ export async function getBacktestingTrades(userId: string, sessionId: string) {
     .select('*')
     .eq('user_id', userId)
     .eq('session_id', sessionId)
-    .order('trade_date', { ascending: false })
-    .order('trade_time', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false });
 
   if (error) throw error;

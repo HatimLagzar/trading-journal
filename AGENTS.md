@@ -208,7 +208,7 @@ try {
 2. If checkboxes are selected, calculate stats from selected rows only
 3. If no checkboxes are selected, calculate stats from currently filtered rows
 4. Keep period R card totals in sync for: today, this week, this month, last 90 days, this year
-5. Keep best/worst performer cards (system + asset) calculated from the same filtered/selected rows
+5. Keep best/worst performer cards (system, asset, weekday, hour bucket `HH:00`) calculated from the same filtered/selected rows
 6. Keep `EV / Trade` displayed in R (not dollars)
 
 ### Organizing live trades table
@@ -234,6 +234,20 @@ try {
 5. Keep `trade_date` mapping optional during backtesting import (default missing dates to today)
 6. Backtesting trade form should prefill `asset` from localStorage key `trade_form_last_asset` and persist the latest saved asset for faster repeated journaling
 7. In backtesting trade modal, the `Loss` helper can copy `stop_loss` into `target_price` for quick failed-setup journaling
+8. Backtesting trades list should be ordered by `created_at` descending (latest added first)
+9. Backtesting table supports row selection; when rows are selected, session/performance stats should calculate from selected rows only (otherwise all rows)
+10. Session stat cards include `Trades / Week`, calculated as `totalTrades / distinctMonthWeekBuckets` where each bucket is week-in-month within the same `YYYY-MM`
+11. Session stat cards also include `Avg Win (R)` and `Avg Loss (R)`
+12. Backtesting performance cards include best/worst `Asset`, plus day/time rankings with #1 and #2 entries (day names and `HH:00` time buckets)
+13. Add-trade modal supports a `Keep modal open after adding` checkbox; on add success it keeps modal open and clears only entry/SL/TP (and recalculated outcome field)
+14. Disable add/update submit while AI screenshot extraction is running
+
+### Exporting backtesting sessions
+1. Export is available from `/app/backtesting/page.tsx` as `Export CSV`
+2. Current export file contains trade records only (no summary stats block)
+3. Use human-friendly trade headers: `Trade Date`, `Trade Time`, `Asset`, `Direction`, `Entry Price`, `Stop Loss`, `Target Price`, `Outcome (R)`, `Notes`
+4. Exclude technical IDs/timestamps from exported rows (`trade_id`, `created_at`)
+5. Keep CSV spreadsheet-friendly for locale decimals by using `sep=;` and semicolon-delimited columns
 
 ### Viewing trade charts
 1. Live trades use `/app/trades/TradeChartView.tsx`; backtesting trades use `/app/backtesting/BacktestingTradeChartView.tsx`

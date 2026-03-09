@@ -337,8 +337,13 @@ function buildPrompt(context: ExtractionContext): string {
     includeTargetPrice
       ? '5. target_price must come from the OUTER EDGE OF THE GREEN ZONE of the same active position tool (never from red zone, current-price line, or unrelated lines).'
       : '5. Skip target_price extraction for live trade prefill.',
-    '6. Extract trade_date only when explicitly visible and format as YYYY-MM-DD; otherwise null.',
-    '7. Extract trade_time only when explicitly visible and format as HH:mm:ss in UTC; otherwise null.',
+    '6. Extract trade_date only when explicitly visible; it must represent the ENTRY moment of the trade, not the exit moment. Format as YYYY-MM-DD; otherwise null.',
+    '7. Extract trade_time only when explicitly visible; it must represent the ENTRY moment of the trade, not the exit moment. Format as HH:mm:ss in UTC; otherwise null.',
+    '8. Prefer the bottom-axis blue selected time label when it corresponds to the entry candle.',
+    '9. If the screenshot contains multiple valid timestamps related to the same trade, choose the timestamp for the ENTRY candle only.',
+    '10. If exactly two valid trade-related timestamps are visible on the bottom axis, interpret the LEFT/FIRST timestamp as entry and the RIGHT/SECOND timestamp as exit, and return only the left/first one.',
+    '11. When choosing between two visible trade-related timestamps, prefer the earlier-left timestamp for entry, never the later-right timestamp for exit.',
+    '12. Use the top header date/time only when it clearly refers to the entry candle and there is no better bottom-axis entry timestamp.',
     '',
     'Ignore completely:',
     '- dotted line',
@@ -348,6 +353,7 @@ function buildPrompt(context: ExtractionContext): string {
     '- drag handles',
     '- candles except for locating the active tool near the latest candles',
     '- unrelated chart labels',
+    '- do NOT ignore the bottom-axis blue selected time label when present; it is a valid source for trade_date and trade_time',
     '- fib labels',
     '- moving averages',
     '- support/resistance lines',
@@ -364,6 +370,10 @@ function buildPrompt(context: ExtractionContext): string {
     '- for a long setup, stop_loss must be below entry',
     '- if exact horizontal alignment is unclear, return null',
     '- if coin/date/time are not explicitly visible, return null for those fields',
+    '- when a blue bottom-axis selected time label is visible, it must be treated as explicit date/time evidence',
+    '- trade_date and trade_time must refer to entry, never exit',
+    '- if two valid timestamps are visible for the same trade, return the LEFT/FIRST one only because it is the entry timestamp',
+    '- do not return the right-side/later timestamp when a left-side/earlier timestamp is also visible for the same trade',
     includeTargetPrice
       ? '- if target_price cannot be aligned with the green-zone outer boundary, return null'
       : '- target_price should be omitted from live extraction output',
@@ -375,6 +385,11 @@ function buildPrompt(context: ExtractionContext): string {
       ? '- target_price must come from the green-zone outer boundary of the same active position tool.'
       : '- do not infer target_price for live extraction.',
     '- If a candidate stop_loss comes from the green zone or from an unrelated chart line, reject it and return null instead of guessing.',
+    '- If a blue bottom-axis label is visible and contains a timestamp such as "Sat 22 Mar \'25 23:00", extract trade_date = 2025-03-22 and trade_time = 23:00:00 when that label belongs to the entry candle.',
+    '- Prefer the blue bottom-axis label over ambiguous nearby axis text because it marks the selected candle time.',
+    '- If two trade-related timestamps are visible, the LEFT/earlier/first one is the entry timestamp and the RIGHT/later/second one is the exit timestamp.',
+    '- If both timestamps look valid, still choose the left-side timestamp for entry and ignore the right-side timestamp for exit.',
+    '- If you cannot determine which visible timestamp belongs to the entry candle, return null for trade_date and trade_time instead of guessing.',
     '',
     'Worked example:',
     '- If black current-price label = 199.17 and gray split-line label = 196.34, then entry = 196.34.',
@@ -382,6 +397,11 @@ function buildPrompt(context: ExtractionContext): string {
     '- If the top edge of the red zone aligns with 203.75, then stop_loss = 203.75.',
     '- If the green-zone outer boundary aligns with 181.52, that is NOT stop_loss and must be ignored.',
     '- In that case, 199.17 must be ignored for entry and 181.52 must be ignored for stop_loss.',
+    '- If the blue bottom-axis label reads "Sat 22 Mar \'25 23:00", then trade_date = 2025-03-22 and trade_time = 23:00:00.',
+    '- The blue bottom-axis selected time label is valid even when the top header also shows OHLC data.',
+    '- If two valid timestamps are visible for the same trade, such as 03:00 on the left at entry and 09:00 on the right at exit, return trade_time = 03:00:00 only.',
+    '- If the left visible trade-related timestamp is 2025-03-24 03:00 and the right visible timestamp is 2025-03-24 09:00, then return trade_date = 2025-03-24 and trade_time = 03:00:00.',
+    '- The left-side timestamp is the entry timestamp; the right-side timestamp is the exit timestamp and must be ignored.',
   ].join("\n");
 }
 

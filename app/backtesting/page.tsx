@@ -66,6 +66,35 @@ type AiExtractionResponse = {
   warnings: string[]
 }
 
+type PerformanceEntry = {
+  label: string
+  totalR: number
+}
+
+type PerformanceStats = {
+  bestAsset: PerformanceEntry | null
+  worstAsset: PerformanceEntry | null
+  bestDay: PerformanceEntry | null
+  secondBestDay: PerformanceEntry | null
+  worstDay: PerformanceEntry | null
+  secondWorstDay: PerformanceEntry | null
+  bestHour: PerformanceEntry | null
+  secondBestHour: PerformanceEntry | null
+  worstHour: PerformanceEntry | null
+  secondWorstHour: PerformanceEntry | null
+}
+
+type SessionStats = {
+  totalTrades: number
+  totalR: number
+  winRate: number
+  expectedValueR: number
+  averageWinR: number
+  averageLossR: number
+  tradesPerWeek: number
+  profitFactor: number | null
+}
+
 const initialSessionFormState: SessionFormState = {
   name: '',
   notes: '',
@@ -94,6 +123,7 @@ export default function BacktestingPage() {
   const [sessions, setSessions] = useState<BacktestingSession[]>([])
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [trades, setTrades] = useState<BacktestingTrade[]>([])
+  const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -105,6 +135,7 @@ export default function BacktestingPage() {
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false)
   const [editingTrade, setEditingTrade] = useState<BacktestingTrade | null>(null)
   const [tradeForm, setTradeForm] = useState<TradeFormState>(() => createInitialTradeFormState())
+  const [keepTradeModalOpenOnAdd, setKeepTradeModalOpenOnAdd] = useState(false)
   const [savingTrade, setSavingTrade] = useState(false)
   const aiFileInputRef = useRef<HTMLInputElement>(null)
   const [aiExtracting, setAiExtracting] = useState(false)
@@ -167,37 +198,18 @@ export default function BacktestingPage() {
     return systems.find((system) => system.id === selectedSession.system_id)?.name ?? 'No system'
   }, [selectedSession, systems])
 
-  const sessionStats = useMemo(() => {
-    const totalTrades = trades.length
-    const totalR = trades.reduce((sum, trade) => sum + trade.outcome_r, 0)
-    const wins = trades.filter((trade) => trade.outcome_r > 0).length
-    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0
-
-    const totalPositiveR = trades
-      .filter((trade) => trade.outcome_r > 0)
-      .reduce((sum, trade) => sum + trade.outcome_r, 0)
-
-    const totalNegativeRAbs = Math.abs(
-      trades
-        .filter((trade) => trade.outcome_r < 0)
-        .reduce((sum, trade) => sum + trade.outcome_r, 0),
-    )
-
-    const expectedValueR = totalTrades > 0 ? totalR / totalTrades : 0
-    const profitFactor = totalNegativeRAbs > 0
-      ? totalPositiveR / totalNegativeRAbs
-      : totalPositiveR > 0
-        ? Number.POSITIVE_INFINITY
-        : null
-
-    return {
-      totalTrades,
-      totalR,
-      winRate,
-      expectedValueR,
-      profitFactor,
-    }
+  useEffect(() => {
+    setSelectedTradeIds((prev) => prev.filter((id) => trades.some((trade) => trade.id === id)))
   }, [trades])
+
+  const selectedTrades = useMemo(() => {
+    return trades.filter((trade) => selectedTradeIds.includes(trade.id))
+  }, [trades, selectedTradeIds])
+
+  const statsTrades = selectedTrades.length > 0 ? selectedTrades : trades
+
+  const sessionStats = useMemo(() => calculateBacktestingSessionStats(statsTrades), [statsTrades])
+  const performanceStats = useMemo(() => calculateBacktestingPerformanceStats(statsTrades), [statsTrades])
 
   useEffect(() => {
     async function loadData() {
@@ -359,6 +371,7 @@ export default function BacktestingPage() {
     setOpenTradeMenuId(null)
     setEditingTrade(null)
     setTradeForm(createInitialTradeFormState())
+    setKeepTradeModalOpenOnAdd(false)
     setAiWarnings([])
     setAwaitingAiPaste(false)
     setIsTradeModalOpen(true)
@@ -379,6 +392,7 @@ export default function BacktestingPage() {
       notes: trade.notes ?? '',
     })
     setAiWarnings([])
+    setKeepTradeModalOpenOnAdd(false)
     setAwaitingAiPaste(false)
     setIsTradeModalOpen(true)
   }
@@ -388,6 +402,7 @@ export default function BacktestingPage() {
     setIsTradeModalOpen(false)
     setEditingTrade(null)
     setTradeForm(createInitialTradeFormState())
+    setKeepTradeModalOpenOnAdd(false)
     setAiWarnings([])
     setAwaitingAiPaste(false)
   }
@@ -478,6 +493,25 @@ export default function BacktestingPage() {
     setIsImportModalOpen(true)
   }
 
+  function handleExportSessionCsv() {
+    if (!selectedSession) return
+
+    const csvContent = buildBacktestingSessionCsv({
+      trades,
+    })
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const sessionSlug = selectedSession.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'session'
+    link.href = url
+    link.download = `backtesting-${sessionSlug}-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   function closeImportModal() {
     setIsImportModalOpen(false)
   }
@@ -546,7 +580,19 @@ export default function BacktestingPage() {
       }
 
       await refreshTrades()
-      closeTradeModal()
+
+      const shouldKeepOpen = !editingTrade && keepTradeModalOpenOnAdd
+      if (shouldKeepOpen) {
+        setTradeForm((prev) => ({
+          ...prev,
+          entry_price: '',
+          stop_loss: '',
+          target_price: '',
+          outcome_r: '',
+        }))
+      } else {
+        closeTradeModal()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save trade')
     } finally {
@@ -578,11 +624,39 @@ export default function BacktestingPage() {
     }))
   }
 
+  function toggleTradeSelection(tradeId: string) {
+    setSelectedTradeIds((prev) => {
+      if (prev.includes(tradeId)) {
+        return prev.filter((id) => id !== tradeId)
+      }
+
+      return [...prev, tradeId]
+    })
+  }
+
+  function areAllTradesSelected(tradeIds: string[]): boolean {
+    return tradeIds.length > 0 && tradeIds.every((tradeId) => selectedTradeIds.includes(tradeId))
+  }
+
+  function toggleSelectAllTrades(tradeIds: string[]) {
+    setSelectedTradeIds((prev) => {
+      const allSelected = tradeIds.length > 0 && tradeIds.every((tradeId) => prev.includes(tradeId))
+
+      if (allSelected) {
+        return prev.filter((tradeId) => !tradeIds.includes(tradeId))
+      }
+
+      const nextSelectedIds = new Set(prev)
+      tradeIds.forEach((tradeId) => nextSelectedIds.add(tradeId))
+      return Array.from(nextSelectedIds)
+    })
+  }
+
   if (loading) return <div className="p-8">Loading backtesting...</div>
 
   return (
     <div className="min-h-screen bg-[#f4f7f9] px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-[92rem]">
         <AuthNavbar current="backtesting" onError={(message) => setError(message || null)} />
 
         <div className="mb-6 flex items-center justify-between">
@@ -596,7 +670,7 @@ export default function BacktestingPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <aside className="lg:col-span-4 border rounded-lg p-4 h-fit">
+        <aside className="lg:col-span-3 border rounded-lg p-4 h-fit">
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-semibold">Sessions</h2>
             <button
@@ -644,7 +718,7 @@ export default function BacktestingPage() {
           )}
         </aside>
 
-        <section className="lg:col-span-8">
+        <section className="lg:col-span-9">
           {!selectedSession ? (
             <div className="border rounded-lg p-8 text-center text-gray-500">
               Select a session to view theoretical trades.
@@ -662,6 +736,12 @@ export default function BacktestingPage() {
                   </div>
                   <div className="flex gap-2">
                     <button
+                      onClick={handleExportSessionCsv}
+                      className="px-4 py-2 text-sm bg-slate-700 text-white rounded hover:bg-slate-800"
+                    >
+                      Export CSV
+                    </button>
+                    <button
                       onClick={openImportModal}
                       className="px-4 py-2 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700"
                     >
@@ -676,11 +756,22 @@ export default function BacktestingPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
                   <MiniStat label="Total Trades" value={sessionStats.totalTrades} />
                   <MiniStat label="Total R" value={sessionStats.totalR.toFixed(2)} />
                   <MiniStat label="Win Rate" value={`${sessionStats.winRate.toFixed(1)}%`} />
+                  <MiniStat label="Trades / Week" value={sessionStats.tradesPerWeek.toFixed(2)} />
                   <MiniStat label="EV / Trade (R)" value={`${sessionStats.expectedValueR.toFixed(2)}R`} />
+                  <MiniStat
+                    label="Avg Win (R)"
+                    value={`${sessionStats.averageWinR >= 0 ? '+' : ''}${sessionStats.averageWinR.toFixed(2)}R`}
+                    valueClassName="text-green-600"
+                  />
+                  <MiniStat
+                    label="Avg Loss (R)"
+                    value={`${sessionStats.averageLossR >= 0 ? '+' : ''}${sessionStats.averageLossR.toFixed(2)}R`}
+                    valueClassName="text-red-600"
+                  />
                   <MiniStat
                     label="Profit Factor"
                     value={
@@ -692,12 +783,28 @@ export default function BacktestingPage() {
                     }
                   />
                 </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <BestPerformanceCard stats={performanceStats} />
+                  <WorstPerformanceCard stats={performanceStats} />
+                </div>
               </div>
 
               <div className="border rounded-lg">
+                <div className="px-3 py-2 border-b bg-gray-50 flex items-center justify-end">
+                  {trades.length > 0 && (
+                    <button
+                      onClick={() => toggleSelectAllTrades(trades.map((trade) => trade.id))}
+                      className="text-xs text-gray-600 hover:text-gray-900 hover:underline cursor-pointer"
+                    >
+                      {areAllTradesSelected(trades.map((trade) => trade.id)) ? 'Unselect all' : 'Select all'}
+                    </button>
+                  )}
+                </div>
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="px-3 py-2 text-left" />
                       <th className="px-3 py-2 text-left">Date</th>
                       <th className="px-3 py-2 text-left">Asset</th>
                       <th className="px-3 py-2 text-left">Dir</th>
@@ -711,6 +818,13 @@ export default function BacktestingPage() {
                   <tbody>
                     {trades.map((trade) => (
                       <tr key={trade.id} className="border-t">
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedTradeIds.includes(trade.id)}
+                            onChange={() => toggleTradeSelection(trade.id)}
+                          />
+                        </td>
                         <td className="px-3 py-2">{formatDateAndTime(trade.trade_date, trade.trade_time)}</td>
                         <td className="px-3 py-2">{trade.asset}</td>
                         <td className="px-3 py-2 uppercase">{trade.direction}</td>
@@ -768,7 +882,7 @@ export default function BacktestingPage() {
                     ))}
                     {trades.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="px-3 py-6 text-center text-gray-500">
+                        <td colSpan={9} className="px-3 py-6 text-center text-gray-500">
                           No theoretical trades yet.
                         </td>
                       </tr>
@@ -1049,10 +1163,22 @@ export default function BacktestingPage() {
             />
           </div>
 
+          {!editingTrade && (
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={keepTradeModalOpenOnAdd}
+                onChange={(e) => setKeepTradeModalOpenOnAdd(e.target.checked)}
+                className="h-4 w-4 cursor-pointer"
+              />
+              Keep modal open after adding (clear only Entry/SL/TP)
+            </label>
+          )}
+
           <div className="flex gap-3">
             <button
               type="submit"
-              disabled={savingTrade}
+              disabled={savingTrade || aiExtracting}
               className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
             >
               {savingTrade ? 'Saving...' : editingTrade ? 'Update Trade' : 'Add Trade'}
@@ -1147,13 +1273,320 @@ function formatDateAndTime(date: string, time: string | null): string {
   return `${date} ${time.substring(0, 5)}`
 }
 
-function MiniStat({ label, value }: { label: string; value: string | number }) {
+function MiniStat({
+  label,
+  value,
+  valueClassName = '',
+}: {
+  label: string
+  value: string | number
+  valueClassName?: string
+}) {
   return (
     <div className="border rounded p-3">
       <p className="text-xs text-gray-500">{label}</p>
-      <p className="text-lg font-semibold">{value}</p>
+      <p className={`text-lg font-semibold ${valueClassName}`}>{value}</p>
     </div>
   )
+}
+
+function BestPerformanceCard({ stats }: { stats: PerformanceStats }) {
+  const rows = [
+    { label: 'Asset', data: stats.bestAsset },
+    { label: 'Day #1', data: stats.bestDay },
+    { label: 'Day #2', data: stats.secondBestDay },
+    { label: 'Time #1', data: stats.bestHour },
+    { label: 'Time #2', data: stats.secondBestHour },
+  ]
+
+  return (
+    <div className="border rounded p-3">
+      <p className="text-xs text-gray-500 mb-2">Best Performers (R)</p>
+      <div className="space-y-1 text-sm">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-3">
+            <span className="text-gray-600">{row.label}</span>
+            {row.data ? (
+              <span className="text-green-600 font-medium text-right">
+                {`${row.data.label} (${formatSignedR(row.data.totalR)})`}
+              </span>
+            ) : (
+              <span className="text-gray-400">-</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function WorstPerformanceCard({ stats }: { stats: PerformanceStats }) {
+  const rows = [
+    { label: 'Asset', data: stats.worstAsset },
+    { label: 'Day #1', data: stats.worstDay },
+    { label: 'Day #2', data: stats.secondWorstDay },
+    { label: 'Time #1', data: stats.worstHour },
+    { label: 'Time #2', data: stats.secondWorstHour },
+  ]
+
+  return (
+    <div className="border rounded p-3">
+      <p className="text-xs text-gray-500 mb-2">Worst Performers (R)</p>
+      <div className="space-y-1 text-sm">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-3">
+            <span className="text-gray-600">{row.label}</span>
+            {row.data ? (
+              <span className="text-red-600 font-medium text-right">
+                {`${row.data.label} (${formatSignedR(row.data.totalR)})`}
+              </span>
+            ) : (
+              <span className="text-gray-400">-</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function formatSignedR(value: number): string {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}R`
+}
+
+function toLocalDateString(date: Date): string {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function normalizeTradeDate(tradeDate: string): string | null {
+  if (!tradeDate) return null
+
+  const trimmed = tradeDate.trim()
+  if (!trimmed) return null
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
+  }
+
+  const slashYmdMatch = trimmed.match(/^(\d{4})\/(\d{2})\/(\d{2})/)
+  if (slashYmdMatch) {
+    return `${slashYmdMatch[1]}-${slashYmdMatch[2]}-${slashYmdMatch[3]}`
+  }
+
+  const dmyMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0')
+    const month = dmyMatch[2].padStart(2, '0')
+    const year = dmyMatch[3]
+    return `${year}-${month}-${day}`
+  }
+
+  const fallback = new Date(trimmed)
+  if (Number.isNaN(fallback.getTime())) return null
+  return toLocalDateString(fallback)
+}
+
+function getWeekdayLabelFromTradeDate(tradeDate: string): string | null {
+  const normalizedDate = normalizeTradeDate(tradeDate)
+  if (!normalizedDate) return null
+
+  const date = new Date(`${normalizedDate}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return null
+
+  return date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
+}
+
+function getHourLabelFromTradeTime(tradeTime: string | null): string | null {
+  if (!tradeTime) return null
+
+  const trimmed = tradeTime.trim()
+  if (!trimmed) return null
+
+  const match = trimmed.match(/^(\d{1,2})/)
+  if (!match) return null
+
+  const hour = Number(match[1])
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) return null
+
+  return `${String(hour).padStart(2, '0')}:00`
+}
+
+function getMonthWeekKeyFromTradeDate(tradeDate: string): string | null {
+  const normalizedDate = normalizeTradeDate(tradeDate)
+  if (!normalizedDate) return null
+
+  const date = new Date(`${normalizedDate}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return null
+
+  const year = date.getUTCFullYear()
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const dayOfMonth = date.getUTCDate()
+  const weekInMonth = Math.floor((dayOfMonth - 1) / 7) + 1
+
+  return `${year}-${month}-W${weekInMonth}`
+}
+
+function calculateBacktestingSessionStats(trades: BacktestingTrade[]): SessionStats {
+  const totalTrades = trades.length
+  const totalR = trades.reduce((sum, trade) => sum + trade.outcome_r, 0)
+  const winningTrades = trades.filter((trade) => trade.outcome_r > 0)
+  const losingTrades = trades.filter((trade) => trade.outcome_r < 0)
+  const monthWeekBuckets = new Set<string>()
+
+  trades.forEach((trade) => {
+    const monthWeekKey = getMonthWeekKeyFromTradeDate(trade.trade_date)
+    if (monthWeekKey) {
+      monthWeekBuckets.add(monthWeekKey)
+    }
+  })
+
+  const wins = winningTrades.length
+  const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0
+  const totalPositiveR = winningTrades.reduce((sum, trade) => sum + trade.outcome_r, 0)
+  const totalNegativeR = losingTrades.reduce((sum, trade) => sum + trade.outcome_r, 0)
+  const totalNegativeRAbs = Math.abs(totalNegativeR)
+
+  const expectedValueR = totalTrades > 0 ? totalR / totalTrades : 0
+  const averageWinR = winningTrades.length > 0 ? totalPositiveR / winningTrades.length : 0
+  const averageLossR = losingTrades.length > 0 ? totalNegativeR / losingTrades.length : 0
+  const tradesPerWeek = monthWeekBuckets.size > 0 ? totalTrades / monthWeekBuckets.size : 0
+  const profitFactor = totalNegativeRAbs > 0
+    ? totalPositiveR / totalNegativeRAbs
+    : totalPositiveR > 0
+      ? Number.POSITIVE_INFINITY
+      : null
+
+  return {
+    totalTrades,
+    totalR,
+    winRate,
+    expectedValueR,
+    averageWinR,
+    averageLossR,
+    tradesPerWeek,
+    profitFactor,
+  }
+}
+
+function calculateBacktestingPerformanceStats(trades: BacktestingTrade[]): PerformanceStats {
+  const assetTotals = new Map<string, number>()
+  const weekdayTotals = new Map<string, number>()
+  const hourTotals = new Map<string, number>()
+
+  trades.forEach((trade) => {
+    const assetKey = trade.asset?.trim() || 'Unknown'
+    assetTotals.set(assetKey, (assetTotals.get(assetKey) ?? 0) + trade.outcome_r)
+
+    const weekdayKey = getWeekdayLabelFromTradeDate(trade.trade_date)
+    if (weekdayKey) {
+      weekdayTotals.set(weekdayKey, (weekdayTotals.get(weekdayKey) ?? 0) + trade.outcome_r)
+    }
+
+    const hourKey = getHourLabelFromTradeTime(trade.trade_time)
+    if (hourKey) {
+      hourTotals.set(hourKey, (hourTotals.get(hourKey) ?? 0) + trade.outcome_r)
+    }
+  })
+
+  function pickTopTwo(
+    map: Map<string, number>,
+  ): { first: PerformanceEntry | null; second: PerformanceEntry | null } {
+    const entries = Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+
+    return {
+      first: entries[0] ? { label: entries[0][0], totalR: entries[0][1] } : null,
+      second: entries[1] ? { label: entries[1][0], totalR: entries[1][1] } : null,
+    }
+  }
+
+  function pickBottomTwo(
+    map: Map<string, number>,
+  ): { first: PerformanceEntry | null; second: PerformanceEntry | null } {
+    const entries = Array.from(map.entries())
+      .sort((a, b) => a[1] - b[1])
+      .slice(0, 2)
+
+    return {
+      first: entries[0] ? { label: entries[0][0], totalR: entries[0][1] } : null,
+      second: entries[1] ? { label: entries[1][0], totalR: entries[1][1] } : null,
+    }
+  }
+
+  const bestAssets = pickTopTwo(assetTotals)
+  const worstAssets = pickBottomTwo(assetTotals)
+  const bestDays = pickTopTwo(weekdayTotals)
+  const worstDays = pickBottomTwo(weekdayTotals)
+  const bestHours = pickTopTwo(hourTotals)
+  const worstHours = pickBottomTwo(hourTotals)
+
+  return {
+    bestAsset: bestAssets.first,
+    worstAsset: worstAssets.first,
+    bestDay: bestDays.first,
+    secondBestDay: bestDays.second,
+    worstDay: worstDays.first,
+    secondWorstDay: worstDays.second,
+    bestHour: bestHours.first,
+    secondBestHour: bestHours.second,
+    worstHour: worstHours.first,
+    secondWorstHour: worstHours.second,
+  }
+}
+
+function buildBacktestingSessionCsv(input: {
+  trades: BacktestingTrade[]
+}): string {
+  const delimiter = ';'
+
+  const rows: string[][] = [
+    [
+      'Trade Date',
+      'Trade Time',
+      'Asset',
+      'Direction',
+      'Entry Price',
+      'Stop Loss',
+      'Target Price',
+      'Outcome (R)',
+      'Notes',
+    ],
+  ]
+
+  input.trades.forEach((trade) => {
+    rows.push([
+      trade.trade_date,
+      trade.trade_time ?? '',
+      trade.asset,
+      trade.direction,
+      formatCsvNumber(trade.entry_price),
+      formatCsvNumber(trade.stop_loss),
+      formatCsvNumber(trade.target_price),
+      formatCsvNumber(trade.outcome_r),
+      trade.notes ?? '',
+    ])
+  })
+
+  const csvRows = rows.map((row) => row.map((value) => toCsvCell(value, delimiter)).join(delimiter))
+
+  return ['sep=;', ...csvRows].join('\r\n')
+}
+
+function formatCsvNumber(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return ''
+  return String(value).replace('.', ',')
+}
+
+function toCsvCell(value: string, delimiter: string): string {
+  const escapedDelimiter = delimiter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const needsQuotes = new RegExp(`${escapedDelimiter}|"|\n`).test(value)
+  if (!needsQuotes) return value
+  return `"${value.replace(/"/g, '""')}"`
 }
 
 function calculateOutcomeR(

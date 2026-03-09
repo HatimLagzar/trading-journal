@@ -13,9 +13,9 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Trading Journal for Active Trade Control',
+  title: 'Trading Journal for Faster Execution and Review',
   description:
-    'Control active risk with a dedicated ongoing-trades desk, log faster with AI screenshot prefill, and review your edge in R.',
+    'Save hours each week with AI trade prefill, rapid backtesting entry flows, selection-based stats, and one-click CSV export.',
 }
 
 const featureCards = [
@@ -28,12 +28,16 @@ const featureCards = [
     text: 'Upload a TradingView screenshot and get suggested trade fields instantly. You review, edit, and save.',
   },
   {
-    title: 'One-Click Chart Context',
-    text: 'Open your trade chart with entry, stop, and exit levels to study exactly why a setup won or failed.',
+    title: 'Rapid Backtesting Entry Loop',
+    text: 'Keep the add-trade modal open and clear only entry/SL/TP so you can log repeated setups without breaking flow.',
   },
   {
-    title: 'Live + Backtesting In One Flow',
-    text: 'Mirror live trades into a backtesting session so every execution stays accountable to your plan.',
+    title: 'Selection-Based Performance Stats',
+    text: 'Select specific trades and instantly recalculate R metrics, best/worst day and time, and top #1/#2 patterns.',
+  },
+  {
+    title: 'Backtesting CSV Export',
+    text: 'Export clean trade records with spreadsheet-friendly formatting so reviews and sharing take minutes, not hours.',
   },
 ]
 
@@ -41,17 +45,17 @@ const processSteps = [
   {
     label: 'Step 1',
     title: 'Capture Fast, Stay Accurate',
-    text: 'Log manually or use AI screenshot prefill to draft coin, direction, entry, and stop in seconds.',
+    text: 'Use AI screenshot prefill and reusable asset defaults to draft trades quickly without sacrificing control.',
   },
   {
     label: 'Step 2',
-    title: 'Manage Ongoing Trades Fast',
-    text: 'Keep open positions front and center in their own table so closing, editing, and chart checks happen faster.',
+    title: 'Batch Through Backtesting',
+    text: 'Keep add modal open, paste screenshots, and log multiple setups in sequence for high-volume session replay.',
   },
   {
     label: 'Step 3',
-    title: 'Review in R, Improve Weekly',
-    text: 'Use period R stats and system filters to reinforce what works and cut what does not.',
+    title: 'Review What Actually Matters',
+    text: 'Select trades, inspect best/worst day-time windows, and export backtesting logs to tighten your weekly feedback loop.',
   },
 ]
 
@@ -85,16 +89,16 @@ export default function Home() {
 
         <section className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
           <div className="animate-fade-up">
-            <p className="mb-3 inline-flex rounded-full border border-cyan-200/30 bg-cyan-200/10 px-3 py-1 text-xs font-medium text-cyan-100">
-              New workflow: Ongoing trades desk + AI screenshot prefill
-            </p>
-            <h1 className={`${sora.className} max-w-2xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl`}>
-              Control open risk first. Improve results faster.
-            </h1>
-            <p className="mt-5 max-w-xl text-base text-slate-300 sm:text-lg">
-              Keep active trades front and center, prefill journals from screenshots, and review your edge in R.
-              Built for traders who want cleaner execution and clearer decisions.
-            </p>
+              <p className="mb-3 inline-flex rounded-full border border-cyan-200/30 bg-cyan-200/10 px-3 py-1 text-xs font-medium text-cyan-100">
+                New workflow: Faster backtesting + smarter review stats
+              </p>
+              <h1 className={`${sora.className} max-w-2xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl`}>
+                Journal faster. Backtest deeper. Improve in less time.
+              </h1>
+              <p className="mt-5 max-w-xl text-base text-slate-300 sm:text-lg">
+                Designed for traders who want faster logging loops and sharper analytics: AI prefill, keep-open backtesting
+                entry, selection-based stats, and export-ready records.
+              </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
@@ -112,9 +116,9 @@ export default function Home() {
             </div>
 
             <div className="mt-8 grid grid-cols-2 gap-3 sm:max-w-lg sm:grid-cols-3">
-              <Stat value="Ongoing desk" label="active risk control" delay={100} />
-              <Stat value="R-focused" label="performance review" delay={180} />
-              <Stat value="Entry/stop/exit chart" label="loss & win replay" delay={260} />
+              <Stat value="Keep modal open" label="faster backtesting input" delay={100} />
+              <Stat value="#1/#2 day & time" label="clear timing edge" delay={180} />
+              <Stat value="Export-ready CSV" label="instant weekly handoff" delay={260} />
             </div>
           </div>
 
@@ -122,12 +126,12 @@ export default function Home() {
             className="animate-fade-up rounded-3xl border border-white/15 bg-gradient-to-b from-white/12 to-white/5 p-5 shadow-2xl shadow-cyan-900/20"
             style={{ animationDelay: '120ms' }}
           >
-            <p className="text-sm font-semibold text-cyan-100">What improves first?</p>
+            <p className="text-sm font-semibold text-cyan-100">Time-saving gains you will feel first</p>
             <ul className="mt-4 space-y-3 text-sm text-slate-200">
-              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Your open positions are impossible to ignore, so trade management gets faster.</li>
-              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">You can replay trades on chart with entry, stop, and exit to diagnose mistakes and strengths.</li>
-              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Your journaling speed increases with AI-assisted prefill and imports.</li>
-              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Your strategy feedback loop gets clearer through R-based review and system filters.</li>
+              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Backtesting entry speeds up with keep-open add flow and Loss helper for failed setups.</li>
+              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">AI screenshot prefill reduces manual typing while keeping final decisions in your hands.</li>
+              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Stats switch instantly between all trades and selected trades for focused review.</li>
+              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">CSV exports are clean and spreadsheet-friendly, so reporting and coaching reviews are faster.</li>
             </ul>
             <p className="mt-5 text-xs text-slate-400">
               Perfect for discretionary traders, rule-based traders, and anyone scaling accountability.

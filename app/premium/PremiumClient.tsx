@@ -7,9 +7,15 @@ import type { CheckoutPlan } from '@/services/subscription';
 
 const PREMIUM_FEATURES = [
   'AI-assisted trade prefill from TradingView screenshots',
+  'Paste screenshots directly in backtesting add-trade modal',
+  'Keep add-trade modal open for rapid backtesting loops',
   'Open one-click trade charts on TradingView',
   'Import live trades from CSV/XLSX files',
+  'Export backtesting trades to spreadsheet-friendly CSV',
   'Mirror live trades to backtesting sessions',
+  'Selection-based performance stats for focused review',
+  'Best/worst day and hour rankings (#1 and #2)',
+  'Trades-per-week frequency metric for session pacing',
   'Upload and manage trade screenshots',
   'Create more than 2 trading systems',
 ];
@@ -25,16 +31,16 @@ const FEATURE_LABELS: Record<string, string> = {
 
 const PREMIUM_RESULTS = [
   {
-    title: 'Manage open risk faster',
-    text: 'Use the ongoing-trades desk as your control center, then jump straight into chart context when decisions matter.',
+    title: 'Log backtests much faster',
+    text: 'Keep the add-trade modal open, clear only entry/SL/TP, and run through repeated setups without re-opening forms.',
   },
   {
-    title: 'Study every win and loss visually',
-    text: 'Open the trade chart with entry, stop, and exit markers to review execution quality and decision timing.',
+    title: 'Find your timing edge quickly',
+    text: 'See best/worst day and hour rankings (#1 and #2) from selected trades or full session data in seconds.',
   },
   {
-    title: 'Journal with less friction',
-    text: 'Prefill trade fields from TradingView screenshots and import history in bulk when you need speed.',
+    title: 'Export and review without cleanup',
+    text: 'Download backtesting records in a spreadsheet-friendly CSV format and move straight into review or coaching.',
   },
 ];
 
@@ -106,17 +112,16 @@ export default function PremiumClient({
                 Trading Journal Premium
               </p>
               <h1 className="mt-3 text-3xl font-semibold leading-tight text-white sm:text-4xl">
-                Your execution desk, upgraded for speed and accountability
+                Upgrade to save hours on journaling and backtesting every week
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                Premium helps you act faster after entry: AI screenshot prefill, one-click chart context, bulk import,
-                and live-to-backtesting mirroring to keep every decision tied to your system. Review each trade with
-                entry, stop, and exit levels directly on chart to understand what created the outcome.
+                Premium is built for traders who want faster loops with better signal quality: AI prefill, rapid
+                backtesting entry flow, selection-based stats, day/time rankings, and export-ready records.
               </p>
               <div className="mt-5 grid gap-2 sm:grid-cols-3">
-                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">AI prefill (review before save)</div>
-                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">Chart replay with entry/stop/exit</div>
-                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">CSV/XLSX import + mirroring</div>
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">Keep-open backtesting entry loop</div>
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">#1/#2 day and hour performance ranks</div>
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">Spreadsheet-friendly backtesting export</div>
               </div>
             </div>
             <div className="rounded-2xl border border-cyan-200/25 bg-cyan-300/10 p-5 text-white">
@@ -206,11 +211,11 @@ export default function PremiumClient({
           <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6">
             <h2 className="text-lg font-semibold text-white">Why traders upgrade</h2>
             <ul className="mt-3 space-y-2 text-sm text-slate-200">
-              <li className="rounded-md border border-cyan-300/20 bg-cyan-300/10 px-3 py-2">Open trades stay visible first, so management decisions happen faster under pressure.</li>
-              <li className="rounded-md border border-indigo-300/20 bg-indigo-300/10 px-3 py-2">Replay wins and losses on chart with entry/stop/exit levels to improve next execution.</li>
-              <li className="rounded-md border border-emerald-300/20 bg-emerald-300/10 px-3 py-2">AI prefill speeds journaling while you still confirm every field before save.</li>
-              <li className="rounded-md border border-sky-300/20 bg-sky-300/10 px-3 py-2">Imports and screenshots reduce weekly review overhead.</li>
-              <li className="rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2">Mirroring keeps execution accountable to backtested expectations.</li>
+              <li className="rounded-md border border-cyan-300/20 bg-cyan-300/10 px-3 py-2">AI prefill and paste-to-prefill cut repetitive typing while keeping manual confirmation.</li>
+              <li className="rounded-md border border-indigo-300/20 bg-indigo-300/10 px-3 py-2">Keep-open add flow lets you log many backtests quickly without context switching.</li>
+              <li className="rounded-md border border-emerald-300/20 bg-emerald-300/10 px-3 py-2">Selection-based stats reveal what changed in a specific subset of trades instantly.</li>
+              <li className="rounded-md border border-sky-300/20 bg-sky-300/10 px-3 py-2">Day/hour rankings (#1/#2) expose your best and worst execution windows.</li>
+              <li className="rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2">CSV export and mirroring keep review workflows fast and accountability tight.</li>
             </ul>
           </div>
         </div>
@@ -229,6 +234,10 @@ export default function PremiumClient({
             <FaqCard
               question="Does AI auto-execute trades or auto-save?"
               answer="No. AI only prefills draft fields from screenshots. You review and confirm before any trade is saved."
+            />
+            <FaqCard
+              question="Can I export backtesting data for coaching or spreadsheets?"
+              answer="Yes. Export backtesting trade records as CSV with human-friendly columns and spreadsheet-ready formatting."
             />
           </div>
         </div>
