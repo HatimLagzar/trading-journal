@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
@@ -46,6 +46,26 @@ type TradeFormState = {
   notes: string
 }
 
+const LAST_ASSET_STORAGE_KEY = 'trade_form_last_asset'
+
+type AiExtractedFields = {
+  coin: string | null
+  direction: 'long' | 'short' | null
+  avg_entry: number | null
+  stop_loss: number | null
+  avg_exit: number | null
+  risk: number | null
+  r_multiple: number | null
+  trade_date: string | null
+  trade_time: string | null
+  notes: null
+}
+
+type AiExtractionResponse = {
+  fields: AiExtractedFields
+  warnings: string[]
+}
+
 const initialSessionFormState: SessionFormState = {
   name: '',
   notes: '',
@@ -53,7 +73,7 @@ const initialSessionFormState: SessionFormState = {
   newSystemName: '',
 }
 
-const initialTradeFormState: TradeFormState = {
+const emptyTradeFormState: TradeFormState = {
   trade_date: new Date().toISOString().split('T')[0],
   trade_time: '',
   asset: '',
@@ -84,8 +104,12 @@ export default function BacktestingPage() {
 
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false)
   const [editingTrade, setEditingTrade] = useState<BacktestingTrade | null>(null)
-  const [tradeForm, setTradeForm] = useState<TradeFormState>(initialTradeFormState)
+  const [tradeForm, setTradeForm] = useState<TradeFormState>(() => createInitialTradeFormState())
   const [savingTrade, setSavingTrade] = useState(false)
+  const aiFileInputRef = useRef<HTMLInputElement>(null)
+  const [aiExtracting, setAiExtracting] = useState(false)
+  const [aiWarnings, setAiWarnings] = useState<string[]>([])
+  const [awaitingAiPaste, setAwaitingAiPaste] = useState(false)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [openTradeMenuId, setOpenTradeMenuId] = useState<string | null>(null)
   const [chartTrade, setChartTrade] = useState<BacktestingTrade | null>(null)
@@ -334,7 +358,9 @@ export default function BacktestingPage() {
     if (!selectedSessionId) return
     setOpenTradeMenuId(null)
     setEditingTrade(null)
-    setTradeForm(initialTradeFormState)
+    setTradeForm(createInitialTradeFormState())
+    setAiWarnings([])
+    setAwaitingAiPaste(false)
     setIsTradeModalOpen(true)
   }
 
@@ -352,6 +378,8 @@ export default function BacktestingPage() {
       outcome_r: String(trade.outcome_r),
       notes: trade.notes ?? '',
     })
+    setAiWarnings([])
+    setAwaitingAiPaste(false)
     setIsTradeModalOpen(true)
   }
 
@@ -359,8 +387,91 @@ export default function BacktestingPage() {
     if (savingTrade) return
     setIsTradeModalOpen(false)
     setEditingTrade(null)
-    setTradeForm(initialTradeFormState)
+    setTradeForm(createInitialTradeFormState())
+    setAiWarnings([])
+    setAwaitingAiPaste(false)
   }
+
+  async function handleAiScreenshotSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    await runAiExtraction(file)
+
+    if (aiFileInputRef.current) {
+      aiFileInputRef.current.value = ''
+    }
+  }
+
+  async function runAiExtraction(file: File) {
+    if (!isPremium) {
+      redirectToPremium('ai-screenshot-import')
+      return
+    }
+
+    setAiExtracting(true)
+    setAwaitingAiPaste(false)
+    setAiWarnings([])
+    setError(null)
+
+    try {
+      const form = new FormData()
+      form.append('image', file)
+      form.append('filename', file.name)
+      form.append('mime_type', file.type)
+      form.append('file_size', String(file.size))
+      form.append('extraction_context', 'backtesting')
+
+      const response = await fetch('/api/ai/extract-trade-from-image', {
+        method: 'POST',
+        body: form,
+      })
+
+      const payload = await response.json() as { error?: string } & Partial<AiExtractionResponse>
+      if (!response.ok || !payload.fields) {
+        throw new Error(payload.error || 'Failed to extract trade fields from screenshot')
+      }
+
+      applyAiExtraction(payload.fields)
+      setAiWarnings(payload.warnings ?? [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to analyze screenshot')
+    } finally {
+      setAiExtracting(false)
+    }
+  }
+
+  function applyAiExtraction(fields: AiExtractedFields) {
+    setTradeForm((prev) => {
+      const next = { ...prev }
+
+      if (fields.coin && !isEmptyText(fields.coin)) next.asset = fields.coin
+      if (fields.avg_entry !== null) next.entry_price = String(fields.avg_entry)
+      if (fields.stop_loss !== null) next.stop_loss = String(fields.stop_loss)
+      if (fields.avg_exit !== null) next.target_price = String(fields.avg_exit)
+      if (fields.trade_time) next.trade_time = fields.trade_time.substring(0, 5)
+      if (fields.trade_date) next.trade_date = fields.trade_date
+      if (fields.direction) next.direction = fields.direction
+
+      return next
+    })
+  }
+
+  useEffect(() => {
+    if (!awaitingAiPaste || !isTradeModalOpen) return
+
+    function handleAiPaste(e: ClipboardEvent) {
+      const imageFile = extractFirstImageFromClipboard(e)
+      if (!imageFile) return
+
+      e.preventDefault()
+      void runAiExtraction(imageFile)
+    }
+
+    window.addEventListener('paste', handleAiPaste)
+    return () => window.removeEventListener('paste', handleAiPaste)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [awaitingAiPaste, isTradeModalOpen, isPremium, redirectToPremium])
 
   function openImportModal() {
     if (!selectedSessionId) return
@@ -426,6 +537,8 @@ export default function BacktestingPage() {
         notes: tradeForm.notes.trim() || null,
       }
 
+      rememberAsset(asset)
+
       if (editingTrade) {
         await updateBacktestingTrade(editingTrade.id, payload)
       } else {
@@ -453,6 +566,16 @@ export default function BacktestingPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete trade')
     }
+  }
+
+  function applyLossToTargetPrice() {
+    const stopLossValue = tradeForm.stop_loss.trim()
+    if (!stopLossValue) return
+
+    setTradeForm((prev) => ({
+      ...prev,
+      target_price: stopLossValue,
+    }))
   }
 
   if (loading) return <div className="p-8">Loading backtesting...</div>
@@ -571,7 +694,7 @@ export default function BacktestingPage() {
                 </div>
               </div>
 
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
@@ -745,6 +868,73 @@ export default function BacktestingPage() {
             </button>
           </div>
 
+          <div>
+            <p className="block text-sm font-medium mb-2">AI Trade Prefill</p>
+
+            <input
+              ref={aiFileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              onChange={handleAiScreenshotSelect}
+              className="hidden"
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isPremium) {
+                    redirectToPremium('ai-screenshot-import')
+                    return
+                  }
+
+                  aiFileInputRef.current?.click()
+                }}
+                disabled={aiExtracting}
+                className="rounded-lg border border-indigo-300 bg-indigo-50 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-60"
+              >
+                {aiExtracting
+                  ? 'Analyzing...'
+                  : (!isPremium ? 'Upload for AI (Premium)' : 'Upload for AI')}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isPremium) {
+                    redirectToPremium('ai-screenshot-import')
+                    return
+                  }
+
+                  setAwaitingAiPaste((prev) => !prev)
+                }}
+                disabled={aiExtracting}
+                className={`rounded-lg border py-2 text-sm font-medium disabled:opacity-60 ${
+                  awaitingAiPaste
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {!isPremium
+                  ? 'Paste for AI (Premium)'
+                  : awaitingAiPaste
+                    ? 'Waiting for paste...'
+                    : 'Paste for AI'}
+              </button>
+            </div>
+
+            {aiWarnings.length > 0 && (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <p className="font-semibold mb-1">AI warnings</p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  {aiWarnings.map((warning, index) => (
+                    <li key={`${warning}-${index}`}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Date</label>
@@ -814,13 +1004,23 @@ export default function BacktestingPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">TP</label>
-              <input
-                type="number"
-                step="0.000001"
-                value={tradeForm.target_price}
-                onChange={(e) => setTradeForm((prev) => ({ ...prev, target_price: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={tradeForm.target_price}
+                  onChange={(e) => setTradeForm((prev) => ({ ...prev, target_price: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+                <button
+                  type="button"
+                  onClick={applyLossToTargetPrice}
+                  disabled={!tradeForm.stop_loss.trim()}
+                  className="cursor-pointer rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Loss
+                </button>
+              </div>
             </div>
           </div>
 
@@ -907,6 +1107,41 @@ function toNullableNumber(value: string): number | null {
   return Number.isFinite(numberValue) ? numberValue : null
 }
 
+function createInitialTradeFormState(): TradeFormState {
+  return {
+    ...emptyTradeFormState,
+    asset: getStoredAsset(),
+  }
+}
+
+function getStoredAsset(): string {
+  if (typeof window === 'undefined') return ''
+
+  try {
+    const rawValue = window.localStorage.getItem(LAST_ASSET_STORAGE_KEY)
+    return rawValue?.trim().toUpperCase() || ''
+  } catch {
+    return ''
+  }
+}
+
+function rememberAsset(value: string): void {
+  if (typeof window === 'undefined') return
+
+  const normalized = value.trim().toUpperCase()
+  if (!normalized) return
+
+  try {
+    window.localStorage.setItem(LAST_ASSET_STORAGE_KEY, normalized)
+  } catch {
+    // Ignore storage failures
+  }
+}
+
+function isEmptyText(value: string | null): boolean {
+  return value === null || value.trim() === ''
+}
+
 function formatDateAndTime(date: string, time: string | null): string {
   if (!time) return date
   return `${date} ${time.substring(0, 5)}`
@@ -944,4 +1179,23 @@ function calculateOutcomeR(
 
 function formatOutcomeR(value: number): string {
   return Number(value.toFixed(4)).toString()
+}
+
+function extractFirstImageFromClipboard(event: ClipboardEvent): File | null {
+  const clipboardItems = Array.from(event.clipboardData?.items || [])
+
+  for (let index = 0; index < clipboardItems.length; index += 1) {
+    const item = clipboardItems[index]
+    if (!item.type.startsWith('image/')) continue
+
+    const file = item.getAsFile()
+    if (!file) continue
+
+    const extension = file.type.split('/')[1] || 'png'
+    return new File([file], `ai-paste-${Date.now()}.${extension}`, {
+      type: file.type,
+    })
+  }
+
+  return null
 }

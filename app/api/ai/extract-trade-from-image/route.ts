@@ -35,6 +35,8 @@ type GeminiExtractionPayload = {
   trade_time?: unknown;
 };
 
+type ExtractionContext = 'live' | 'backtesting';
+
 export async function POST(request: Request) {
   try {
     const apiKey = process.env.OPENROUTER_API_KEY;
@@ -72,6 +74,7 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const image = formData.get('image');
+    const extractionContext = toExtractionContext(formData.get('extraction_context'));
 
     if (!(image instanceof File)) {
       return NextResponse.json({ error: 'Image file is required' }, { status: 400 });
@@ -109,6 +112,7 @@ export async function POST(request: Request) {
       models: candidateModels,
       imageMimeType: image.type,
       imageBase64,
+      context: extractionContext,
     });
 
     if (!extractionResult.ok) {
@@ -143,6 +147,7 @@ async function requestOpenRouterExtraction(input: {
   models: string[];
   imageMimeType: string;
   imageBase64: string;
+  context: ExtractionContext;
 }): Promise<{ ok: true; payload: unknown } | { ok: false; error: string }> {
   const modelErrors: string[] = [];
 
@@ -172,6 +177,7 @@ async function requestModelWithRetry(
     appUrl: string;
     imageMimeType: string;
     imageBase64: string;
+    context: ExtractionContext;
   },
   model: string,
 ) {
@@ -198,7 +204,7 @@ async function requestModelWithRetry(
             content: [
               {
                 type: 'text',
-                text: buildPrompt(),
+                text: buildPrompt(input.context),
               },
               {
                 type: 'image_url',
@@ -225,28 +231,60 @@ async function requestModelWithRetry(
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-function buildPrompt(): string {
+function buildPrompt(context: ExtractionContext): string {
+  const includeTargetPrice = context === 'backtesting';
+
+  const extractionFields = includeTargetPrice
+    ? [
+      '- direction',
+      '- coin',
+      '- entry',
+      '- stop_loss',
+      '- target_price',
+      '- trade_date',
+      '- trade_time',
+    ]
+    : [
+      '- direction',
+      '- coin',
+      '- entry',
+      '- stop_loss',
+      '- trade_date',
+      '- trade_time',
+    ];
+
+  const jsonShape = includeTargetPrice
+    ? [
+      '{',
+      '  "direction": "long" | "short" | null,',
+      '  "coin": string | null,',
+      '  "entry": number | null,',
+      '  "stop_loss": number | null,',
+      '  "target_price": number | null,',
+      '  "trade_date": string | null,',
+      '  "trade_time": string | null',
+      '}',
+    ]
+    : [
+      '{',
+      '  "direction": "long" | "short" | null,',
+      '  "coin": string | null,',
+      '  "entry": number | null,',
+      '  "stop_loss": number | null,',
+      '  "trade_date": string | null,',
+      '  "trade_time": string | null',
+      '}',
+    ];
+
   return [
     'The image contains a TradingView chart region focused on the active position tool near the latest candles on the right side, plus the right-side price axis.',
     'It may still include other chart drawings, indicators, labels, and lines. Ignore them unless they belong to the active position tool.',
     '',
     'Extract ONLY:',
-    '- direction',
-    '- coin',
-    '- entry',
-    '- stop_loss',
-    '- trade_date',
-    '- trade_time',
+    ...extractionFields,
     '',
     'Return ONLY valid JSON:',
-    '{',
-    '  "direction": "long" | "short" | null,',
-    '  "coin": string | null,',
-    '  "entry": number | null,',
-    '  "stop_loss": number | null,',
-    '  "trade_date": string | null,',
-    '  "trade_time": string | null',
-    '}',
+    ...jsonShape,
     '',
     'Primary object to parse:',
     '- Parse ONLY the single active TradingView position tool nearest the latest candles on the far right side of the chart.',
@@ -296,8 +334,11 @@ function buildPrompt(): string {
     '2. entry is derived only from the split line of the active position tool.',
     '3. stop_loss is derived only from the red-zone outer boundary of the active position tool.',
     '4. Extract coin from the chart header if clearly visible; return base ticker only, e.g. BTC, ETH, SOL, ZEC.',
-    '5. Extract trade_date only when explicitly visible and format as YYYY-MM-DD; otherwise null.',
-    '6. Extract trade_time only when explicitly visible and format as HH:mm:ss in UTC; otherwise null.',
+    includeTargetPrice
+      ? '5. target_price must come from the OUTER EDGE OF THE GREEN ZONE of the same active position tool (never from red zone, current-price line, or unrelated lines).'
+      : '5. Skip target_price extraction for live trade prefill.',
+    '6. Extract trade_date only when explicitly visible and format as YYYY-MM-DD; otherwise null.',
+    '7. Extract trade_time only when explicitly visible and format as HH:mm:ss in UTC; otherwise null.',
     '',
     'Ignore completely:',
     '- dotted line',
@@ -323,10 +364,16 @@ function buildPrompt(): string {
     '- for a long setup, stop_loss must be below entry',
     '- if exact horizontal alignment is unclear, return null',
     '- if coin/date/time are not explicitly visible, return null for those fields',
+    includeTargetPrice
+      ? '- if target_price cannot be aligned with the green-zone outer boundary, return null'
+      : '- target_price should be omitted from live extraction output',
     '',
     'Sanity checks before answering:',
     '- If direction = short, red must be above green, entry must be the split line, and stop_loss must be above entry on the red-zone top boundary.',
     '- If direction = long, green must be above red, entry must be the split line, and stop_loss must be below entry on the red-zone bottom boundary.',
+    includeTargetPrice
+      ? '- target_price must come from the green-zone outer boundary of the same active position tool.'
+      : '- do not infer target_price for live extraction.',
     '- If a candidate stop_loss comes from the green zone or from an unrelated chart line, reject it and return null instead of guessing.',
     '',
     'Worked example:',
@@ -336,6 +383,10 @@ function buildPrompt(): string {
     '- If the green-zone outer boundary aligns with 181.52, that is NOT stop_loss and must be ignored.',
     '- In that case, 199.17 must be ignored for entry and 181.52 must be ignored for stop_loss.',
   ].join("\n");
+}
+
+function toExtractionContext(value: FormDataEntryValue | null): ExtractionContext {
+  return value === 'backtesting' ? 'backtesting' : 'live';
 }
 
 function extractOpenRouterText(payload: unknown): string | null {
@@ -449,7 +500,12 @@ function emptyFields(): ExtractedFields {
 
 function normalizeCoin(value: unknown): string | null {
   if (typeof value !== 'string') return null;
-  const cleaned = value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const normalized = value.trim().toUpperCase();
+  if (normalized === 'NULL' || normalized === 'N/A' || normalized === 'NA' || normalized === 'NONE' || normalized === 'UNKNOWN') {
+    return null;
+  }
+
+  const cleaned = normalized.replace(/[^A-Z0-9]/g, '');
   if (!cleaned) return null;
   return cleaned.endsWith('USDT') ? cleaned.slice(0, -4) : cleaned;
 }

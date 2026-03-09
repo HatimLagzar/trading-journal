@@ -232,6 +232,8 @@ try {
 3. Backtesting trades store theoretical results in `outcome_r` (Profit in R), not realized dollar PnL
 4. Use `/app/backtesting/ImportBacktestingTradesForm.tsx` for bulk importing theoretical trades with mapping and preview
 5. Keep `trade_date` mapping optional during backtesting import (default missing dates to today)
+6. Backtesting trade form should prefill `asset` from localStorage key `trade_form_last_asset` and persist the latest saved asset for faster repeated journaling
+7. In backtesting trade modal, the `Loss` helper can copy `stop_loss` into `target_price` for quick failed-setup journaling
 
 ### Viewing trade charts
 1. Live trades use `/app/trades/TradeChartView.tsx`; backtesting trades use `/app/backtesting/BacktestingTradeChartView.tsx`
@@ -257,10 +259,13 @@ try {
 3. Return `null` for missing/uncertain fields and surface warnings instead of guessing values
 4. Gate this feature for premium users and redirect free users with `feature=ai-screenshot-import`
 5. For chart screenshots, prioritize extracting `entry` and `stop_loss` from the TradingView position tool boundaries (split line + red-zone outer edge) and ignore current-price labels/dotted lines
-6. Direction and `r_multiple` should be concluded/calculated by app logic from extracted prices, not trusted from model output
-7. Configure OpenRouter with `OPENROUTER_API_KEY`
-8. Preferred model list env is `OPENROUTER_VISION_MODELS` (comma-separated); legacy fallbacks `OPENROUTER_QWEN_MODELS` and `OPENROUTER_QWEN_MODEL` are still supported
-9. Default fallback model is `qwen/qwen3-vl-8b-instruct` when no model env vars are set
+6. Backtesting AI prefill uses `extraction_context=backtesting` so extraction can also include `target_price` from the green-zone outer edge of the same active position tool
+7. Live AI prefill should skip `target_price` extraction (`extraction_context=live`) and rely on normal live-trade calculations for outcome fields
+8. Backtesting trade modal supports both image upload and clipboard paste flows for AI prefill
+9. Direction and `r_multiple` should be concluded/calculated by app logic from extracted prices, not trusted from model output
+10. Configure OpenRouter with `OPENROUTER_API_KEY`
+11. Preferred model list env is `OPENROUTER_VISION_MODELS` (comma-separated); legacy fallbacks `OPENROUTER_QWEN_MODELS` and `OPENROUTER_QWEN_MODEL` are still supported
+12. Default fallback model is `qwen/qwen3-vl-8b-instruct` when no model env vars are set
 
 ### Creating a new page
 1. Create directory in `/app` (e.g., `/app/analytics`)

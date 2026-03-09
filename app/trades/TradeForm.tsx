@@ -21,6 +21,7 @@ import type { System, SubSystem } from '@/services/system'
 import type { BacktestingSession } from '@/services/backtesting'
 
 const LAST_RISK_STORAGE_KEY = 'trade_form_last_risk'
+const LAST_ASSET_STORAGE_KEY = 'trade_form_last_asset'
 
 type AiExtractedFields = {
   coin: string | null
@@ -50,13 +51,14 @@ interface TradeFormProps {
 export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFormProps) {
   const isEditing = !!trade
   const storedRisk = getStoredRisk()
+  const storedAsset = getStoredAsset()
 
   // Form state - initialize with trade data if editing, or empty if creating
   const [formData, setFormData] = useState<TradeInsert>({
     user_id: userId,
     trade_date: trade?.trade_date || new Date().toISOString().split('T')[0], // Today's date
     trade_time: trade?.trade_time || null,
-    coin: trade?.coin || '',
+    coin: trade?.coin || (!isEditing ? storedAsset : ''),
     direction: trade?.direction || 'long',
     entry_order_type: trade?.entry_order_type || null,
     avg_entry: trade?.avg_entry || 0,
@@ -370,6 +372,8 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
         const newTrade = await createTrade(formData)
         tradeId = newTrade.id
       }
+
+      rememberAsset(formData.coin)
 
       await syncBacktestingMirror()
 
@@ -936,5 +940,29 @@ function getStoredRisk(): number | null {
     return parsed
   } catch {
     return null
+  }
+}
+
+function getStoredAsset(): string {
+  if (typeof window === 'undefined') return ''
+
+  try {
+    const rawValue = window.localStorage.getItem(LAST_ASSET_STORAGE_KEY)
+    return rawValue?.trim().toUpperCase() || ''
+  } catch {
+    return ''
+  }
+}
+
+function rememberAsset(value: string): void {
+  if (typeof window === 'undefined') return
+
+  const normalized = value.trim().toUpperCase()
+  if (!normalized) return
+
+  try {
+    window.localStorage.setItem(LAST_ASSET_STORAGE_KEY, normalized)
+  } catch {
+    // Ignore storage failures
   }
 }
