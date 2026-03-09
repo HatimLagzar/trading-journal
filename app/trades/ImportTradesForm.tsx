@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { createTradesBulk, getTrades } from '@/services/trade'
+import { createTradesBulk, getTrades, updateTrade } from '@/services/trade'
 import { createSystem, getSystems } from '@/services/system'
 import type { Trade, TradeInsert } from '@/services/trade'
 
@@ -320,24 +320,50 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
       }
 
       const existingTrades = await getTrades(userId)
-      const existingSignatures = new Set(existingTrades.map(buildTradeSignatureFromExisting))
+      const existingByExactSignature = new Map<string, Trade>()
+      const existingByCoreSignature = new Map<string, Trade>()
+
+      existingTrades.forEach((trade) => {
+        existingByExactSignature.set(buildTradeSignatureFromExisting(trade), trade)
+        const coreSignature = buildTradeCoreSignatureFromExisting(trade)
+        if (!existingByCoreSignature.has(coreSignature)) {
+          existingByCoreSignature.set(coreSignature, trade)
+        }
+      })
+
       const batchSignatures = new Set<string>()
+      const usedExistingTradeIds = new Set<string>()
 
       const newTrades: TradeInsert[] = []
-      let duplicatesExisting = 0
+      const updates: Array<{ id: string; trade: TradeInsert }> = []
+      let updatedExisting = 0
       let duplicatesInFile = 0
 
       importCandidates.forEach((candidate) => {
         const trade = candidate.trade
         const signature = buildTradeSignatureFromInsert(trade)
-
-        if (existingSignatures.has(signature)) {
-          duplicatesExisting += 1
-          return
-        }
+        const coreSignature = buildTradeCoreSignatureFromInsert(trade)
 
         if (batchSignatures.has(signature)) {
           duplicatesInFile += 1
+          return
+        }
+
+        const exactExisting = existingByExactSignature.get(signature)
+        if (exactExisting && !usedExistingTradeIds.has(exactExisting.id)) {
+          usedExistingTradeIds.add(exactExisting.id)
+          updates.push({ id: exactExisting.id, trade })
+          updatedExisting += 1
+          batchSignatures.add(signature)
+          return
+        }
+
+        const coreExisting = existingByCoreSignature.get(coreSignature)
+        if (coreExisting && !usedExistingTradeIds.has(coreExisting.id)) {
+          usedExistingTradeIds.add(coreExisting.id)
+          updates.push({ id: coreExisting.id, trade })
+          updatedExisting += 1
+          batchSignatures.add(signature)
           return
         }
 
@@ -345,10 +371,9 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
         newTrades.push(trade)
       })
 
-      if (newTrades.length === 0) {
-        const summaryParts = ['No new trades imported.']
+      if (newTrades.length === 0 && updates.length === 0) {
+        const summaryParts = ['No trades imported.']
         if (createdSystems > 0) summaryParts.push(`Created ${createdSystems} systems.`)
-        if (duplicatesExisting > 0) summaryParts.push(`Found ${duplicatesExisting} already existing rows.`)
         if (duplicatesInFile > 0) summaryParts.push(`Found ${duplicatesInFile} duplicate rows in file.`)
         if (ignored > 0) summaryParts.push(`Ignored ${ignored} non-data rows.`)
         if (skipped > 0) summaryParts.push(`Skipped ${skipped} invalid rows.`)
@@ -356,10 +381,20 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
         return
       }
 
-      await createTradesBulk(newTrades)
-      const summaryParts = [`Imported ${newTrades.length} trades.`]
+      if (updates.length > 0) {
+        await Promise.all(
+          updates.map((item) => updateTrade(item.id, item.trade)),
+        )
+      }
+
+      if (newTrades.length > 0) {
+        await createTradesBulk(newTrades)
+      }
+
+      const summaryParts = []
+      if (newTrades.length > 0) summaryParts.push(`Imported ${newTrades.length} new trades.`)
+      if (updatedExisting > 0) summaryParts.push(`Updated ${updatedExisting} existing trades.`)
       if (createdSystems > 0) summaryParts.push(`Created ${createdSystems} new systems.`)
-      if (duplicatesExisting > 0) summaryParts.push(`Skipped ${duplicatesExisting} existing duplicates.`)
       if (duplicatesInFile > 0) summaryParts.push(`Skipped ${duplicatesInFile} file duplicates.`)
       if (ignored > 0) summaryParts.push(`Ignored ${ignored} non-data rows.`)
       if (skipped > 0) summaryParts.push(`Skipped ${skipped} invalid rows.`)
@@ -929,6 +964,32 @@ function buildTradeSignatureFromExisting(trade: Trade): string {
     trade.system_id,
     trade.sub_system_id,
     normalizeText(trade.notes),
+  ])
+}
+
+function buildTradeCoreSignatureFromInsert(trade: TradeInsert): string {
+  return JSON.stringify([
+    normalizeText(trade.coin),
+    trade.direction,
+    normalizeNumber(trade.avg_entry),
+    normalizeNumber(trade.stop_loss),
+    normalizeNumber(trade.avg_exit),
+    normalizeNumber(trade.risk),
+    normalizeNumber(trade.realised_loss),
+    normalizeNumber(trade.realised_win),
+  ])
+}
+
+function buildTradeCoreSignatureFromExisting(trade: Trade): string {
+  return JSON.stringify([
+    normalizeText(trade.coin),
+    trade.direction,
+    normalizeNumber(trade.avg_entry),
+    normalizeNumber(trade.stop_loss),
+    normalizeNumber(trade.avg_exit),
+    normalizeNumber(trade.risk),
+    normalizeNumber(trade.realised_loss),
+    normalizeNumber(trade.realised_win),
   ])
 }
 

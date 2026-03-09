@@ -223,9 +223,11 @@ try {
 2. Let users configure `rowsToSkip` and per-field column mappings with sample preview
 3. Accept optional `trade_time` and `system_name` mappings during import
 4. If `system_name` is mapped and system doesn't exist, create it with empty rules and assign `system_id`
-5. Ignore non-data rows, log invalid rows in console with reason, and skip duplicate trades (existing + file-internal)
-6. Support both separate date/time columns and combined date-time in one column (users can map both fields to same source column)
-7. Keep `trade_date` mapping optional during import (default missing dates to today)
+5. Ignore non-data rows and log invalid rows in console with reason
+6. If an imported trade already exists, update the existing record instead of creating a duplicate (supports re-import corrections like date fixes)
+7. Skip file-internal duplicates while importing
+8. Support both separate date/time columns and combined date-time in one column (users can map both fields to same source column)
+9. Keep `trade_date` mapping optional during import (default missing dates to today)
 
 ### Backtesting sessions and theoretical trades
 1. Use `/app/backtesting/page.tsx` for session management and theoretical trade journaling

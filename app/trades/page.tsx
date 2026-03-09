@@ -31,6 +31,7 @@ type PeriodRStats = {
   month: number
   last90Days: number
   year: number
+  previousYear: number
 }
 
 type PerformanceEntry = {
@@ -222,6 +223,9 @@ export default function TradesPage() {
 
     const startOfYear = new Date(now.getFullYear(), 0, 1)
     const yearStart = toLocalDateString(startOfYear)
+    const previousYear = now.getFullYear() - 1
+    const previousYearStart = `${previousYear}-01-01`
+    const previousYearEnd = `${previousYear}-12-31`
     const today = toLocalDateString(now)
 
     const sumRInRange = (start: string, end: string): number => {
@@ -239,7 +243,34 @@ export default function TradesPage() {
       month: sumRInRange(monthStart, today),
       last90Days: sumRInRange(last90DaysStart, today),
       year: sumRInRange(yearStart, today),
+      previousYear: sumRInRange(previousYearStart, previousYearEnd),
     }
+  }, [statsTrades])
+
+  useEffect(() => {
+    const sortedTrades = [...statsTrades]
+      .sort((a, b) => {
+        const aDate = normalizeTradeDate(a.trade_date) ?? '9999-12-31'
+        const bDate = normalizeTradeDate(b.trade_date) ?? '9999-12-31'
+        if (aDate !== bDate) {
+          return aDate.localeCompare(bDate)
+        }
+
+        const aTime = (a.trade_time ?? '').slice(0, 8)
+        const bTime = (b.trade_time ?? '').slice(0, 8)
+        return aTime.localeCompare(bTime)
+      })
+
+    const oldestTrade = sortedTrades[0] ?? null
+    const oldestTradeDate = oldestTrade ? normalizeTradeDate(oldestTrade.trade_date) : null
+    const trades2025 = sortedTrades.filter((trade) => {
+      const normalizedDate = normalizeTradeDate(trade.trade_date)
+      return normalizedDate !== null && normalizedDate.startsWith('2025-')
+    })
+
+    console.log('[TradesPage] All trades oldest first:', sortedTrades)
+    console.log('[TradesPage] Oldest trade date:', oldestTradeDate)
+    console.log('[TradesPage] Trades in 2025 (oldest first):', trades2025)
   }, [statsTrades])
 
   const performanceStats = useMemo<PerformanceStats>(() => {
@@ -848,12 +879,13 @@ function PeriodRCard({ stats }: { stats: PeriodRStats }) {
     { label: 'This Month', value: stats.month },
     { label: 'Last 90 Days', value: stats.last90Days },
     { label: 'This Year', value: stats.year },
+    { label: 'Previous Year', value: stats.previousYear },
   ]
 
   return (
     <div className="bg-white border rounded-lg p-4 col-span-full">
       <div className="text-sm text-gray-500 mb-2">Total R by Period</div>
-      <div className="grid grid-cols-2 md:grid-cols-5 divide-x divide-gray-200">
+      <div className="grid grid-cols-2 md:grid-cols-6 divide-x divide-gray-200">
         {rows.map((row) => (
           <div key={row.label} className="px-4 py-2 text-center">
             <div className="text-xs text-gray-500">{row.label}</div>
