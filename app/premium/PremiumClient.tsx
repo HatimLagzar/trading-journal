@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePremiumAccess } from '@/lib/usePremiumAccess';
 import AuthNavbar from '@/app/components/AuthNavbar';
 import type { CheckoutPlan } from '@/services/subscription';
@@ -8,11 +8,15 @@ import type { CheckoutPlan } from '@/services/subscription';
 const PREMIUM_FEATURES = [
   'AI-assisted trade prefill from TradingView screenshots',
   'Paste screenshots directly in backtesting add-trade modal',
+  'Paste images in live trade Decisions discussion (Cmd+V / Ctrl+V)',
   'Keep add-trade modal open for rapid backtesting loops',
   'Open one-click trade charts on TradingView',
   'Import live trades from CSV/XLSX files',
   'Export backtesting trades to spreadsheet-friendly CSV',
   'Mirror live trades to backtesting sessions',
+  'Per-trade Decisions workspace with chart snippet + oldest-to-newest timeline',
+  'Date sorting in live and backtesting trades tables',
+  'Won/lost outcome filters for live trade review',
   'Selection-based performance stats for focused review',
   'Best/worst day and hour rankings (#1 and #2)',
   'Trades-per-week frequency metric for session pacing',
@@ -33,6 +37,10 @@ const PREMIUM_RESULTS = [
   {
     title: 'Log backtests much faster',
     text: 'Keep the add-trade modal open, clear only entry/SL/TP, and run through repeated setups without re-opening forms.',
+  },
+  {
+    title: 'Manage live trades with less noise',
+    text: 'Use the Decisions workspace to keep chart context, timeline notes, and image-based thinking in one focused place.',
   },
   {
     title: 'Find your timing edge quickly',
@@ -57,7 +65,7 @@ export default function PremiumClient({
   monthlyPriceUsd,
   annualPriceUsd,
 }: PremiumClientProps) {
-  const { isPremium } = usePremiumAccess();
+  const { isPremium, refreshPremiumStatus } = usePremiumAccess();
   const [checkoutLoading, setCheckoutLoading] = useState<CheckoutPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,6 +76,11 @@ export default function PremiumClient({
     if (!requestedFeature) return null;
     return FEATURE_LABELS[requestedFeature] ?? 'this feature';
   }, [requestedFeature]);
+
+  useEffect(() => {
+    if (checkoutState !== 'success') return;
+    void refreshPremiumStatus();
+  }, [checkoutState, refreshPremiumStatus]);
 
   async function startCheckout(plan: CheckoutPlan) {
     setCheckoutLoading(plan);
@@ -116,12 +129,13 @@ export default function PremiumClient({
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
                 Premium is built for traders who want faster loops with better signal quality: AI prefill, rapid
-                backtesting entry flow, selection-based stats, day/time rankings, and export-ready records.
+                backtesting entry flow, live Decisions journaling, selection-based stats, and export-ready records.
               </p>
               <div className="mt-5 grid gap-2 sm:grid-cols-3">
                 <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">Keep-open backtesting entry loop</div>
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">Decisions timeline + chart snippet</div>
                 <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">#1/#2 day and hour performance ranks</div>
-                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">Spreadsheet-friendly backtesting export</div>
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">Date sort + won/lost review filters</div>
               </div>
             </div>
             <div className="rounded-2xl border border-cyan-200/25 bg-cyan-300/10 p-5 text-white">
@@ -212,10 +226,12 @@ export default function PremiumClient({
             <h2 className="text-lg font-semibold text-white">Why traders upgrade</h2>
             <ul className="mt-3 space-y-2 text-sm text-slate-200">
               <li className="rounded-md border border-cyan-300/20 bg-cyan-300/10 px-3 py-2">AI prefill and paste-to-prefill cut repetitive typing while keeping manual confirmation.</li>
+              <li className="rounded-md border border-violet-300/20 bg-violet-300/10 px-3 py-2">Decisions workspace keeps your in-trade thought process clean, chronological, and linked to chart context.</li>
               <li className="rounded-md border border-indigo-300/20 bg-indigo-300/10 px-3 py-2">Keep-open add flow lets you log many backtests quickly without context switching.</li>
               <li className="rounded-md border border-emerald-300/20 bg-emerald-300/10 px-3 py-2">Selection-based stats reveal what changed in a specific subset of trades instantly.</li>
               <li className="rounded-md border border-sky-300/20 bg-sky-300/10 px-3 py-2">Day/hour rankings (#1/#2) expose your best and worst execution windows.</li>
-              <li className="rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2">CSV export and mirroring keep review workflows fast and accountability tight.</li>
+              <li className="rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2">Date sorting and won/lost filters make live-trade review fast before deeper export analysis.</li>
+              <li className="rounded-md border border-orange-300/20 bg-orange-300/10 px-3 py-2">CSV export and mirroring keep review workflows fast and accountability tight.</li>
             </ul>
           </div>
         </div>

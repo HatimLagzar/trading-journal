@@ -23,6 +23,7 @@ export default function PremiumSuccessPage() {
           <p className="text-sm font-semibold text-slate-900">You can now unlock:</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
             <li>Screenshot uploads on trades</li>
+            <li>Image attachments in Decisions discussions (including paste)</li>
             <li>Live trade imports</li>
             <li>Live-to-backtesting mirroring</li>
             <li>More than 2 systems</li>

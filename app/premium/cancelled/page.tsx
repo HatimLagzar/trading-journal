@@ -23,6 +23,7 @@ export default function PremiumCancelledPage() {
           <p className="text-sm font-semibold text-slate-900">Premium benefits include:</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
             <li>Screenshot uploads</li>
+            <li>Image attachments in Decisions discussions (including paste)</li>
             <li>Live trade imports</li>
             <li>Mirroring live trades to backtesting sessions</li>
             <li>Creating more than 2 systems</li>

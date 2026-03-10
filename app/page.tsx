@@ -15,7 +15,7 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: 'Trading Journal for Faster Execution and Review',
   description:
-    'Save hours each week with AI trade prefill, rapid backtesting entry flows, selection-based stats, and one-click CSV export.',
+    'Save hours each week with AI trade prefill, per-trade Decisions workspace, sortable date tables, and selection-based stats.',
 }
 
 const featureCards = [
@@ -34,6 +34,14 @@ const featureCards = [
   {
     title: 'Selection-Based Performance Stats',
     text: 'Select specific trades and instantly recalculate R metrics, best/worst day and time, and top #1/#2 patterns.',
+  },
+  {
+    title: 'Decisions Workspace Per Trade',
+    text: 'Open a dedicated Decisions screen for any live trade with chart context plus an oldest-to-newest thinking timeline.',
+  },
+  {
+    title: 'Date Sorting + Outcome Filters',
+    text: 'Click Date headers to sort and filter quickly by Won, Lost, or All trades without breaking your review flow.',
   },
   {
     title: 'Backtesting CSV Export',
@@ -55,7 +63,7 @@ const processSteps = [
   {
     label: 'Step 3',
     title: 'Review What Actually Matters',
-    text: 'Select trades, inspect best/worst day-time windows, and export backtesting logs to tighten your weekly feedback loop.',
+    text: 'Filter wins/losses, sort by date, inspect #1/#2 timing windows, and export backtesting logs to tighten your weekly loop.',
   },
 ]
 
@@ -90,14 +98,14 @@ export default function Home() {
         <section className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
           <div className="animate-fade-up">
               <p className="mb-3 inline-flex rounded-full border border-cyan-200/30 bg-cyan-200/10 px-3 py-1 text-xs font-medium text-cyan-100">
-                New workflow: Faster backtesting + smarter review stats
+                New workflow: Decisions workspace + smarter review controls
               </p>
               <h1 className={`${sora.className} max-w-2xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl`}>
                 Journal faster. Backtest deeper. Improve in less time.
               </h1>
               <p className="mt-5 max-w-xl text-base text-slate-300 sm:text-lg">
                 Designed for traders who want faster logging loops and sharper analytics: AI prefill, keep-open backtesting
-                entry, selection-based stats, and export-ready records.
+                entry, Decisions timeline while a trade is live, and selection-based review stats.
               </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -116,9 +124,9 @@ export default function Home() {
             </div>
 
             <div className="mt-8 grid grid-cols-2 gap-3 sm:max-w-lg sm:grid-cols-3">
-              <Stat value="Keep modal open" label="faster backtesting input" delay={100} />
-              <Stat value="#1/#2 day & time" label="clear timing edge" delay={180} />
-              <Stat value="Export-ready CSV" label="instant weekly handoff" delay={260} />
+              <Stat value="Decisions view" label="chart + thinking feed" delay={100} />
+              <Stat value="Date sort + W/L" label="faster trade review" delay={180} />
+              <Stat value="#1/#2 day & time" label="clear timing edge" delay={260} />
             </div>
           </div>
 
@@ -128,10 +136,12 @@ export default function Home() {
           >
             <p className="text-sm font-semibold text-cyan-100">Time-saving gains you will feel first</p>
             <ul className="mt-4 space-y-3 text-sm text-slate-200">
-              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Backtesting entry speeds up with keep-open add flow and Loss helper for failed setups.</li>
-              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">AI screenshot prefill reduces manual typing while keeping final decisions in your hands.</li>
-              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Stats switch instantly between all trades and selected trades for focused review.</li>
-              <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">CSV exports are clean and spreadsheet-friendly, so reporting and coaching reviews are faster.</li>
+               <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Backtesting entry speeds up with keep-open add flow and Loss helper for failed setups.</li>
+               <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Per-trade Decisions workspace keeps chart context and ongoing thinking in one focused screen.</li>
+               <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">AI screenshot prefill reduces manual typing while keeping final decisions in your hands.</li>
+               <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Date sorting and won/lost filters make it easy to isolate exactly what you want to study.</li>
+               <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Stats switch instantly between all trades and selected trades for focused review.</li>
+               <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">CSV exports are clean and spreadsheet-friendly, so reporting and coaching reviews are faster.</li>
             </ul>
             <p className="mt-5 text-xs text-slate-400">
               Perfect for discretionary traders, rule-based traders, and anyone scaling accountability.
@@ -177,9 +187,9 @@ export default function Home() {
           style={{ animationDelay: '500ms' }}
         >
           <p className="text-sm font-medium text-amber-100">Ready to trade with more discipline?</p>
-          <h2 className={`${sora.className} mt-2 max-w-2xl text-2xl font-semibold text-white sm:text-3xl`}>
-            Start free with the ongoing-trades desk, then unlock AI prefill, charts, and imports when ready.
-          </h2>
+            <h2 className={`${sora.className} mt-2 max-w-2xl text-2xl font-semibold text-white sm:text-3xl`}>
+            Start free with ongoing trade control, Decisions journaling, and smarter filters, then unlock premium speed features.
+            </h2>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/signup"
