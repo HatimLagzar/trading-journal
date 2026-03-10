@@ -47,8 +47,12 @@ type PerformanceStats = {
   bestDay: PerformanceEntry | null
   worstDay: PerformanceEntry | null
   bestHour: PerformanceEntry | null
+  secondBestHour: PerformanceEntry | null
   worstHour: PerformanceEntry | null
+  secondWorstHour: PerformanceEntry | null
 }
+
+type DateSortDirection = 'none' | 'asc' | 'desc'
 
 export default function TradesPage() {
   const router = useRouter()
@@ -63,7 +67,9 @@ export default function TradesPage() {
 
   const [selectedSystemId, setSelectedSystemId] = useState<string>('')
   const [selectedSubSystemId, setSelectedSubSystemId] = useState<string>('')
+  const [selectedOutcomeFilter, setSelectedOutcomeFilter] = useState<'all' | 'won' | 'lost'>('all')
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
+  const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('none')
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -137,17 +143,37 @@ export default function TradesPage() {
     return trades.filter((trade) => {
       if (selectedSystemId && trade.system_id !== selectedSystemId) return false
       if (selectedSubSystemId && trade.sub_system_id !== selectedSubSystemId) return false
+
+      if (selectedOutcomeFilter === 'won') {
+        return (trade.realised_win ?? 0) > 0
+      }
+
+      if (selectedOutcomeFilter === 'lost') {
+        return (trade.realised_loss ?? 0) > 0
+      }
+
       return true
     })
-  }, [selectedSubSystemId, selectedSystemId, trades])
+  }, [selectedOutcomeFilter, selectedSubSystemId, selectedSystemId, trades])
+
+  const dateSortedTrades = useMemo(() => {
+    if (dateSortDirection === 'none') return filteredTrades
+
+    return [...filteredTrades].sort((a, b) => {
+      const aKey = getTradeDateTimeSortKey(a)
+      const bKey = getTradeDateTimeSortKey(b)
+      const compare = aKey.localeCompare(bKey)
+      return dateSortDirection === 'asc' ? compare : -compare
+    })
+  }, [dateSortDirection, filteredTrades])
 
   const ongoingTrades = useMemo(() => {
-    return filteredTrades.filter((trade) => trade.avg_exit === null)
-  }, [filteredTrades])
+    return dateSortedTrades.filter((trade) => trade.avg_exit === null)
+  }, [dateSortedTrades])
 
   const completedTrades = useMemo(() => {
-    return filteredTrades.filter((trade) => trade.avg_exit !== null)
-  }, [filteredTrades])
+    return dateSortedTrades.filter((trade) => trade.avg_exit !== null)
+  }, [dateSortedTrades])
 
   useEffect(() => {
     if (!selectedSubSystemId) return
@@ -327,6 +353,28 @@ export default function TradesPage() {
       }
     }
 
+    function pickSecondBest(map: Map<string, number>, labelResolver?: (key: string) => string): PerformanceEntry | null {
+      const entries = Array.from(map.entries()).sort((a, b) => b[1] - a[1])
+      if (entries.length < 2) return null
+
+      const [key, value] = entries[1]
+      return {
+        label: labelResolver ? labelResolver(key) : key,
+        netPnL: value,
+      }
+    }
+
+    function pickSecondWorst(map: Map<string, number>, labelResolver?: (key: string) => string): PerformanceEntry | null {
+      const entries = Array.from(map.entries()).sort((a, b) => a[1] - b[1])
+      if (entries.length < 2) return null
+
+      const [key, value] = entries[1]
+      return {
+        label: labelResolver ? labelResolver(key) : key,
+        netPnL: value,
+      }
+    }
+
     return {
       bestSystem: pickBest(systemTotals, resolveSystemLabel),
       worstSystem: pickWorst(systemTotals, resolveSystemLabel),
@@ -335,7 +383,9 @@ export default function TradesPage() {
       bestDay: pickBest(weekdayTotals),
       worstDay: pickWorst(weekdayTotals),
       bestHour: pickBest(hourTotals),
+      secondBestHour: pickSecondBest(hourTotals),
       worstHour: pickWorst(hourTotals),
+      secondWorstHour: pickSecondWorst(hourTotals),
     }
   }, [statsTrades, systems])
 
@@ -487,6 +537,20 @@ export default function TradesPage() {
     setIsChartModalOpen(true)
   }
 
+  function toggleDateSortDirection() {
+    setDateSortDirection((prev) => {
+      if (prev === 'none') return 'asc'
+      if (prev === 'asc') return 'desc'
+      return 'none'
+    })
+  }
+
+  function dateSortLabel(): string {
+    if (dateSortDirection === 'asc') return 'Date ↑'
+    if (dateSortDirection === 'desc') return 'Date ↓'
+    return 'Date'
+  }
+
   function handleOpenFocus(trade: Trade) {
     setOpenDeleteMenuTradeId(null)
     router.push(`/trades/${trade.id}`)
@@ -545,7 +609,7 @@ export default function TradesPage() {
               onClick={() => handleOpenFocus(trade)}
               className="px-2 py-1 text-xs text-sky-700 hover:text-sky-900 hover:underline"
             >
-              Focus
+              Decisions
             </button>
             <button
               onClick={() => {
@@ -651,6 +715,19 @@ export default function TradesPage() {
               ))}
             </select>
           </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Outcome</label>
+            <select
+              value={selectedOutcomeFilter}
+              onChange={(e) => setSelectedOutcomeFilter(e.target.value as 'all' | 'won' | 'lost')}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+            >
+              <option value="all">All Trades</option>
+              <option value="won">Won Trades</option>
+              <option value="lost">Lost Trades</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -693,7 +770,15 @@ export default function TradesPage() {
           <thead className="bg-amber-50">
             <tr>
               <th className="px-4 py-3 text-left">#</th>
-              <th className="px-4 py-3 text-left">Date</th>
+              <th className="px-4 py-3 text-left">
+                <button
+                  type="button"
+                  onClick={toggleDateSortDirection}
+                  className="cursor-pointer text-left hover:underline"
+                >
+                  {dateSortLabel()}
+                </button>
+              </th>
               <th className="px-4 py-3 text-left">System</th>
               <th className="px-4 py-3 text-left">Coin</th>
               <th className="px-4 py-3 text-left">Direction</th>
@@ -736,7 +821,15 @@ export default function TradesPage() {
             <tr>
               <th className="px-4 py-3 text-left" />
               <th className="px-4 py-3 text-left">#</th>
-              <th className="px-4 py-3 text-left">Date</th>
+              <th className="px-4 py-3 text-left">
+                <button
+                  type="button"
+                  onClick={toggleDateSortDirection}
+                  className="cursor-pointer text-left hover:underline"
+                >
+                  {dateSortLabel()}
+                </button>
+              </th>
               <th className="px-4 py-3 text-left">System</th>
               <th className="px-4 py-3 text-left">Coin</th>
               <th className="px-4 py-3 text-left">Direction</th>
@@ -891,6 +984,17 @@ function normalizeDisplayTime(tradeTime: string | null): string {
   return '00:00:00'
 }
 
+function getTradeDateTimeSortKey(trade: Trade): string {
+  const normalizedDate = normalizeTradeDate(trade.trade_date)
+  const normalizedTime = normalizeDisplayTime(trade.trade_time)
+
+  if (!normalizedDate) {
+    return `9999-12-31T${normalizedTime}`
+  }
+
+  return `${normalizedDate}T${normalizedTime}`
+}
+
 function StatCard({
   label,
   value,
@@ -940,7 +1044,8 @@ function BestPerformersCard({ stats }: { stats: PerformanceStats }) {
     { label: 'System', data: stats.bestSystem },
     { label: 'Asset', data: stats.bestAsset },
     { label: 'Day', data: stats.bestDay },
-    { label: 'Time', data: stats.bestHour },
+    { label: 'Time #1', data: stats.bestHour },
+    { label: 'Time #2', data: stats.secondBestHour },
   ]
 
   return (
@@ -969,7 +1074,8 @@ function WorstPerformersCard({ stats }: { stats: PerformanceStats }) {
     { label: 'System', data: stats.worstSystem },
     { label: 'Asset', data: stats.worstAsset },
     { label: 'Day', data: stats.worstDay },
-    { label: 'Time', data: stats.worstHour },
+    { label: 'Time #1', data: stats.worstHour },
+    { label: 'Time #2', data: stats.secondWorstHour },
   ]
 
   return (

@@ -212,15 +212,18 @@ try {
 3. If no checkboxes are selected, calculate stats from currently filtered rows
 4. Keep period R card totals in sync for: today, this week, this month, last 90 days, this year
 5. Keep best/worst performer cards (system, asset, weekday, hour bucket `HH:00`) calculated from the same filtered/selected rows
-6. Keep `EV / Trade` displayed in R (not dollars)
+6. Show `Time #1` and `Time #2` in both best/worst performer cards
+7. Keep `EV / Trade` displayed in R (not dollars)
 
 ### Organizing live trades table
 1. Keep ongoing trades (`avg_exit` is `null`) in a dedicated top table on `/app/trades/page.tsx`
 2. Keep closed trades (`avg_exit` is not `null`) in a separate table below for history scanning
 3. Include `Stop Loss` as a dedicated column in both ongoing and closed tables
 4. Display trade date/time in `DD/MM/YY HH:mm` format in table rows
-5. Preserve per-row actions (`Close`, `Focus`, `Chart`, `Edit`, `Delete`) across both tables
-6. Keep row selection for closed trades compatible with stats cards and filtered rows
+5. Support date sorting by clicking the `Date` header (cycle: default, ascending, descending)
+6. Keep outcome filtering options (`All Trades`, `Won Trades`, `Lost Trades`) in the filters bar
+7. Preserve per-row actions (`Close`, `Decisions`, `Chart`, `Edit`, `Delete`) across both tables
+8. Keep row selection for closed trades compatible with stats cards and filtered rows
 
 ### Importing trades from sheets/files
 1. Use `/app/trades/ImportTradesForm.tsx` for CSV/TSV/XLS/XLSX upload + mapping UI
@@ -249,6 +252,7 @@ try {
 13. Add-trade modal supports a `Keep modal open after adding` checkbox; on add success it keeps modal open and clears only entry/SL/TP (and recalculated outcome field)
 14. Disable add/update submit while AI screenshot extraction is running
 15. Show a subtle session status line for `Time spent backtesting` based on elapsed time between first and last trade `created_at`
+16. Support date sorting in the backtesting trades table by clicking the `Date` header (default, ascending, descending)
 
 ### Exporting backtesting sessions
 1. Export is available from `/app/backtesting/page.tsx` as `Export CSV`
@@ -265,7 +269,7 @@ try {
 5. Support loading more context candles and keep entry-time vertical marker + entry/stop/exit lines visible
 
 ### Trade focus thinking workflow
-1. Open per-trade focus from `/app/trades/page.tsx` row action `Focus` (route `/app/trades/[tradeId]/page.tsx`)
+1. Open per-trade focus from `/app/trades/page.tsx` row action `Decisions` (route `/app/trades/[tradeId]/page.tsx`)
 2. Keep the discussion timeline sorted by `created_at` ascending (oldest to newest)
 3. Store discussion entries in `trade_thinking_quotes` (migration `supabase/migrations/005_create_trade_thinking_quotes.sql`)
 4. A discussion entry supports text and/or image (`quote_text`, `image_storage_path`, `image_filename`)

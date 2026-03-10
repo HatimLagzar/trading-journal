@@ -84,6 +84,8 @@ type PerformanceStats = {
   secondWorstHour: PerformanceEntry | null
 }
 
+type DateSortDirection = 'none' | 'asc' | 'desc'
+
 type SessionStats = {
   totalTrades: number
   totalR: number
@@ -124,6 +126,7 @@ export default function BacktestingPage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [trades, setTrades] = useState<BacktestingTrade[]>([])
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
+  const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('none')
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -206,7 +209,32 @@ export default function BacktestingPage() {
     return trades.filter((trade) => selectedTradeIds.includes(trade.id))
   }, [trades, selectedTradeIds])
 
+  const sortedTrades = useMemo(() => {
+    if (dateSortDirection === 'none') return trades
+
+    return [...trades].sort((a, b) => {
+      const aKey = getBacktestingDateTimeSortKey(a.trade_date, a.trade_time)
+      const bKey = getBacktestingDateTimeSortKey(b.trade_date, b.trade_time)
+      const compare = aKey.localeCompare(bKey)
+      return dateSortDirection === 'asc' ? compare : -compare
+    })
+  }, [dateSortDirection, trades])
+
   const statsTrades = selectedTrades.length > 0 ? selectedTrades : trades
+
+  function toggleDateSortDirection() {
+    setDateSortDirection((prev) => {
+      if (prev === 'none') return 'asc'
+      if (prev === 'asc') return 'desc'
+      return 'none'
+    })
+  }
+
+  function dateSortLabel(): string {
+    if (dateSortDirection === 'asc') return 'Date ↑'
+    if (dateSortDirection === 'desc') return 'Date ↓'
+    return 'Date'
+  }
 
   const sessionStats = useMemo(() => calculateBacktestingSessionStats(statsTrades), [statsTrades])
   const performanceStats = useMemo(() => calculateBacktestingPerformanceStats(statsTrades), [statsTrades])
@@ -811,10 +839,10 @@ export default function BacktestingPage() {
                 <div className="px-3 py-2 border-b bg-gray-50 flex items-center justify-end">
                   {trades.length > 0 && (
                     <button
-                      onClick={() => toggleSelectAllTrades(trades.map((trade) => trade.id))}
+                      onClick={() => toggleSelectAllTrades(sortedTrades.map((trade) => trade.id))}
                       className="text-xs text-gray-600 hover:text-gray-900 hover:underline cursor-pointer"
                     >
-                      {areAllTradesSelected(trades.map((trade) => trade.id)) ? 'Unselect all' : 'Select all'}
+                      {areAllTradesSelected(sortedTrades.map((trade) => trade.id)) ? 'Unselect all' : 'Select all'}
                     </button>
                   )}
                 </div>
@@ -822,7 +850,15 @@ export default function BacktestingPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-2 text-left" />
-                      <th className="px-3 py-2 text-left">Date</th>
+                      <th className="px-3 py-2 text-left">
+                        <button
+                          type="button"
+                          onClick={toggleDateSortDirection}
+                          className="cursor-pointer text-left hover:underline"
+                        >
+                          {dateSortLabel()}
+                        </button>
+                      </th>
                       <th className="px-3 py-2 text-left">Asset</th>
                       <th className="px-3 py-2 text-left">Dir</th>
                       <th className="px-3 py-2 text-right">Entry</th>
@@ -833,7 +869,7 @@ export default function BacktestingPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {trades.map((trade) => (
+                    {sortedTrades.map((trade) => (
                       <tr key={trade.id} className="border-t">
                         <td className="px-3 py-2">
                           <input
@@ -897,7 +933,7 @@ export default function BacktestingPage() {
                         </td>
                       </tr>
                     ))}
-                    {trades.length === 0 && (
+                    {sortedTrades.length === 0 && (
                       <tr>
                         <td colSpan={9} className="px-3 py-6 text-center text-gray-500">
                           No theoretical trades yet.
@@ -1288,6 +1324,29 @@ function isEmptyText(value: string | null): boolean {
 function formatDateAndTime(date: string, time: string | null): string {
   if (!time) return date
   return `${date} ${time.substring(0, 5)}`
+}
+
+function getBacktestingDateTimeSortKey(date: string, time: string | null): string {
+  const normalizedDate = normalizeTradeDate(date) ?? '9999-12-31'
+  const normalizedTime = normalizeDisplayTime(time)
+  return `${normalizedDate}T${normalizedTime}`
+}
+
+function normalizeDisplayTime(tradeTime: string | null): string {
+  if (!tradeTime) return '00:00:00'
+
+  const trimmed = tradeTime.trim()
+  if (!trimmed) return '00:00:00'
+
+  if (/^\d{2}:\d{2}$/.test(trimmed)) {
+    return `${trimmed}:00`
+  }
+
+  if (/^\d{2}:\d{2}:\d{2}$/.test(trimmed)) {
+    return trimmed
+  }
+
+  return '00:00:00'
 }
 
 function MiniStat({
