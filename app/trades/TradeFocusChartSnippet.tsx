@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CandlestickSeries, ColorType, createChart } from 'lightweight-charts'
+import { CandlestickSeries, ColorType, HistogramSeries, createChart } from 'lightweight-charts'
 import type { UTCTimestamp } from 'lightweight-charts'
 import type { Trade } from '@/services/trade'
 
@@ -26,6 +26,13 @@ type CandlePoint = {
   high: number
   low: number
   close: number
+  volume: number
+}
+
+type VolumePoint = {
+  time: UTCTimestamp
+  value: number
+  color: string
 }
 
 interface TradeFocusChartSnippetProps {
@@ -57,6 +64,14 @@ export default function TradeFocusChartSnippet({ trade }: TradeFocusChartSnippet
     }
   }, [trade.coin, trade.trade_date, trade.trade_time])
 
+  const volumeData = useMemo<VolumePoint[]>(() => {
+    return candles.map((candle) => ({
+      time: candle.time,
+      value: candle.volume,
+      color: candle.close >= candle.open ? 'rgba(22, 163, 74, 0.45)' : 'rgba(220, 38, 38, 0.45)',
+    }))
+  }, [candles])
+
   useEffect(() => {
     let isCancelled = false
 
@@ -87,6 +102,7 @@ export default function TradeFocusChartSnippet({ trade }: TradeFocusChartSnippet
           high: Number(row[2]),
           low: Number(row[3]),
           close: Number(row[4]),
+          volume: Number(row[5]),
         }))
 
         setCandles(nextCandles)
@@ -139,7 +155,22 @@ export default function TradeFocusChartSnippet({ trade }: TradeFocusChartSnippet
       wickDownColor: '#dc2626',
     })
 
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: '',
+    })
+
+    chart.priceScale('').applyOptions({
+      scaleMargins: {
+        top: 0.74,
+        bottom: 0,
+      },
+    })
+
     series.setData(candles)
+    volumeSeries.setData(volumeData)
 
     const entryPriceLine = series.createPriceLine({
       price: trade.avg_entry,
@@ -188,7 +219,7 @@ export default function TradeFocusChartSnippet({ trade }: TradeFocusChartSnippet
       if (exitPriceLine) series.removePriceLine(exitPriceLine)
       chart.remove()
     }
-  }, [candles, trade.avg_entry, trade.avg_exit, trade.stop_loss])
+  }, [candles, trade.avg_entry, trade.avg_exit, trade.stop_loss, volumeData])
 
   if (loading) {
     return <p className="text-sm text-slate-500">Loading chart snippet...</p>

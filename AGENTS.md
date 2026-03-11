@@ -269,6 +269,8 @@ try {
 3. Treat `trade_date` and `trade_time` as UTC when anchoring chart context and entry markers
 4. Persist last selected chart timeframe in localStorage key `trade_chart_timeframe` and fallback to `1h`
 5. Support loading more context candles and keep entry-time vertical marker + entry/stop/exit lines visible
+6. Display a volume histogram beneath candles in live, backtesting, and trade-focus chart views
+7. On `/app/trades/page.tsx`, open chart views as multiple floating widgets (draggable, resizable, independently closable)
 
 ### Trade focus thinking workflow
 1. Open per-trade focus from `/app/trades/page.tsx` row action `Decisions` (route `/app/trades/[tradeId]/page.tsx`)

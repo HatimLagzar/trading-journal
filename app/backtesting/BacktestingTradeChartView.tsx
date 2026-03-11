@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CandlestickSeries, ColorType, createChart } from 'lightweight-charts'
+import { CandlestickSeries, ColorType, HistogramSeries, createChart } from 'lightweight-charts'
 import type { UTCTimestamp } from 'lightweight-charts'
 import type { BacktestingTrade } from '@/services/backtesting'
 
@@ -33,6 +33,13 @@ type CandlePoint = {
   high: number
   low: number
   close: number
+  volume: number
+}
+
+type VolumePoint = {
+  time: UTCTimestamp
+  value: number
+  color: string
 }
 
 const TIMEFRAME_OPTIONS: Array<{ label: string; value: string }> = [
@@ -59,6 +66,14 @@ export default function BacktestingTradeChartView({
   const [entryLineX, setEntryLineX] = useState<number | null>(null)
   const [contextMultiplier, setContextMultiplier] = useState(1)
   const [selectedInterval, setSelectedInterval] = useState<string>(() => readStoredTimeframe())
+
+  const volumeData = useMemo<VolumePoint[]>(() => {
+    return candles.map((candle) => ({
+      time: candle.time,
+      value: candle.volume,
+      color: candle.close >= candle.open ? 'rgba(34, 197, 94, 0.45)' : 'rgba(239, 68, 68, 0.45)',
+    }))
+  }, [candles])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -122,6 +137,7 @@ export default function BacktestingTradeChartView({
           high: Number(row[2]),
           low: Number(row[3]),
           close: Number(row[4]),
+          volume: Number(row[5]),
         }))
 
         setCandles(nextCandles)
@@ -174,7 +190,22 @@ export default function BacktestingTradeChartView({
       wickDownColor: '#ef4444',
     })
 
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: '',
+    })
+
+    chart.priceScale('').applyOptions({
+      scaleMargins: {
+        top: 0.74,
+        bottom: 0,
+      },
+    })
+
     series.setData(candles)
+    volumeSeries.setData(volumeData)
 
     const entryPriceLine = trade.entry_price !== null
       ? series.createPriceLine({
@@ -247,7 +278,7 @@ export default function BacktestingTradeChartView({
       if (targetPriceLine) series.removePriceLine(targetPriceLine)
       chart.remove()
     }
-  }, [candles, config.entryMs, config.halfVisibleWindowSec, config.intervalSeconds, trade.entry_price, trade.stop_loss, trade.target_price])
+  }, [candles, config.entryMs, config.halfVisibleWindowSec, config.intervalSeconds, trade.entry_price, trade.stop_loss, trade.target_price, volumeData])
 
   return (
     <div className="space-y-4">

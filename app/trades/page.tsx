@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
@@ -54,6 +55,23 @@ type PerformanceStats = {
 
 type DateSortDirection = 'none' | 'asc' | 'desc'
 
+type FloatingChartWidgetState = {
+  widgetId: string
+  trade: Trade
+  systemLabel: string
+  x: number
+  y: number
+  width: number
+  height: number
+  zIndex: number
+}
+
+const FLOATING_WIDGET_DEFAULT_WIDTH = 560
+const FLOATING_WIDGET_DEFAULT_HEIGHT = 500
+const FLOATING_WIDGET_MIN_WIDTH = 420
+const FLOATING_WIDGET_MIN_HEIGHT = 360
+const FLOATING_WIDGET_MARGIN = 12
+
 export default function TradesPage() {
   const router = useRouter()
   const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
@@ -78,9 +96,8 @@ export default function TradesPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false)
   const [closingTrade, setClosingTrade] = useState<Trade | null>(null)
-  const [chartTrade, setChartTrade] = useState<Trade | null>(null)
-  const [chartSystemLabel, setChartSystemLabel] = useState('-')
-  const [isChartModalOpen, setIsChartModalOpen] = useState(false)
+  const [floatingChartWidgets, setFloatingChartWidgets] = useState<FloatingChartWidgetState[]>([])
+  const [topChartWidgetZIndex, setTopChartWidgetZIndex] = useState(1)
   const [openDeleteMenuTradeId, setOpenDeleteMenuTradeId] = useState<string | null>(null)
 
   // Function to refresh trades and filter data
@@ -442,12 +459,6 @@ export default function TradesPage() {
     setClosingTrade(null)
   }
 
-  function handleCloseChartModal() {
-    setIsChartModalOpen(false)
-    setChartTrade(null)
-    setChartSystemLabel('-')
-  }
-
   // Handle successful form submission
   function handleFormSuccess() {
     refreshData()
@@ -535,15 +546,95 @@ export default function TradesPage() {
     })
   }
 
+  function getNextFloatingWidgetPosition(indexSeed: number): { x: number; y: number } {
+    const fallbackX = 24 + ((indexSeed * 28) % 220)
+    const fallbackY = 72 + ((indexSeed * 24) % 180)
+
+    if (typeof window === 'undefined') {
+      return { x: fallbackX, y: fallbackY }
+    }
+
+    const maxX = Math.max(FLOATING_WIDGET_MARGIN, window.innerWidth - FLOATING_WIDGET_DEFAULT_WIDTH - FLOATING_WIDGET_MARGIN)
+    const maxY = Math.max(FLOATING_WIDGET_MARGIN, window.innerHeight - FLOATING_WIDGET_DEFAULT_HEIGHT - FLOATING_WIDGET_MARGIN)
+
+    return {
+      x: clamp(fallbackX, FLOATING_WIDGET_MARGIN, maxX),
+      y: clamp(fallbackY, FLOATING_WIDGET_MARGIN, maxY),
+    }
+  }
+
   function handleViewChart(trade: Trade) {
     if (!premiumLoading && !isPremium) {
       redirectToPremium('chart-view')
       return
     }
 
-    setChartTrade(trade)
-    setChartSystemLabel(getSystemName(trade.system_id))
-    setIsChartModalOpen(true)
+    setFloatingChartWidgets((prev) => {
+      const existing = prev.find((widget) => widget.trade.id === trade.id)
+      const nextZIndex = topChartWidgetZIndex + 1
+
+      if (existing) {
+        setTopChartWidgetZIndex(nextZIndex)
+        return prev.map((widget) =>
+          widget.widgetId === existing.widgetId
+            ? { ...widget, zIndex: nextZIndex }
+            : widget,
+        )
+      }
+
+      const position = getNextFloatingWidgetPosition(prev.length)
+      setTopChartWidgetZIndex(nextZIndex)
+
+      return [
+        ...prev,
+        {
+          widgetId: `${trade.id}-${Date.now()}`,
+          trade,
+          systemLabel: getSystemName(trade.system_id),
+          x: position.x,
+          y: position.y,
+          width: FLOATING_WIDGET_DEFAULT_WIDTH,
+          height: FLOATING_WIDGET_DEFAULT_HEIGHT,
+          zIndex: nextZIndex,
+        },
+      ]
+    })
+  }
+
+  function handleCloseFloatingChartWidget(widgetId: string) {
+    setFloatingChartWidgets((prev) => prev.filter((widget) => widget.widgetId !== widgetId))
+  }
+
+  function bringFloatingChartWidgetToFront(widgetId: string) {
+    const nextZIndex = topChartWidgetZIndex + 1
+    setTopChartWidgetZIndex(nextZIndex)
+    setFloatingChartWidgets((prev) =>
+      prev.map((widget) =>
+        widget.widgetId === widgetId
+          ? { ...widget, zIndex: nextZIndex }
+          : widget,
+      ),
+    )
+  }
+
+  function handleMoveFloatingChartWidget(widgetId: string, x: number, y: number) {
+    setFloatingChartWidgets((prev) =>
+      prev.map((widget) =>
+        widget.widgetId === widgetId
+          ? { ...widget, x, y }
+          : widget,
+      ),
+    )
+  }
+
+  function handleResizeFloatingChartWidget(widgetId: string, width: number, height: number) {
+    setFloatingChartWidgets((prev) =>
+      prev.map((widget) =>
+        widget.widgetId === widgetId
+          ? { ...widget, width, height }
+          : widget,
+      ),
+    )
   }
 
   function toggleDateSortDirection() {
@@ -899,21 +990,6 @@ export default function TradesPage() {
         </Modal>
       )}
 
-      {chartTrade && (
-        <Modal
-          isOpen={isChartModalOpen}
-          onClose={handleCloseChartModal}
-          closeOnOverlayClick={false}
-          contentClassName="max-w-[75vw]"
-        >
-          <TradeChartView
-            trade={chartTrade}
-            systemLabel={chartSystemLabel}
-            onClose={handleCloseChartModal}
-          />
-        </Modal>
-      )}
-
         {user && (
         <Modal isOpen={isImportModalOpen} onClose={handleCloseImportModal}>
           <ImportTradesForm
@@ -924,6 +1000,129 @@ export default function TradesPage() {
         </Modal>
         )}
       </div>
+
+      {floatingChartWidgets.length > 0 && (
+        <div className="pointer-events-none fixed inset-0 z-40">
+          {floatingChartWidgets.map((widget) => (
+            <FloatingChartWidget
+              key={widget.widgetId}
+              widget={widget}
+              onClose={handleCloseFloatingChartWidget}
+              onMove={handleMoveFloatingChartWidget}
+              onResize={handleResizeFloatingChartWidget}
+              onBringToFront={bringFloatingChartWidgetToFront}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FloatingChartWidget({
+  widget,
+  onClose,
+  onMove,
+  onResize,
+  onBringToFront,
+}: {
+  widget: FloatingChartWidgetState
+  onClose: (widgetId: string) => void
+  onMove: (widgetId: string, x: number, y: number) => void
+  onResize: (widgetId: string, width: number, height: number) => void
+  onBringToFront: (widgetId: string) => void
+}) {
+  function handleDragStart(event: ReactMouseEvent<HTMLDivElement>) {
+    event.preventDefault()
+    onBringToFront(widget.widgetId)
+
+    const startX = event.clientX
+    const startY = event.clientY
+    const initialX = widget.x
+    const initialY = widget.y
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const maxX = Math.max(FLOATING_WIDGET_MARGIN, window.innerWidth - widget.width - FLOATING_WIDGET_MARGIN)
+      const maxY = Math.max(FLOATING_WIDGET_MARGIN, window.innerHeight - widget.height - FLOATING_WIDGET_MARGIN)
+      const nextX = clamp(initialX + (moveEvent.clientX - startX), FLOATING_WIDGET_MARGIN, maxX)
+      const nextY = clamp(initialY + (moveEvent.clientY - startY), FLOATING_WIDGET_MARGIN, maxY)
+      onMove(widget.widgetId, nextX, nextY)
+    }
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }
+
+  function handleResizeStart(event: ReactMouseEvent<HTMLDivElement>) {
+    event.preventDefault()
+    event.stopPropagation()
+    onBringToFront(widget.widgetId)
+
+    const startX = event.clientX
+    const startY = event.clientY
+    const initialWidth = widget.width
+    const initialHeight = widget.height
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const maxWidth = Math.max(FLOATING_WIDGET_MIN_WIDTH, window.innerWidth - widget.x - FLOATING_WIDGET_MARGIN)
+      const maxHeight = Math.max(FLOATING_WIDGET_MIN_HEIGHT, window.innerHeight - widget.y - FLOATING_WIDGET_MARGIN)
+      const nextWidth = clamp(initialWidth + (moveEvent.clientX - startX), FLOATING_WIDGET_MIN_WIDTH, maxWidth)
+      const nextHeight = clamp(initialHeight + (moveEvent.clientY - startY), FLOATING_WIDGET_MIN_HEIGHT, maxHeight)
+      onResize(widget.widgetId, nextWidth, nextHeight)
+    }
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }
+
+  return (
+    <div
+      className="pointer-events-auto absolute overflow-hidden rounded-xl border border-slate-300 bg-white shadow-2xl"
+      style={{
+        width: widget.width,
+        height: widget.height,
+        left: widget.x,
+        top: widget.y,
+        zIndex: widget.zIndex,
+      }}
+      onMouseDown={() => onBringToFront(widget.widgetId)}
+    >
+      <div
+        className="flex h-11 cursor-move items-center justify-between border-b border-slate-200 bg-slate-900 px-3 text-white"
+        onMouseDown={handleDragStart}
+      >
+        <p className="truncate text-sm font-medium">
+          #{widget.trade.trade_number} · {widget.trade.coin.toUpperCase()} · {widget.trade.direction.toUpperCase()}
+        </p>
+        <button
+          type="button"
+          onClick={() => onClose(widget.widgetId)}
+          className="rounded px-2 py-1 text-xs text-slate-200 hover:bg-white/10 hover:text-white"
+        >
+          Close
+        </button>
+      </div>
+      <div className="h-[calc(100%-2.75rem)] overflow-auto p-3">
+        <TradeChartView
+          trade={widget.trade}
+          systemLabel={widget.systemLabel}
+          onClose={() => onClose(widget.widgetId)}
+        />
+      </div>
+      <div
+        className="absolute bottom-0 right-0 h-5 w-5 cursor-se-resize"
+        onMouseDown={handleResizeStart}
+      />
     </div>
   )
 }
@@ -1015,6 +1214,10 @@ function getTradeDateTimeSortKey(trade: Trade): string {
   }
 
   return `${normalizedDate}T${normalizedTime}`
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
 }
 
 function StatCard({
