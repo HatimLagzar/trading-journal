@@ -26,14 +26,22 @@ const SUCCESS_STATUSES = new Set(['confirmed', 'finished']);
 export async function POST(request: Request) {
   const body = await request.text();
   const headerStore = await headers();
-  const signature = headerStore.get('x-nowpayments-sig');
+  const signature = headerStore.get('x-nowpayments-sig') ?? headerStore.get('x-nowpayments-signature');
 
   try {
     const validSignature = verifyNowPaymentsSignature(body, signature);
     if (!validSignature) {
+      console.error('[crypto-webhook] Invalid NOWPayments signature', {
+        hasSignature: Boolean(signature),
+        bodySize: body.length,
+      });
       return NextResponse.json({ error: 'Invalid NOWPayments signature' }, { status: 401 });
     }
   } catch (err) {
+    console.error('[crypto-webhook] Signature verification failed', {
+      error: err instanceof Error ? err.message : 'unknown',
+      hasSignature: Boolean(signature),
+    });
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'NOWPayments signature verification failed' },
       { status: 500 },
@@ -47,8 +55,19 @@ export async function POST(request: Request) {
     const checkoutReference = toStringValue(payload.order_id);
 
     if (!paymentStatus || (!providerPaymentId && !checkoutReference)) {
+      console.error('[crypto-webhook] Missing payment fields', {
+        paymentStatus,
+        hasProviderPaymentId: Boolean(providerPaymentId),
+        hasCheckoutReference: Boolean(checkoutReference),
+      });
       return NextResponse.json({ error: 'Missing payment fields' }, { status: 400 });
     }
+
+    console.info('[crypto-webhook] Received event', {
+      paymentStatus,
+      providerPaymentId,
+      checkoutReference,
+    });
 
     const supabase = createAdminClient();
 
@@ -59,6 +78,10 @@ export async function POST(request: Request) {
     });
 
     if (!paymentRow) {
+      console.warn('[crypto-webhook] Payment row not found for event', {
+        providerPaymentId,
+        checkoutReference,
+      });
       return NextResponse.json({ received: true });
     }
 
@@ -83,6 +106,12 @@ export async function POST(request: Request) {
         .eq('provider_payment_id', paymentRow.providerPaymentId);
 
       if (updateError) throw updateError;
+
+      console.info('[crypto-webhook] Non-success or duplicate success event processed', {
+        paymentStatus,
+        alreadySuccessful,
+        providerPaymentId: paymentRow.providerPaymentId,
+      });
 
       return NextResponse.json({ received: true });
     }
@@ -125,8 +154,18 @@ export async function POST(request: Request) {
 
     if (paymentUpdateError) throw paymentUpdateError;
 
+    console.info('[crypto-webhook] Subscription activated from crypto payment', {
+      userId: paymentRow.user_id,
+      plan: paymentRow.plan,
+      periodEnd: periodEnd.toISOString(),
+      providerPaymentId: paymentRow.providerPaymentId,
+    });
+
     return NextResponse.json({ received: true });
   } catch (err) {
+    console.error('[crypto-webhook] Handler failed', {
+      error: err instanceof Error ? err.message : 'unknown',
+    });
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Crypto webhook handler failed' },
       { status: 500 },

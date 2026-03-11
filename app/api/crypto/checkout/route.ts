@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     }
 
     const headerStore = await headers();
-    const origin = process.env.NEXT_PUBLIC_APP_URL ?? headerStore.get('origin') ?? 'http://localhost:3000';
+    const origin = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL ?? headerStore.get('origin') ?? 'http://localhost:3000');
     const checkoutReference = randomUUID();
     const selectedPricing = pricing[body.plan];
 
@@ -88,6 +88,10 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+function normalizeOrigin(value: string): string {
+  return value.endsWith('/') ? value.slice(0, -1) : value;
 }
 
 function getPlanPricing(): Record<CheckoutPlan, PlanPricing> {
