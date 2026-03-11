@@ -103,7 +103,8 @@ export async function POST(request: Request) {
       networkFee,
       serviceFee,
     });
-    const effectiveStatus = partialAccepted ? 'partially_paid_accepted' : paymentStatus;
+    const nowSuccessful = SUCCESS_STATUSES.has(paymentStatus) || partialAccepted;
+    const effectiveStatus = nowSuccessful ? 'finished' : paymentStatus;
 
     const commonUpdate = {
       status: effectiveStatus,
@@ -115,7 +116,6 @@ export async function POST(request: Request) {
     };
 
     const alreadySuccessful = SUCCESS_STATUSES.has(paymentRow.status) || Boolean(paymentRow.period_end);
-    const nowSuccessful = SUCCESS_STATUSES.has(paymentStatus) || partialAccepted;
 
     if (!nowSuccessful || alreadySuccessful) {
       const { error: updateError } = await supabase
