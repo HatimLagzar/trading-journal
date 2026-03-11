@@ -287,15 +287,16 @@ try {
 3. Crypto checkout is handled by `POST /api/crypto/checkout`; NOWPayments IPN is handled by `POST /api/crypto/webhook`
 4. Crypto payments currently use USDC on Polygon (`pay_currency=usdcmatic`) with manual renewal (no auto-recurring wallet charges)
 5. Stripe checkout and customer portal are currently disabled for crypto-only billing mode; Stripe webhook handling remains in place for legacy events
-6. Premium page display prices use `STRIPE_PREMIUM_MONTHLY_PRICE_USD` and `STRIPE_PREMIUM_ANNUAL_PRICE_USD`; crypto can override with `NOWPAYMENTS_PREMIUM_MONTHLY_PRICE_USD` and `NOWPAYMENTS_PREMIUM_ANNUAL_PRICE_USD`
-7. Customer self-service billing is handled by `POST /api/stripe/portal`
-8. Checkout redirects to `/premium/success` on success and `/premium/cancelled` when canceled
-9. Crypto webhook signature uses `NOWPAYMENTS_IPN_SECRET`; API requests use `NOWPAYMENTS_API_KEY`
-10. Partial crypto payments can be auto-accepted when close to expected amount via `NOWPAYMENTS_PARTIAL_PAYMENT_RATIO` (default `0.995`)
-11. Premium status for UI gating is fetched via `GET /api/subscription/status` and consumed through global provider `lib/PremiumContext.tsx` (single shared fetch per auth session) via `lib/usePremiumAccess.ts`
-12. Premium-only features: screenshot upload, importing live trades, mirroring live trades to backtesting, one-click/multi-widget trade chart view, and creating more than 2 systems
-13. Locked features remain visible; non-premium users are redirected to `/premium` with a `feature` query param
-14. Keep `/api/subscription/status` as a fast DB-backed read; entitlements are reconciled by webhook flows instead of per-request provider checks
+6. Premium page display prices use `PREMIUM_TWO_MONTH_PRICE_USD` and `PREMIUM_ANNUAL_PRICE_USD`; crypto can override with `NOWPAYMENTS_PREMIUM_TWO_MONTH_PRICE_USD` and `NOWPAYMENTS_PREMIUM_ANNUAL_PRICE_USD` (legacy `*_MONTHLY_*` names remain supported for compatibility)
+7. The `monthly` crypto plan grants 2 months of premium access per successful payment; `annual` grants 12 months
+8. Customer self-service billing is handled by `POST /api/stripe/portal`
+9. Checkout redirects to `/premium/success` on success and `/premium/cancelled` when canceled
+10. Crypto webhook signature uses `NOWPAYMENTS_IPN_SECRET`; API requests use `NOWPAYMENTS_API_KEY`
+11. Partial crypto payments can be auto-accepted when close to expected amount via `NOWPAYMENTS_PARTIAL_PAYMENT_RATIO` (default `0.995`)
+12. Premium status for UI gating is fetched via `GET /api/subscription/status` and consumed through global provider `lib/PremiumContext.tsx` (single shared fetch per auth session) via `lib/usePremiumAccess.ts`
+13. Premium-only features: screenshot upload, importing live trades, mirroring live trades to backtesting, one-click/multi-widget trade chart view, and creating more than 2 systems
+14. Locked features remain visible; non-premium users are redirected to `/premium` with a `feature` query param
+15. Keep `/api/subscription/status` as a fast DB-backed read; entitlements are reconciled by webhook flows instead of per-request provider checks
 
 ### AI screenshot trade prefill
 1. Use `POST /api/ai/extract-trade-from-image` to parse a TradingView screenshot into trade field suggestions

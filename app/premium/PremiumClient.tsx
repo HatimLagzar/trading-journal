@@ -75,7 +75,8 @@ export default function PremiumClient({
   const [error, setError] = useState<string | null>(null);
 
   const annualMonthlyEquivalent = annualPriceUsd / 12;
-  const annualSavings = monthlyPriceUsd * 12 - annualPriceUsd;
+  const twoMonthCycleCountPerYear = 6;
+  const annualSavings = monthlyPriceUsd * twoMonthCycleCountPerYear - annualPriceUsd;
 
   const featureMessage = useMemo(() => {
     if (!requestedFeature) return null;
@@ -150,7 +151,7 @@ export default function PremiumClient({
               <p className="text-sm font-medium text-cyan-100">Best value</p>
               <p className="mt-2 text-4xl font-bold">${formatPrice(annualPriceUsd)}</p>
               <p className="text-sm text-cyan-100">per year • ${formatPrice(annualMonthlyEquivalent)}/mo effective</p>
-              <p className="mt-3 text-sm text-cyan-100">Save ${formatPrice(annualSavings)} compared to monthly billing.</p>
+              <p className="mt-3 text-sm text-cyan-100">Save ${formatPrice(annualSavings)} compared to 2-month billing.</p>
               <button
                 onClick={() => startCryptoCheckout('annual')}
                 disabled={anyCheckoutLoading}
@@ -196,11 +197,11 @@ export default function PremiumClient({
 
         <div className="grid gap-5 md:grid-cols-2">
           <PlanCard
-            title="Monthly"
+            title="2-Month"
             price={`$${formatPrice(monthlyPriceUsd)}`}
-            subtitle="per month"
-            description="Same full Premium feature access. Ideal if you want flexible month-to-month billing."
-            highlights={['Includes all Premium features', 'Billed monthly', 'Switch or cancel anytime']}
+            subtitle="every 2 months"
+            description="Same full Premium feature access. Ideal if you want more flexible renewals with lower commitment."
+            highlights={['Includes all Premium features', 'Billed every 2 months', 'Manual renew anytime']}
             cryptoLoading={cryptoCheckoutLoading === 'monthly'}
             disableAll={anyCheckoutLoading}
             onCryptoSelect={() => startCryptoCheckout('monthly')}
@@ -251,7 +252,7 @@ export default function PremiumClient({
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <FaqCard
               question="Can I switch plans later?"
-              answer="Yes. You can start monthly, then move to annual any time by purchasing the other crypto plan."
+              answer="Yes. You can start on the 2-month plan, then move to annual any time by purchasing the other crypto plan."
             />
             <FaqCard
               question="Will my data stay if I cancel?"
@@ -286,7 +287,7 @@ export default function PremiumClient({
               disabled={anyCheckoutLoading}
               className="rounded-lg border border-cyan-500/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/30 disabled:opacity-60"
             >
-              {cryptoCheckoutLoading === 'monthly' ? 'Redirecting...' : `Go Monthly • $${formatPrice(monthlyPriceUsd)} (USDC Polygon)`}
+              {cryptoCheckoutLoading === 'monthly' ? 'Redirecting...' : `Go 2-Month • $${formatPrice(monthlyPriceUsd)} (USDC Polygon)`}
             </button>
           </div>
         </div>

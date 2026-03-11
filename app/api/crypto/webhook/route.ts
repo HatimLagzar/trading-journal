@@ -250,7 +250,7 @@ function addPlanDuration(start: Date, plan: 'monthly' | 'annual'): Date {
     return value;
   }
 
-  value.setUTCMonth(value.getUTCMonth() + 1);
+  value.setUTCMonth(value.getUTCMonth() + 2);
   return value;
 }
 
