@@ -158,7 +158,7 @@ export default function PremiumClient({
                 disabled={anyCheckoutLoading}
                 className="mt-4 w-full rounded-lg border border-cyan-200/40 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-slate-900/70 disabled:opacity-60"
               >
-                {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : 'Pay Annual with USDC (Polygon)'}
+                {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : 'Pay Annual with USDC (Solana)'}
               </button>
               <p className="mt-2 text-xs text-cyan-100/90">Manual renew. Access activates after blockchain confirmation.</p>
             </div>
@@ -289,14 +289,14 @@ export default function PremiumClient({
               disabled={anyCheckoutLoading}
               className="rounded-lg border border-cyan-500/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/30 disabled:opacity-60"
             >
-              {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : `Go Annual • $${formatPrice(annualPriceUsd)} (USDC Polygon)`}
+              {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : `Go Annual • $${formatPrice(annualPriceUsd)} (USDC Solana)`}
             </button>
             <button
               onClick={() => startCryptoCheckout('monthly')}
               disabled={anyCheckoutLoading}
               className="rounded-lg border border-cyan-500/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/30 disabled:opacity-60"
             >
-              {cryptoCheckoutLoading === 'monthly' ? 'Redirecting...' : `Go 2-Month • $${formatPrice(monthlyPriceUsd)} (USDC Polygon)`}
+              {cryptoCheckoutLoading === 'monthly' ? 'Redirecting...' : `Go 2-Month • $${formatPrice(monthlyPriceUsd)} (USDC Solana)`}
             </button>
           </div>
         </div>
@@ -354,7 +354,7 @@ function PlanCard({
         disabled={disableAll}
         className="mt-5 w-full rounded-lg border border-cyan-500/70 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-slate-900/70 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {cryptoLoading ? 'Redirecting...' : 'Pay with USDC (Polygon)'}
+        {cryptoLoading ? 'Redirecting...' : 'Pay with USDC (Solana)'}
       </button>
       <p className="mt-2 text-xs text-slate-300">Manual renew. No automatic wallet charges.</p>
     </div>

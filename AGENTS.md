@@ -286,7 +286,7 @@ try {
 1. Subscription state is stored in `user_subscriptions` (see `supabase/migrations/004_create_user_subscriptions.sql`)
 2. Stripe checkout is handled by `POST /api/stripe/checkout`; Stripe webhooks are handled by `POST /api/stripe/webhook`
 3. Crypto checkout is handled by `POST /api/crypto/checkout`; NOWPayments IPN is handled by `POST /api/crypto/webhook`
-4. Crypto payments currently use USDC on Polygon (`pay_currency=usdcmatic`) with manual renewal (no auto-recurring wallet charges)
+4. Crypto payments currently use USDC on Solana (`pay_currency=usdcsol`) with manual renewal (no auto-recurring wallet charges)
 5. Stripe checkout and customer portal are currently disabled for crypto-only billing mode; Stripe webhook handling remains in place for legacy events
 6. Premium page display prices use `PREMIUM_TWO_MONTH_PRICE_USD` and `PREMIUM_ANNUAL_PRICE_USD`; crypto can override with `NOWPAYMENTS_PREMIUM_TWO_MONTH_PRICE_USD` and `NOWPAYMENTS_PREMIUM_ANNUAL_PRICE_USD` (legacy `*_MONTHLY_*` names remain supported for compatibility)
 7. The `monthly` crypto plan grants 2 months of premium access per successful payment; `annual` grants 12 months

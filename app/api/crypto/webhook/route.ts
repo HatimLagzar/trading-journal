@@ -22,9 +22,10 @@ type CryptoPaymentRow = {
   user_id: string;
   plan: 'monthly' | 'annual';
   status: string;
+  period_end: string | null;
 };
 
-const SUCCESS_STATUSES = new Set(['confirmed', 'finished']);
+const SUCCESS_STATUSES = new Set(['confirmed', 'finished', 'partially_paid_accepted']);
 const PARTIAL_PAID_STATUSES = new Set(['partially_paid', 'partially-paid', 'partially paid']);
 
 export async function POST(request: Request) {
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
       raw_payload: rawPayload,
     };
 
-    const alreadySuccessful = SUCCESS_STATUSES.has(paymentRow.status);
+    const alreadySuccessful = SUCCESS_STATUSES.has(paymentRow.status) || Boolean(paymentRow.period_end);
     const nowSuccessful = SUCCESS_STATUSES.has(paymentStatus) || partialAccepted;
 
     if (!nowSuccessful || alreadySuccessful) {
@@ -203,7 +204,7 @@ async function getPaymentRow(input: {
   if (providerPaymentId) {
     const { data, error } = await supabase
       .from('crypto_payments')
-      .select('user_id, plan, status, provider_payment_id')
+      .select('user_id, plan, status, period_end, provider_payment_id')
       .eq('provider_payment_id', providerPaymentId)
       .maybeSingle();
 
@@ -220,7 +221,7 @@ async function getPaymentRow(input: {
 
   const { data, error } = await supabase
     .from('crypto_payments')
-    .select('user_id, plan, status, provider_payment_id')
+    .select('user_id, plan, status, period_end, provider_payment_id')
     .eq('checkout_reference', checkoutReference)
     .maybeSingle();
 

@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     const invoice = await createNowPaymentsInvoice({
       priceAmount: selectedPricing.priceUsd,
       orderId: checkoutReference,
-      orderDescription: `Trade In Systems Premium ${body.plan === 'monthly' ? '2-month' : 'annual'} (USDC Polygon)`,
+      orderDescription: `Trade In Systems Premium ${body.plan === 'monthly' ? '2-month' : 'annual'} (USDC Solana)`,
       ipnCallbackUrl: `${origin}/api/crypto/webhook`,
       successUrl: `${origin}/premium/success?checkout=success&provider=crypto`,
       cancelUrl: `${origin}/premium/cancelled?checkout=cancelled&provider=crypto`,
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       status: 'waiting',
       price_usd: selectedPricing.priceUsd,
       pay_currency: 'USDC',
-      network: 'POLYGON',
+      network: 'SOLANA',
       raw_payload: invoice.raw,
     });
 
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            'USDC (Polygon) minimum payment is higher than the configured crypto price. Increase NOWPAYMENTS_PREMIUM_TWO_MONTH_PRICE_USD (and annual if needed), then try again.',
+            'USDC (Solana) minimum payment is higher than the configured crypto price. Increase NOWPAYMENTS_PREMIUM_TWO_MONTH_PRICE_USD (and annual if needed), then try again.',
         },
         { status: 400 },
       );
