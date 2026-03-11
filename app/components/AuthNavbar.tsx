@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 
-type NavSection = 'trades' | 'systems' | 'backtesting' | 'premium'
+type NavSection = 'trades' | 'systems' | 'backtesting' | 'premium' | 'settings'
 
 interface AuthNavbarProps {
   current: NavSection
@@ -19,6 +19,7 @@ const NAV_ITEMS: Array<{ key: NavSection; label: string; href: string }> = [
   { key: 'systems', label: 'Systems', href: '/systems' },
   { key: 'backtesting', label: 'Backtesting', href: '/backtesting' },
   { key: 'premium', label: 'Premium', href: '/premium' },
+  { key: 'settings', label: 'Settings', href: '/settings' },
 ]
 
 export default function AuthNavbar({ current, variant = 'light' }: AuthNavbarProps) {

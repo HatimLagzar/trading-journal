@@ -77,6 +77,7 @@ export default function PremiumClient({
   const annualMonthlyEquivalent = annualPriceUsd / 12;
   const twoMonthCycleCountPerYear = 6;
   const annualSavings = monthlyPriceUsd * twoMonthCycleCountPerYear - annualPriceUsd;
+  const annualSavingsLabel = `Save $${formatPrice(annualSavings)} vs 6x 2-month renewals`;
 
   const featureMessage = useMemo(() => {
     if (!requestedFeature) return null;
@@ -151,7 +152,7 @@ export default function PremiumClient({
               <p className="text-sm font-medium text-cyan-100">Best value</p>
               <p className="mt-2 text-4xl font-bold">${formatPrice(annualPriceUsd)}</p>
               <p className="text-sm text-cyan-100">per year • ${formatPrice(annualMonthlyEquivalent)}/mo effective</p>
-              <p className="mt-3 text-sm text-cyan-100">Save ${formatPrice(annualSavings)} compared to 2-month billing.</p>
+              <p className="mt-3 text-sm text-cyan-100">{annualSavingsLabel}.</p>
               <button
                 onClick={() => startCryptoCheckout('annual')}
                 disabled={anyCheckoutLoading}
@@ -200,7 +201,7 @@ export default function PremiumClient({
             title="2-Month"
             price={`$${formatPrice(monthlyPriceUsd)}`}
             subtitle="every 2 months"
-            description="Same full Premium feature access. Ideal if you want more flexible renewals with lower commitment."
+            description="Same full Premium feature access. We use a 2-month cycle because many USDC checkouts fail below the provider minimum for a 1-month amount."
             highlights={['Includes all Premium features', 'Billed every 2 months', 'Manual renew anytime']}
             cryptoLoading={cryptoCheckoutLoading === 'monthly'}
             disableAll={anyCheckoutLoading}
@@ -211,8 +212,12 @@ export default function PremiumClient({
             price={`$${formatPrice(annualPriceUsd)}`}
             subtitle="per year"
             description="Same full Premium feature access with discounted yearly billing for committed traders."
-            highlights={['Includes all Premium features', `Save $${formatPrice(annualSavings)}/year`, `Effective $${formatPrice(annualMonthlyEquivalent)}/mo`]}
-            badge={`Save $${formatPrice(annualSavings)}/year`}
+            highlights={[
+              'Includes all Premium features',
+              annualSavingsLabel,
+              `Effective $${formatPrice(annualMonthlyEquivalent)}/month`,
+            ]}
+            badge={`Save $${formatPrice(annualSavings)}`}
             cryptoLoading={cryptoCheckoutLoading === 'annual'}
             disableAll={anyCheckoutLoading}
             onCryptoSelect={() => startCryptoCheckout('annual')}
@@ -250,6 +255,10 @@ export default function PremiumClient({
         <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
           <h2 className="text-lg font-semibold text-white">Frequently asked</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <FaqCard
+              question="Why is there a 2-month plan instead of 1 month?"
+              answer="Crypto provider minimum payment limits make a 1-month USDC checkout unreliable, so the shortest plan is 2 months for consistent payment success."
+            />
             <FaqCard
               question="Can I switch plans later?"
               answer="Yes. You can start on the 2-month plan, then move to annual any time by purchasing the other crypto plan."

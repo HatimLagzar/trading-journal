@@ -144,6 +144,7 @@ try {
     ImportTradesForm.tsx # Sheet/CSV import modal with mapping preview
     /[tradeId]/page.tsx # Per-trade focus workspace (thinking discussion + chart snippet)
   /systems        # Systems + sub-systems management page
+  /settings       # Account settings page (password update)
   /login          # Login page
   /signup         # Signup page
   layout.tsx      # Root layout
