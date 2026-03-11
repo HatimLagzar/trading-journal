@@ -63,8 +63,8 @@ export async function createNowPaymentsInvoice(input: CreateInvoiceInput): Promi
     },
     body: JSON.stringify({
       price_amount: input.priceAmount,
-      price_currency: 'usdttrc20',
-      pay_currency: 'usdttrc20',
+      price_currency: 'usdtmatic',
+      pay_currency: 'usdtmatic',
       order_id: input.orderId,
       order_description: input.orderDescription,
       ipn_callback_url: input.ipnCallbackUrl,

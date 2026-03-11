@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     const invoice = await createNowPaymentsInvoice({
       priceAmount: selectedPricing.priceUsd,
       orderId: checkoutReference,
-      orderDescription: `Trade In Systems Premium ${body.plan === 'monthly' ? '3-month' : 'annual'} (USDT TRON)`,
+      orderDescription: `Trade In Systems Premium ${body.plan === 'monthly' ? '3-month' : 'annual'} (USDT Polygon)`,
       ipnCallbackUrl: `${origin}/api/crypto/webhook`,
       successUrl: `${origin}/premium/success?checkout=success&provider=crypto`,
       cancelUrl: `${origin}/premium/cancelled?checkout=cancelled&provider=crypto`,
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       status: 'waiting',
       price_usd: selectedPricing.priceUsd,
       pay_currency: 'USDT',
-      network: 'TRON',
+      network: 'POLYGON',
       raw_payload: invoice.raw,
     });
 
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            'USDT (TRON) minimum payment is higher than the configured crypto price. Increase NOWPAYMENTS_PREMIUM_THREE_MONTH_PRICE_USD (and annual if needed), then try again.',
+            'USDT (Polygon) minimum payment is higher than the configured crypto price. Increase NOWPAYMENTS_PREMIUM_THREE_MONTH_PRICE_USD (and annual if needed), then try again.',
         },
         { status: 400 },
       );
