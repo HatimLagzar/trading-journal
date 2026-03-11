@@ -158,7 +158,7 @@ export default function PremiumClient({
                 disabled={anyCheckoutLoading}
                 className="mt-4 w-full rounded-lg border border-cyan-200/40 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-slate-900/70 disabled:opacity-60"
               >
-                {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : 'Pay Annual with USDC (Solana)'}
+                {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : 'Pay Annual with USDT (TRON)'}
               </button>
               <p className="mt-2 text-xs text-cyan-100/90">Manual renew. Access activates after blockchain confirmation.</p>
             </div>
@@ -201,7 +201,7 @@ export default function PremiumClient({
             title="2-Month"
             price={`$${formatPrice(monthlyPriceUsd)}`}
             subtitle="every 2 months"
-            description="Same full Premium feature access. We use a 2-month cycle because many USDC checkouts fail below the provider minimum for a 1-month amount."
+            description="Same full Premium feature access. We use a 2-month cycle because many USDT checkouts fail below the provider minimum for a 1-month amount."
             highlights={['Includes all Premium features', 'Billed every 2 months', 'Manual renew anytime']}
             cryptoLoading={cryptoCheckoutLoading === 'monthly'}
             disableAll={anyCheckoutLoading}
@@ -257,7 +257,7 @@ export default function PremiumClient({
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <FaqCard
               question="Why is there a 2-month plan instead of 1 month?"
-              answer="Crypto provider minimum payment limits make a 1-month USDC checkout unreliable, so the shortest plan is 2 months for consistent payment success."
+              answer="Crypto provider minimum payment limits make a 1-month USDT checkout unreliable, so the shortest plan is 2 months for consistent payment success."
             />
             <FaqCard
               question="Can I switch plans later?"
@@ -289,14 +289,14 @@ export default function PremiumClient({
               disabled={anyCheckoutLoading}
               className="rounded-lg border border-cyan-500/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/30 disabled:opacity-60"
             >
-              {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : `Go Annual • $${formatPrice(annualPriceUsd)} (USDC Solana)`}
+              {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : `Go Annual • $${formatPrice(annualPriceUsd)} (USDT TRON)`}
             </button>
             <button
               onClick={() => startCryptoCheckout('monthly')}
               disabled={anyCheckoutLoading}
               className="rounded-lg border border-cyan-500/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/30 disabled:opacity-60"
             >
-              {cryptoCheckoutLoading === 'monthly' ? 'Redirecting...' : `Go 2-Month • $${formatPrice(monthlyPriceUsd)} (USDC Solana)`}
+              {cryptoCheckoutLoading === 'monthly' ? 'Redirecting...' : `Go 2-Month • $${formatPrice(monthlyPriceUsd)} (USDT TRON)`}
             </button>
           </div>
         </div>
@@ -354,7 +354,7 @@ function PlanCard({
         disabled={disableAll}
         className="mt-5 w-full rounded-lg border border-cyan-500/70 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-slate-900/70 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {cryptoLoading ? 'Redirecting...' : 'Pay with USDC (Solana)'}
+        {cryptoLoading ? 'Redirecting...' : 'Pay with USDT (TRON)'}
       </button>
       <p className="mt-2 text-xs text-slate-300">Manual renew. No automatic wallet charges.</p>
     </div>
