@@ -2,8 +2,11 @@ export type SubscriptionPlan = 'free' | 'premium_monthly' | 'premium_annual';
 
 export type SubscriptionStatus = 'inactive' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid';
 
+export type BillingProvider = 'none' | 'stripe' | 'nowpayments';
+
 export type UserSubscription = {
   user_id: string;
+  billing_provider: BillingProvider;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   plan: SubscriptionPlan;
@@ -16,6 +19,7 @@ export type UserSubscription = {
 
 export type UserSubscriptionUpsert = {
   user_id: string;
+  billing_provider?: BillingProvider;
   stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
   plan?: SubscriptionPlan;

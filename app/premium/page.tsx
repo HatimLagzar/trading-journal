@@ -9,8 +9,8 @@ type PremiumPageProps = {
 
 export default async function PremiumPage({ searchParams }: PremiumPageProps) {
   const params = await searchParams;
-  const monthlyPriceUsd = parseUsd(process.env.STRIPE_PREMIUM_MONTHLY_PRICE_USD, 5);
-  const annualPriceUsd = parseUsd(process.env.STRIPE_PREMIUM_ANNUAL_PRICE_USD, 50);
+  const monthlyPriceUsd = parseUsd(process.env.STRIPE_PREMIUM_MONTHLY_PRICE_USD, 9.99);
+  const annualPriceUsd = parseUsd(process.env.STRIPE_PREMIUM_ANNUAL_PRICE_USD, 99.99);
 
   return (
     <PremiumClient

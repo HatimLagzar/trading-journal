@@ -75,7 +75,7 @@ export default function AuthNavbar({ current, onError, variant = 'light' }: Auth
               isDark ? 'text-cyan-200' : 'text-cyan-700'
             }`}
           >
-            Trading Journal
+            Trade In Systems
           </p>
           <div className="mt-1 flex items-center gap-2">
             {!premiumLoading && isPremium && (

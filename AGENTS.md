@@ -1,4 +1,4 @@
-# AGENTS.md - Trading Journal Development Guide
+# AGENTS.md - Trade In Systems Development Guide
 
 ## Project Overview
 

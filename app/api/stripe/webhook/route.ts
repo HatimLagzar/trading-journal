@@ -85,6 +85,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   const { error } = await supabase.from('user_subscriptions').upsert(
     {
       user_id: userId,
+      billing_provider: 'stripe',
       stripe_customer_id: customerId,
       stripe_subscription_id: subscriptionId,
       plan: finalPlan,
@@ -139,6 +140,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const { error } = await supabase.from('user_subscriptions').upsert(
     {
       user_id: userId,
+      billing_provider: 'stripe',
       stripe_customer_id: customerId,
       stripe_subscription_id: subscriptionId,
       plan: effectivePlan,

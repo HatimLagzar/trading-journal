@@ -12,7 +12,7 @@ export default function PremiumCancelledPage() {
           Checkout not completed
         </p>
         <h1 className="mt-4 text-3xl font-bold text-slate-900 sm:text-4xl">
-          No worries, your plan was not charged
+          No worries, checkout was not completed
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base">
           You can continue on free and upgrade when ready. Premium features remain visible so you can

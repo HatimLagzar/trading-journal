@@ -190,7 +190,7 @@ async function requestModelWithRetry(
         Authorization: `Bearer ${input.apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': input.appUrl,
-        'X-Title': 'Trading Journal AI Trade Extractor',
+        'X-Title': 'Trade In Systems AI Trade Extractor',
       },
       body: JSON.stringify({
         model,

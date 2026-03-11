@@ -15,8 +15,8 @@ export default function PremiumSuccessPage() {
           Welcome to Premium
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base">
-          Your subscription is being activated. This usually happens in seconds after Stripe sends the webhook.
-          If access does not update right away, refresh in a moment.
+          Your subscription is being activated. Card payments usually sync in seconds. Crypto payments may
+          take a little longer while blockchain confirmations arrive.
         </p>
 
         <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">

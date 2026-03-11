@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { DM_Sans, Sora } from 'next/font/google'
+import AuthNavbar from '@/app/components/AuthNavbar'
+import { createClient } from '@/lib/supabase/server'
 
 const sora = Sora({
   subsets: ['latin'],
@@ -13,7 +15,7 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Trading Journal for Faster Execution and Review',
+  title: 'Trade In Systems for Faster Execution and Review',
   description:
     'Save hours each week with AI trade prefill, multi-chart floating widgets, per-trade Decisions workspace, and selection-based stats.',
 }
@@ -71,7 +73,12 @@ const processSteps = [
   },
 ]
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   return (
     <div className={`${dmSans.className} relative min-h-screen overflow-x-hidden bg-slate-950 text-slate-100`}>
       <div className="pointer-events-none absolute inset-0">
@@ -81,23 +88,27 @@ export default function Home() {
       </div>
 
       <div className="relative mx-auto w-full max-w-6xl px-5 pb-16 pt-6 sm:px-8 lg:px-12">
-        <header className="animate-fade-down mb-14 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
-          <p className={`${sora.className} text-sm font-semibold tracking-wide text-cyan-200`}>Trading Journal</p>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/login"
-              className="rounded-lg border border-white/20 px-4 py-2 text-sm text-slate-100 transition hover:bg-white/10"
-            >
-              Log In
-            </Link>
-            <Link
-              href="/signup"
-              className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-cyan-200"
-            >
-              Start Free
-            </Link>
-          </div>
-        </header>
+        {user ? (
+          <AuthNavbar current="trades" variant="dark" />
+        ) : (
+          <header className="animate-fade-down mb-14 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
+            <p className={`${sora.className} text-sm font-semibold tracking-wide text-cyan-200`}>Trade In Systems</p>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/login"
+                className="rounded-lg border border-white/20 px-4 py-2 text-sm text-slate-100 transition hover:bg-white/10"
+              >
+                Log In
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-cyan-200"
+              >
+                Start Free
+              </Link>
+            </div>
+          </header>
+        )}
 
         <section className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
           <div className="animate-fade-up">

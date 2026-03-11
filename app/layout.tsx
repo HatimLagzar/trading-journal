@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Trading Journal',
-    template: '%s | Trading Journal',
+    default: 'Trade In Systems',
+    template: '%s | Trade In Systems',
   },
   description: 'Track, analyze, and improve your trading performance.',
 }

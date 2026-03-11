@@ -72,6 +72,7 @@ export default function PremiumClient({
 }: PremiumClientProps) {
   const { isPremium, refreshPremiumStatus } = usePremiumAccess();
   const [checkoutLoading, setCheckoutLoading] = useState<CheckoutPlan | null>(null);
+  const [cryptoCheckoutLoading, setCryptoCheckoutLoading] = useState<CheckoutPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const annualMonthlyEquivalent = annualPriceUsd / 12;
@@ -114,6 +115,35 @@ export default function PremiumClient({
     }
   }
 
+  async function startCryptoCheckout(plan: CheckoutPlan) {
+    setCryptoCheckoutLoading(plan);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/crypto/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ plan }),
+      });
+
+      const payload = (await response.json()) as { url?: string; error?: string };
+
+      if (!response.ok || !payload.url) {
+        throw new Error(payload.error || 'Failed to create crypto checkout session');
+      }
+
+      window.location.assign(payload.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start crypto checkout');
+    } finally {
+      setCryptoCheckoutLoading(null);
+    }
+  }
+
+  const anyCheckoutLoading = checkoutLoading !== null || cryptoCheckoutLoading !== null;
+
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
@@ -127,7 +157,7 @@ export default function PremiumClient({
           <div className="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
             <div>
               <p className="inline-flex rounded-full border border-cyan-200/30 bg-cyan-200/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-100">
-                Trading Journal Premium
+                Trade In Systems Premium
               </p>
               <h1 className="mt-3 text-3xl font-semibold leading-tight text-white sm:text-4xl">
                 Upgrade to save hours on journaling and backtesting every week
@@ -151,11 +181,19 @@ export default function PremiumClient({
               <p className="mt-3 text-sm text-cyan-100">Save ${formatPrice(annualSavings)} compared to monthly billing.</p>
               <button
                 onClick={() => startCheckout('annual')}
-                disabled={checkoutLoading !== null}
+                disabled={anyCheckoutLoading}
                 className="mt-4 w-full rounded-lg bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-200 disabled:opacity-60"
               >
                 {checkoutLoading === 'annual' ? 'Redirecting...' : 'Start Annual Plan'}
               </button>
+              <button
+                onClick={() => startCryptoCheckout('annual')}
+                disabled={anyCheckoutLoading}
+                className="mt-2 w-full rounded-lg border border-cyan-200/40 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-slate-900/70 disabled:opacity-60"
+              >
+                {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : 'Pay Annual with USDC (Polygon)'}
+              </button>
+              <p className="mt-2 text-xs text-cyan-100/90">Manual renew. Access activates after blockchain confirmation.</p>
             </div>
           </div>
         </section>
@@ -200,7 +238,10 @@ export default function PremiumClient({
             highlights={['Includes all Premium features', 'Billed monthly', 'Switch or cancel anytime']}
             cta="Choose Monthly"
             loading={checkoutLoading === 'monthly'}
+            cryptoLoading={cryptoCheckoutLoading === 'monthly'}
+            disableAll={anyCheckoutLoading}
             onSelect={() => startCheckout('monthly')}
+            onCryptoSelect={() => startCryptoCheckout('monthly')}
           />
           <PlanCard
             title="Annual"
@@ -211,7 +252,10 @@ export default function PremiumClient({
             badge={`Save $${formatPrice(annualSavings)}/year`}
             cta="Choose Annual"
             loading={checkoutLoading === 'annual'}
+            cryptoLoading={cryptoCheckoutLoading === 'annual'}
+            disableAll={anyCheckoutLoading}
             onSelect={() => startCheckout('annual')}
+            onCryptoSelect={() => startCryptoCheckout('annual')}
             highlighted
           />
         </div>
@@ -273,17 +317,24 @@ export default function PremiumClient({
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               onClick={() => startCheckout('annual')}
-              disabled={checkoutLoading !== null}
+              disabled={anyCheckoutLoading}
               className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-cyan-200 disabled:opacity-60"
             >
               {checkoutLoading === 'annual' ? 'Redirecting...' : `Go Annual • $${formatPrice(annualPriceUsd)}`}
             </button>
             <button
               onClick={() => startCheckout('monthly')}
-              disabled={checkoutLoading !== null}
+              disabled={anyCheckoutLoading}
               className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
             >
               {checkoutLoading === 'monthly' ? 'Redirecting...' : `Go Monthly • $${formatPrice(monthlyPriceUsd)}`}
+            </button>
+            <button
+              onClick={() => startCryptoCheckout('annual')}
+              disabled={anyCheckoutLoading}
+              className="rounded-lg border border-cyan-500/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/30 disabled:opacity-60"
+            >
+              {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : 'Pay with USDC (Polygon)'}
             </button>
           </div>
         </div>
@@ -301,7 +352,10 @@ function PlanCard({
   badge,
   cta,
   loading,
+  cryptoLoading,
+  disableAll,
   onSelect,
+  onCryptoSelect,
   highlighted,
 }: {
   title: string;
@@ -312,7 +366,10 @@ function PlanCard({
   badge?: string;
   cta: string;
   loading: boolean;
+  cryptoLoading: boolean;
+  disableAll: boolean;
   onSelect: () => void;
+  onCryptoSelect: () => void;
   highlighted?: boolean;
 }) {
   return (
@@ -338,11 +395,19 @@ function PlanCard({
       </ul>
       <button
         onClick={onSelect}
-        disabled={loading}
+        disabled={disableAll}
         className="mt-5 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? 'Redirecting...' : cta}
       </button>
+      <button
+        onClick={onCryptoSelect}
+        disabled={disableAll}
+        className="mt-2 w-full rounded-lg border border-cyan-500/70 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-slate-900/70 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {cryptoLoading ? 'Redirecting...' : 'Pay with USDC (Polygon)'}
+      </button>
+      <p className="mt-2 text-xs text-slate-300">Manual renew. No automatic wallet charges.</p>
     </div>
   );
 }

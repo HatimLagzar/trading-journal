@@ -62,6 +62,7 @@ export async function POST(request: Request) {
 
     const upsertPayload = {
       user_id: user.id,
+      billing_provider: 'stripe',
       stripe_customer_id: customerId,
       plan: 'free',
       status: 'inactive',
