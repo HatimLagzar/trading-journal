@@ -286,7 +286,7 @@ try {
 2. Stripe checkout is handled by `POST /api/stripe/checkout`; Stripe webhooks are handled by `POST /api/stripe/webhook`
 3. Crypto checkout is handled by `POST /api/crypto/checkout`; NOWPayments IPN is handled by `POST /api/crypto/webhook`
 4. Crypto payments currently use USDC on Polygon (`pay_currency=usdcmatic`) with manual renewal (no auto-recurring wallet charges)
-5. Stripe checkout uses Price IDs from env: `STRIPE_PREMIUM_MONTHLY_PRICE_ID` and `STRIPE_PREMIUM_ANNUAL_PRICE_ID`
+5. Stripe checkout and customer portal are currently disabled for crypto-only billing mode; Stripe webhook handling remains in place for legacy events
 6. Premium page display prices use `STRIPE_PREMIUM_MONTHLY_PRICE_USD` and `STRIPE_PREMIUM_ANNUAL_PRICE_USD`; crypto can override with `NOWPAYMENTS_PREMIUM_MONTHLY_PRICE_USD` and `NOWPAYMENTS_PREMIUM_ANNUAL_PRICE_USD`
 7. Customer self-service billing is handled by `POST /api/stripe/portal`
 8. Checkout redirects to `/premium/success` on success and `/premium/cancelled` when canceled

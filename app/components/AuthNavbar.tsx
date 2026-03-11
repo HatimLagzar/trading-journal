@@ -21,34 +21,11 @@ const NAV_ITEMS: Array<{ key: NavSection; label: string; href: string }> = [
   { key: 'premium', label: 'Premium', href: '/premium' },
 ]
 
-export default function AuthNavbar({ current, onError, variant = 'light' }: AuthNavbarProps) {
+export default function AuthNavbar({ current, variant = 'light' }: AuthNavbarProps) {
   const router = useRouter()
   const { user, signOut } = useAuth()
   const { isPremium, loading: premiumLoading } = usePremiumAccess()
-  const [openingPortal, setOpeningPortal] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
-
-  async function handleOpenBillingPortal() {
-    setOpeningPortal(true)
-    onError?.('')
-
-    try {
-      const response = await fetch('/api/stripe/portal', {
-        method: 'POST',
-      })
-
-      const payload = (await response.json()) as { url?: string; error?: string }
-      if (!response.ok || !payload.url) {
-        throw new Error(payload.error || 'Failed to open billing portal')
-      }
-
-      window.location.assign(payload.url)
-    } catch (err) {
-      onError?.(err instanceof Error ? err.message : 'Failed to open billing portal')
-    } finally {
-      setOpeningPortal(false)
-    }
-  }
 
   async function handleSignOut() {
     setSigningOut(true)
@@ -112,18 +89,6 @@ export default function AuthNavbar({ current, onError, variant = 'light' }: Auth
 
           {user ? (
             <>
-              <button
-                onClick={handleOpenBillingPortal}
-                disabled={openingPortal}
-                className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60 ${
-                  isDark
-                    ? 'border border-white/20 bg-white/5 text-slate-100 hover:bg-white/10'
-                    : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                {openingPortal ? 'Opening...' : 'Manage Subscription'}
-              </button>
-
               <button
                 onClick={handleSignOut}
                 disabled={signingOut}

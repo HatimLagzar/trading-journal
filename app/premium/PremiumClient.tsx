@@ -71,7 +71,6 @@ export default function PremiumClient({
   annualPriceUsd,
 }: PremiumClientProps) {
   const { isPremium, refreshPremiumStatus } = usePremiumAccess();
-  const [checkoutLoading, setCheckoutLoading] = useState<CheckoutPlan | null>(null);
   const [cryptoCheckoutLoading, setCryptoCheckoutLoading] = useState<CheckoutPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,33 +86,6 @@ export default function PremiumClient({
     if (checkoutState !== 'success') return;
     void refreshPremiumStatus();
   }, [checkoutState, refreshPremiumStatus]);
-
-  async function startCheckout(plan: CheckoutPlan) {
-    setCheckoutLoading(plan);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ plan }),
-      });
-
-      const payload = (await response.json()) as { url?: string; error?: string };
-
-      if (!response.ok || !payload.url) {
-        throw new Error(payload.error || 'Failed to create checkout session');
-      }
-
-      window.location.assign(payload.url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start checkout');
-    } finally {
-      setCheckoutLoading(null);
-    }
-  }
 
   async function startCryptoCheckout(plan: CheckoutPlan) {
     setCryptoCheckoutLoading(plan);
@@ -142,12 +114,12 @@ export default function PremiumClient({
     }
   }
 
-  const anyCheckoutLoading = checkoutLoading !== null || cryptoCheckoutLoading !== null;
+  const anyCheckoutLoading = cryptoCheckoutLoading !== null;
 
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <AuthNavbar current="premium" variant="dark" onError={(message) => setError(message || null)} />
+        <AuthNavbar current="premium" variant="dark" />
 
         <section className="relative mb-8 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/70 p-6 shadow-2xl shadow-cyan-900/20 sm:p-8">
           <div className="pointer-events-none absolute inset-0">
@@ -180,16 +152,9 @@ export default function PremiumClient({
               <p className="text-sm text-cyan-100">per year • ${formatPrice(annualMonthlyEquivalent)}/mo effective</p>
               <p className="mt-3 text-sm text-cyan-100">Save ${formatPrice(annualSavings)} compared to monthly billing.</p>
               <button
-                onClick={() => startCheckout('annual')}
-                disabled={anyCheckoutLoading}
-                className="mt-4 w-full rounded-lg bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-200 disabled:opacity-60"
-              >
-                {checkoutLoading === 'annual' ? 'Redirecting...' : 'Start Annual Plan'}
-              </button>
-              <button
                 onClick={() => startCryptoCheckout('annual')}
                 disabled={anyCheckoutLoading}
-                className="mt-2 w-full rounded-lg border border-cyan-200/40 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-slate-900/70 disabled:opacity-60"
+                className="mt-4 w-full rounded-lg border border-cyan-200/40 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-slate-900/70 disabled:opacity-60"
               >
                 {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : 'Pay Annual with USDC (Polygon)'}
               </button>
@@ -236,11 +201,8 @@ export default function PremiumClient({
             subtitle="per month"
             description="Same full Premium feature access. Ideal if you want flexible month-to-month billing."
             highlights={['Includes all Premium features', 'Billed monthly', 'Switch or cancel anytime']}
-            cta="Choose Monthly"
-            loading={checkoutLoading === 'monthly'}
             cryptoLoading={cryptoCheckoutLoading === 'monthly'}
             disableAll={anyCheckoutLoading}
-            onSelect={() => startCheckout('monthly')}
             onCryptoSelect={() => startCryptoCheckout('monthly')}
           />
           <PlanCard
@@ -250,11 +212,8 @@ export default function PremiumClient({
             description="Same full Premium feature access with discounted yearly billing for committed traders."
             highlights={['Includes all Premium features', `Save $${formatPrice(annualSavings)}/year`, `Effective $${formatPrice(annualMonthlyEquivalent)}/mo`]}
             badge={`Save $${formatPrice(annualSavings)}/year`}
-            cta="Choose Annual"
-            loading={checkoutLoading === 'annual'}
             cryptoLoading={cryptoCheckoutLoading === 'annual'}
             disableAll={anyCheckoutLoading}
-            onSelect={() => startCheckout('annual')}
             onCryptoSelect={() => startCryptoCheckout('annual')}
             highlighted
           />
@@ -292,7 +251,7 @@ export default function PremiumClient({
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <FaqCard
               question="Can I switch plans later?"
-              answer="Yes. You can start monthly, then move to annual any time from billing management."
+              answer="Yes. You can start monthly, then move to annual any time by purchasing the other crypto plan."
             />
             <FaqCard
               question="Will my data stay if I cancel?"
@@ -316,25 +275,18 @@ export default function PremiumClient({
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <button
-              onClick={() => startCheckout('annual')}
-              disabled={anyCheckoutLoading}
-              className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-cyan-200 disabled:opacity-60"
-            >
-              {checkoutLoading === 'annual' ? 'Redirecting...' : `Go Annual • $${formatPrice(annualPriceUsd)}`}
-            </button>
-            <button
-              onClick={() => startCheckout('monthly')}
-              disabled={anyCheckoutLoading}
-              className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-            >
-              {checkoutLoading === 'monthly' ? 'Redirecting...' : `Go Monthly • $${formatPrice(monthlyPriceUsd)}`}
-            </button>
-            <button
               onClick={() => startCryptoCheckout('annual')}
               disabled={anyCheckoutLoading}
               className="rounded-lg border border-cyan-500/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/30 disabled:opacity-60"
             >
-              {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : 'Pay with USDC (Polygon)'}
+              {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : `Go Annual • $${formatPrice(annualPriceUsd)} (USDC Polygon)`}
+            </button>
+            <button
+              onClick={() => startCryptoCheckout('monthly')}
+              disabled={anyCheckoutLoading}
+              className="rounded-lg border border-cyan-500/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/30 disabled:opacity-60"
+            >
+              {cryptoCheckoutLoading === 'monthly' ? 'Redirecting...' : `Go Monthly • $${formatPrice(monthlyPriceUsd)} (USDC Polygon)`}
             </button>
           </div>
         </div>
@@ -350,11 +302,8 @@ function PlanCard({
   description,
   highlights,
   badge,
-  cta,
-  loading,
   cryptoLoading,
   disableAll,
-  onSelect,
   onCryptoSelect,
   highlighted,
 }: {
@@ -364,11 +313,8 @@ function PlanCard({
   description: string;
   highlights: string[];
   badge?: string;
-  cta: string;
-  loading: boolean;
   cryptoLoading: boolean;
   disableAll: boolean;
-  onSelect: () => void;
   onCryptoSelect: () => void;
   highlighted?: boolean;
 }) {
@@ -394,16 +340,9 @@ function PlanCard({
         ))}
       </ul>
       <button
-        onClick={onSelect}
-        disabled={disableAll}
-        className="mt-5 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {loading ? 'Redirecting...' : cta}
-      </button>
-      <button
         onClick={onCryptoSelect}
         disabled={disableAll}
-        className="mt-2 w-full rounded-lg border border-cyan-500/70 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-slate-900/70 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-5 w-full rounded-lg border border-cyan-500/70 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-slate-900/70 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {cryptoLoading ? 'Redirecting...' : 'Pay with USDC (Polygon)'}
       </button>
