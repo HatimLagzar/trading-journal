@@ -76,11 +76,11 @@ export default function PremiumClient({
   const [error, setError] = useState<string | null>(null);
 
   const annualMonthlyEquivalent = annualPriceUsd / 12;
-  const twoMonthMonthlyEquivalent = monthlyPriceUsd / 2;
-  const twoMonthCycleCountPerYear = 6;
-  const twoMonthAnnualEquivalent = monthlyPriceUsd * twoMonthCycleCountPerYear;
-  const annualSavings = monthlyPriceUsd * twoMonthCycleCountPerYear - annualPriceUsd;
-  const annualSavingsLabel = `Save $${formatPrice(annualSavings)}/year vs paying $${formatPrice(twoMonthAnnualEquivalent)}/year on the 2-month plan ($${formatPrice(twoMonthMonthlyEquivalent)}/month equivalent)`;
+  const threeMonthMonthlyEquivalent = monthlyPriceUsd / 3;
+  const threeMonthCycleCountPerYear = 4;
+  const threeMonthAnnualEquivalent = monthlyPriceUsd * threeMonthCycleCountPerYear;
+  const annualSavings = monthlyPriceUsd * threeMonthCycleCountPerYear - annualPriceUsd;
+  const annualSavingsLabel = `Save $${formatPrice(annualSavings)}/year vs paying $${formatPrice(threeMonthAnnualEquivalent)}/year on the 3-month plan ($${formatPrice(threeMonthMonthlyEquivalent)}/month equivalent)`;
 
   const featureMessage = useMemo(() => {
     if (!requestedFeature) return null;
@@ -217,11 +217,11 @@ export default function PremiumClient({
 
         <div className="grid gap-5 md:grid-cols-2">
           <PlanCard
-            title="2-Month"
+            title="3-Month"
             price={`$${formatPrice(monthlyPriceUsd)}`}
-            subtitle="every 2 months"
-            description="Same full Premium feature access. We use a 2-month cycle because many USDT checkouts fail below the provider minimum for a 1-month amount."
-            highlights={['Includes all Premium features', 'Billed every 2 months', 'Manual renew anytime']}
+            subtitle="every 3 months"
+            description="Same full Premium feature access at $4.99/month equivalent, billed once every 3 months."
+            highlights={['Includes all Premium features', 'Billed every 3 months', 'Manual renew anytime']}
             cryptoLoading={cryptoCheckoutLoading === 'monthly'}
             disableAll={anyCheckoutLoading}
             onCryptoSelect={() => openCheckoutWarning('monthly')}
@@ -275,12 +275,12 @@ export default function PremiumClient({
           <h2 className="text-lg font-semibold text-white">Frequently asked</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <FaqCard
-              question="Why is there a 2-month plan instead of 1 month?"
-              answer="Crypto provider minimum payment limits make a 1-month USDT checkout unreliable, so the shortest plan is 2 months for consistent payment success."
+              question="Why is there a 3-month plan instead of 1 month?"
+              answer="Crypto provider minimum payment limits make a 1-month USDT checkout unreliable, so we use a 3-month billing cycle with a clear $4.99/month equivalent."
             />
             <FaqCard
               question="Can I switch plans later?"
-              answer="Yes. You can start on the 2-month plan, then move to annual any time by purchasing the other crypto plan."
+              answer="Yes. You can start on the 3-month plan, then move to annual any time by purchasing the other crypto plan."
             />
             <FaqCard
               question="Will my data stay if I cancel?"
@@ -315,7 +315,7 @@ export default function PremiumClient({
               disabled={anyCheckoutLoading}
               className="rounded-lg border border-cyan-500/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/30 disabled:opacity-60"
             >
-              {cryptoCheckoutLoading === 'monthly' ? 'Redirecting...' : `Go 2-Month • $${formatPrice(monthlyPriceUsd)} (USDT TRON)`}
+              {cryptoCheckoutLoading === 'monthly' ? 'Redirecting...' : `Go 3-Month • $${formatPrice(monthlyPriceUsd)} (USDT TRON)`}
             </button>
           </div>
         </div>
@@ -348,7 +348,7 @@ export default function PremiumClient({
                 disabled={anyCheckoutLoading}
                 className="cursor-pointer rounded-lg border border-cyan-500/70 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-60"
               >
-                {anyCheckoutLoading ? 'Redirecting...' : `Continue to ${selectedPlanForCheckout === 'annual' ? 'Annual' : '2-Month'} Checkout`}
+                {anyCheckoutLoading ? 'Redirecting...' : `Continue to ${selectedPlanForCheckout === 'annual' ? 'Annual' : '3-Month'} Checkout`}
               </button>
             </div>
           </div>

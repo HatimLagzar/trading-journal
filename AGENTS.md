@@ -288,8 +288,8 @@ try {
 3. Crypto checkout is handled by `POST /api/crypto/checkout`; NOWPayments IPN is handled by `POST /api/crypto/webhook`
 4. Crypto payments currently use USDT on TRON (`pay_currency=usdttrc20`) with manual renewal (no auto-recurring wallet charges)
 5. Stripe checkout and customer portal are currently disabled for crypto-only billing mode; Stripe webhook handling remains in place for legacy events
-6. Premium page display prices use `PREMIUM_TWO_MONTH_PRICE_USD` and `PREMIUM_ANNUAL_PRICE_USD`; crypto can override with `NOWPAYMENTS_PREMIUM_TWO_MONTH_PRICE_USD` and `NOWPAYMENTS_PREMIUM_ANNUAL_PRICE_USD` (legacy `*_MONTHLY_*` names remain supported for compatibility)
-7. The `monthly` crypto plan grants 2 months of premium access per successful payment; `annual` grants 12 months
+6. Premium page display prices use `PREMIUM_THREE_MONTH_PRICE_USD` and `PREMIUM_ANNUAL_PRICE_USD`; crypto can override with `NOWPAYMENTS_PREMIUM_THREE_MONTH_PRICE_USD` and `NOWPAYMENTS_PREMIUM_ANNUAL_PRICE_USD` (legacy `*_MONTHLY_*` / `*_TWO_MONTH_*` names remain supported for compatibility)
+7. The `monthly` crypto plan grants 3 months of premium access per successful payment; `annual` grants 12 months
 8. Customer self-service billing is handled by `POST /api/stripe/portal`
 9. Checkout redirects to `/premium/success` on success and `/premium/cancelled` when canceled
 10. Crypto webhook signature uses `NOWPAYMENTS_IPN_SECRET`; API requests use `NOWPAYMENTS_API_KEY`

@@ -9,9 +9,11 @@ type PremiumPageProps = {
 
 export default async function PremiumPage({ searchParams }: PremiumPageProps) {
   const params = await searchParams;
-  const twoMonthPriceUsd = parseUsd(
-    process.env.PREMIUM_TWO_MONTH_PRICE_USD ?? process.env.STRIPE_PREMIUM_MONTHLY_PRICE_USD,
-    10.99,
+  const threeMonthPriceUsd = parseUsd(
+    process.env.PREMIUM_THREE_MONTH_PRICE_USD
+      ?? process.env.PREMIUM_TWO_MONTH_PRICE_USD
+      ?? process.env.STRIPE_PREMIUM_MONTHLY_PRICE_USD,
+    14.97,
   );
   const annualPriceUsd = parseUsd(
     process.env.PREMIUM_ANNUAL_PRICE_USD ?? process.env.STRIPE_PREMIUM_ANNUAL_PRICE_USD,
@@ -22,7 +24,7 @@ export default async function PremiumPage({ searchParams }: PremiumPageProps) {
     <PremiumClient
       checkoutState={params.checkout ?? null}
       requestedFeature={params.feature ?? null}
-      monthlyPriceUsd={twoMonthPriceUsd}
+      monthlyPriceUsd={threeMonthPriceUsd}
       annualPriceUsd={annualPriceUsd}
     />
   );
