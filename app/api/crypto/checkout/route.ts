@@ -40,9 +40,10 @@ export async function POST(request: Request) {
     const origin = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL ?? headerStore.get('origin') ?? 'http://localhost:3000');
     const checkoutReference = randomUUID();
     const selectedPricing = pricing[body.plan];
+    const quotePriceAmount = getBufferedQuoteAmount(selectedPricing.priceUsd);
 
     const invoice = await createNowPaymentsInvoice({
-      priceAmount: selectedPricing.priceUsd,
+      priceAmount: quotePriceAmount,
       orderId: checkoutReference,
       orderDescription: `Trade In Systems Premium ${body.plan === 'monthly' ? '3-month' : 'annual'} (USDT Polygon)`,
       ipnCallbackUrl: `${origin}/api/crypto/webhook`,
@@ -130,4 +131,37 @@ function parseUsd(value: string | undefined, fallback: number): number {
   }
 
   return Math.round(parsed * 100) / 100;
+}
+
+function getBufferedQuoteAmount(planPriceUsd: number): number {
+  const discountRatio = parseRatio(process.env.NOWPAYMENTS_PLAN_DISCOUNT_RATIO, 0.01);
+  const quoteBufferRatio = parseMultiplier(process.env.NOWPAYMENTS_QUOTE_BUFFER_RATIO, 1.01);
+
+  const discounted = planPriceUsd * (1 - discountRatio);
+  const buffered = discounted * quoteBufferRatio;
+
+  return roundUsd(buffered);
+}
+
+function parseRatio(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (parsed < 0 || parsed >= 1) return fallback;
+
+  return parsed;
+}
+
+function parseMultiplier(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+
+  return parsed;
+}
+
+function roundUsd(value: number): number {
+  return Math.round(value * 100) / 100;
 }
