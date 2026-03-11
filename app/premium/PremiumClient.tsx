@@ -72,6 +72,7 @@ export default function PremiumClient({
 }: PremiumClientProps) {
   const { isPremium, refreshPremiumStatus } = usePremiumAccess();
   const [cryptoCheckoutLoading, setCryptoCheckoutLoading] = useState<CheckoutPlan | null>(null);
+  const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<CheckoutPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const annualMonthlyEquivalent = annualPriceUsd / 12;
@@ -116,6 +117,22 @@ export default function PremiumClient({
     }
   }
 
+  function openCheckoutWarning(plan: CheckoutPlan) {
+    setSelectedPlanForCheckout(plan);
+  }
+
+  function closeCheckoutWarning() {
+    if (cryptoCheckoutLoading) return;
+    setSelectedPlanForCheckout(null);
+  }
+
+  async function confirmCheckoutWarning() {
+    if (!selectedPlanForCheckout) return;
+    const plan = selectedPlanForCheckout;
+    setSelectedPlanForCheckout(null);
+    await startCryptoCheckout(plan);
+  }
+
   const anyCheckoutLoading = cryptoCheckoutLoading !== null;
 
   return (
@@ -154,7 +171,7 @@ export default function PremiumClient({
               <p className="text-sm text-cyan-100">per year • ${formatPrice(annualMonthlyEquivalent)}/mo effective</p>
               <p className="mt-3 text-sm text-cyan-100">{annualSavingsLabel}.</p>
               <button
-                onClick={() => startCryptoCheckout('annual')}
+                onClick={() => openCheckoutWarning('annual')}
                 disabled={anyCheckoutLoading}
                 className="mt-4 w-full rounded-lg border border-cyan-200/40 bg-slate-900/50 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-slate-900/70 disabled:opacity-60"
               >
@@ -205,7 +222,7 @@ export default function PremiumClient({
             highlights={['Includes all Premium features', 'Billed every 2 months', 'Manual renew anytime']}
             cryptoLoading={cryptoCheckoutLoading === 'monthly'}
             disableAll={anyCheckoutLoading}
-            onCryptoSelect={() => startCryptoCheckout('monthly')}
+            onCryptoSelect={() => openCheckoutWarning('monthly')}
           />
           <PlanCard
             title="Annual"
@@ -220,7 +237,7 @@ export default function PremiumClient({
             badge={`Save $${formatPrice(annualSavings)}`}
             cryptoLoading={cryptoCheckoutLoading === 'annual'}
             disableAll={anyCheckoutLoading}
-            onCryptoSelect={() => startCryptoCheckout('annual')}
+            onCryptoSelect={() => openCheckoutWarning('annual')}
             highlighted
           />
         </div>
@@ -285,14 +302,14 @@ export default function PremiumClient({
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <button
-              onClick={() => startCryptoCheckout('annual')}
+              onClick={() => openCheckoutWarning('annual')}
               disabled={anyCheckoutLoading}
               className="rounded-lg border border-cyan-500/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/30 disabled:opacity-60"
             >
               {cryptoCheckoutLoading === 'annual' ? 'Redirecting...' : `Go Annual • $${formatPrice(annualPriceUsd)} (USDT TRON)`}
             </button>
             <button
-              onClick={() => startCryptoCheckout('monthly')}
+              onClick={() => openCheckoutWarning('monthly')}
               disabled={anyCheckoutLoading}
               className="rounded-lg border border-cyan-500/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/30 disabled:opacity-60"
             >
@@ -301,6 +318,40 @@ export default function PremiumClient({
           </div>
         </div>
       </div>
+
+      {selectedPlanForCheckout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-cyan-300/30 bg-slate-900 p-6 text-slate-100 shadow-2xl">
+            <h3 className="text-xl font-semibold text-white">Before you continue</h3>
+            <p className="mt-3 text-sm leading-6 text-slate-200">
+              Please send the exact amount shown by NOWPayments. Some wallets/exchanges deduct fees from the transfer,
+              which can make the invoice appear as partially paid.
+            </p>
+            <p className="mt-3 text-sm leading-6 text-cyan-100">
+              If NOWPayments still shows partially paid, return to the app. We accept near-full partial payments and
+              will grant Premium access automatically after webhook processing.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={closeCheckoutWarning}
+                disabled={anyCheckoutLoading}
+                className="cursor-pointer rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmCheckoutWarning}
+                disabled={anyCheckoutLoading}
+                className="cursor-pointer rounded-lg border border-cyan-500/70 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-60"
+              >
+                {anyCheckoutLoading ? 'Redirecting...' : `Continue to ${selectedPlanForCheckout === 'annual' ? 'Annual' : '2-Month'} Checkout`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -25,7 +25,8 @@ type CryptoPaymentRow = {
   period_end: string | null;
 };
 
-const SUCCESS_STATUSES = new Set(['confirmed', 'finished', 'partially_paid_accepted']);
+const SUCCESS_EVENT_STATUSES = new Set(['finished']);
+const ALREADY_SUCCESSFUL_STATUSES = new Set(['finished', 'partially_paid_accepted', 'confirmed']);
 const PARTIAL_PAID_STATUSES = new Set(['partially_paid', 'partially-paid', 'partially paid']);
 
 export async function POST(request: Request) {
@@ -103,7 +104,7 @@ export async function POST(request: Request) {
       networkFee,
       serviceFee,
     });
-    const nowSuccessful = SUCCESS_STATUSES.has(paymentStatus) || partialAccepted;
+    const nowSuccessful = SUCCESS_EVENT_STATUSES.has(paymentStatus) || partialAccepted;
     const effectiveStatus = nowSuccessful ? 'finished' : paymentStatus;
 
     const commonUpdate = {
@@ -115,7 +116,7 @@ export async function POST(request: Request) {
       raw_payload: rawPayload,
     };
 
-    const alreadySuccessful = SUCCESS_STATUSES.has(paymentRow.status) || Boolean(paymentRow.period_end);
+    const alreadySuccessful = ALREADY_SUCCESSFUL_STATUSES.has(paymentRow.status) || Boolean(paymentRow.period_end);
 
     if (!nowSuccessful || alreadySuccessful) {
       const { error: updateError } = await supabase
