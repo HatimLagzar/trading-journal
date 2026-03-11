@@ -294,10 +294,12 @@ try {
 9. Checkout redirects to `/premium/success` on success and `/premium/cancelled` when canceled
 10. Crypto webhook signature uses `NOWPAYMENTS_IPN_SECRET`; API requests use `NOWPAYMENTS_API_KEY`
 11. Partial crypto payments can be auto-accepted when close to expected amount via `NOWPAYMENTS_PARTIAL_PAYMENT_RATIO` (default `0.995`)
-12. Premium status for UI gating is fetched via `GET /api/subscription/status` and consumed through global provider `lib/PremiumContext.tsx` (single shared fetch per auth session) via `lib/usePremiumAccess.ts`
-13. Premium-only features: screenshot upload, importing live trades, mirroring live trades to backtesting, one-click/multi-widget trade chart view, and creating more than 2 systems
-14. Locked features remain visible; non-premium users are redirected to `/premium` with a `feature` query param
-15. Keep `/api/subscription/status` as a fast DB-backed read; entitlements are reconciled by webhook flows instead of per-request provider checks
+12. For stablecoin checkout, avoid cross-currency conversion rails (e.g. `price_currency=usd` + `pay_currency=usdttrc20`) unless explicitly intended; prefer same-currency rails to reduce hidden conversion fees
+13. Before shipping payment config changes, create a fresh test invoice and verify expected amount/fee sanity against target price to avoid expensive misconfiguration
+14. Premium status for UI gating is fetched via `GET /api/subscription/status` and consumed through global provider `lib/PremiumContext.tsx` (single shared fetch per auth session) via `lib/usePremiumAccess.ts`
+15. Premium-only features: screenshot upload, importing live trades, mirroring live trades to backtesting, one-click/multi-widget trade chart view, and creating more than 2 systems
+16. Locked features remain visible; non-premium users are redirected to `/premium` with a `feature` query param
+17. Keep `/api/subscription/status` as a fast DB-backed read; entitlements are reconciled by webhook flows instead of per-request provider checks
 
 ### AI screenshot trade prefill
 1. Use `POST /api/ai/extract-trade-from-image` to parse a TradingView screenshot into trade field suggestions
