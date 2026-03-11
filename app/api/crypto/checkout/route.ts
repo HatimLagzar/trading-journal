@@ -100,7 +100,7 @@ function getPlanPricing(): Record<CheckoutPlan, PlanPricing> {
       ?? process.env.PREMIUM_TWO_MONTH_PRICE_USD
       ?? process.env.NOWPAYMENTS_PREMIUM_MONTHLY_PRICE_USD
       ?? process.env.STRIPE_PREMIUM_MONTHLY_PRICE_USD,
-    9.99,
+    10.5,
   );
   const annualPriceUsd = parseUsd(
     process.env.NOWPAYMENTS_PREMIUM_ANNUAL_PRICE_USD

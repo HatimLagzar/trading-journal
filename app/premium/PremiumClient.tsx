@@ -76,9 +76,10 @@ export default function PremiumClient({
   const [error, setError] = useState<string | null>(null);
 
   const annualMonthlyEquivalent = annualPriceUsd / 12;
+  const twoMonthMonthlyEquivalent = monthlyPriceUsd / 2;
   const twoMonthCycleCountPerYear = 6;
   const annualSavings = monthlyPriceUsd * twoMonthCycleCountPerYear - annualPriceUsd;
-  const annualSavingsLabel = `Save $${formatPrice(annualSavings)} vs 6x 2-month renewals`;
+  const annualSavingsLabel = `Save $${formatPrice(annualSavings)}/year vs 6x 2-month renewals ($${formatPrice(twoMonthMonthlyEquivalent)}/month equivalent)`;
 
   const featureMessage = useMemo(() => {
     if (!requestedFeature) return null;
