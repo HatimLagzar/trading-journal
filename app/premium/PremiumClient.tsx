@@ -78,8 +78,9 @@ export default function PremiumClient({
   const annualMonthlyEquivalent = annualPriceUsd / 12;
   const twoMonthMonthlyEquivalent = monthlyPriceUsd / 2;
   const twoMonthCycleCountPerYear = 6;
+  const twoMonthAnnualEquivalent = monthlyPriceUsd * twoMonthCycleCountPerYear;
   const annualSavings = monthlyPriceUsd * twoMonthCycleCountPerYear - annualPriceUsd;
-  const annualSavingsLabel = `Save $${formatPrice(annualSavings)}/year vs 6x 2-month renewals ($${formatPrice(twoMonthMonthlyEquivalent)}/month equivalent)`;
+  const annualSavingsLabel = `Save $${formatPrice(annualSavings)}/year vs paying $${formatPrice(twoMonthAnnualEquivalent)}/year on the 2-month plan ($${formatPrice(twoMonthMonthlyEquivalent)}/month equivalent)`;
 
   const featureMessage = useMemo(() => {
     if (!requestedFeature) return null;

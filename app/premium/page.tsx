@@ -11,7 +11,7 @@ export default async function PremiumPage({ searchParams }: PremiumPageProps) {
   const params = await searchParams;
   const twoMonthPriceUsd = parseUsd(
     process.env.PREMIUM_TWO_MONTH_PRICE_USD ?? process.env.STRIPE_PREMIUM_MONTHLY_PRICE_USD,
-    10.5,
+    10.99,
   );
   const annualPriceUsd = parseUsd(
     process.env.PREMIUM_ANNUAL_PRICE_USD ?? process.env.STRIPE_PREMIUM_ANNUAL_PRICE_USD,
