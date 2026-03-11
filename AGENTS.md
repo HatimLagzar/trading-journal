@@ -289,7 +289,7 @@ try {
 5. Customer self-service billing is handled by `POST /api/stripe/portal`
 6. Checkout redirects to `/premium/success` on success and `/premium/cancelled` when canceled
 7. Premium status for UI gating is fetched via `GET /api/subscription/status` and consumed through global provider `lib/PremiumContext.tsx` (single shared fetch per auth session) via `lib/usePremiumAccess.ts`
-8. Premium-only features: screenshot upload, importing live trades, mirroring live trades to backtesting, one-click trade chart view, and creating more than 2 systems
+8. Premium-only features: screenshot upload, importing live trades, mirroring live trades to backtesting, one-click/multi-widget trade chart view, and creating more than 2 systems
 9. Locked features remain visible; non-premium users are redirected to `/premium` with a `feature` query param
 10. Keep `/api/subscription/status` as a fast DB-backed read; Stripe is reconciled by webhook flows instead of per-request status checks
 

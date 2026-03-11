@@ -15,7 +15,7 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: 'Trading Journal for Faster Execution and Review',
   description:
-    'Save hours each week with AI trade prefill, per-trade Decisions workspace, sortable date tables, and selection-based stats.',
+    'Save hours each week with AI trade prefill, multi-chart floating widgets, per-trade Decisions workspace, and selection-based stats.',
 }
 
 const featureCards = [
@@ -38,6 +38,10 @@ const featureCards = [
   {
     title: 'Decisions Workspace Per Trade',
     text: 'Open a dedicated Decisions screen for any live trade with chart context plus an oldest-to-newest thinking timeline.',
+  },
+  {
+    title: 'Multi-Chart Floating Widgets',
+    text: 'Open many trade charts at once as draggable, resizable widgets so you can compare active setups side-by-side.',
   },
   {
     title: 'Date Sorting + Outcome Filters',
@@ -63,7 +67,7 @@ const processSteps = [
   {
     label: 'Step 3',
     title: 'Review What Actually Matters',
-    text: 'Filter wins/losses, sort by date, inspect #1/#2 timing windows, and export backtesting logs to tighten your weekly loop.',
+    text: 'Filter wins/losses, sort by date, compare charts in floating widgets, and inspect #1/#2 timing windows fast.',
   },
 ]
 
@@ -98,14 +102,14 @@ export default function Home() {
         <section className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
           <div className="animate-fade-up">
               <p className="mb-3 inline-flex rounded-full border border-cyan-200/30 bg-cyan-200/10 px-3 py-1 text-xs font-medium text-cyan-100">
-                New workflow: Decisions workspace + smarter review controls
+                New workflow: multi-chart widgets + Decisions workspace
               </p>
               <h1 className={`${sora.className} max-w-2xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl`}>
                 Journal faster. Backtest deeper. Improve in less time.
               </h1>
               <p className="mt-5 max-w-xl text-base text-slate-300 sm:text-lg">
                 Designed for traders who want faster logging loops and sharper analytics: AI prefill, keep-open backtesting
-                entry, Decisions timeline while a trade is live, and selection-based review stats.
+                entry, multi-chart floating analysis, live Decisions timeline, and selection-based review stats.
               </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -124,8 +128,8 @@ export default function Home() {
             </div>
 
             <div className="mt-8 grid grid-cols-2 gap-3 sm:max-w-lg sm:grid-cols-3">
-              <Stat value="Decisions view" label="chart + thinking feed" delay={100} />
-              <Stat value="Date sort + W/L" label="faster trade review" delay={180} />
+              <Stat value="Multi-chart desk" label="drag + resize widgets" delay={100} />
+              <Stat value="Decisions view" label="chart + thinking feed" delay={180} />
               <Stat value="#1/#2 day & time" label="clear timing edge" delay={260} />
             </div>
           </div>
@@ -137,6 +141,7 @@ export default function Home() {
             <p className="text-sm font-semibold text-cyan-100">Time-saving gains you will feel first</p>
             <ul className="mt-4 space-y-3 text-sm text-slate-200">
                <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Backtesting entry speeds up with keep-open add flow and Loss helper for failed setups.</li>
+               <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Open multiple charts as floating widgets to compare setups without leaving your trades screen.</li>
                <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Per-trade Decisions workspace keeps chart context and ongoing thinking in one focused screen.</li>
                <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">AI screenshot prefill reduces manual typing while keeping final decisions in your hands.</li>
                <li className="rounded-xl border border-white/10 bg-slate-900/40 p-3">Date sorting and won/lost filters make it easy to isolate exactly what you want to study.</li>

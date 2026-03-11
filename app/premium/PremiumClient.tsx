@@ -11,6 +11,7 @@ const PREMIUM_FEATURES = [
   'Paste images in live trade Decisions discussion (Cmd+V / Ctrl+V)',
   'Keep add-trade modal open for rapid backtesting loops',
   'Open one-click trade charts on TradingView',
+  'Open multiple live-trade charts as floating draggable/resizable widgets',
   'Import live trades from CSV/XLSX files',
   'Export backtesting trades to spreadsheet-friendly CSV',
   'Mirror live trades to backtesting sessions',
@@ -41,6 +42,10 @@ const PREMIUM_RESULTS = [
   {
     title: 'Manage live trades with less noise',
     text: 'Use the Decisions workspace to keep chart context, timeline notes, and image-based thinking in one focused place.',
+  },
+  {
+    title: 'Compare setups side-by-side in real time',
+    text: 'Open multiple chart widgets on the same screen, drag and resize them, and read cross-market context faster.',
   },
   {
     title: 'Find your timing edge quickly',
@@ -129,10 +134,11 @@ export default function PremiumClient({
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
                 Premium is built for traders who want faster loops with better signal quality: AI prefill, rapid
-                backtesting entry flow, live Decisions journaling, selection-based stats, and export-ready records.
+                backtesting entry flow, multi-chart floating analysis, live Decisions journaling, and selection-based stats.
               </p>
               <div className="mt-5 grid gap-2 sm:grid-cols-3">
                 <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">Keep-open backtesting entry loop</div>
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">Multi-chart floating widget desk</div>
                 <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">Decisions timeline + chart snippet</div>
                 <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">#1/#2 day and hour performance ranks</div>
                 <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-cyan-100">Date sort + won/lost review filters</div>
@@ -227,6 +233,7 @@ export default function PremiumClient({
             <ul className="mt-3 space-y-2 text-sm text-slate-200">
               <li className="rounded-md border border-cyan-300/20 bg-cyan-300/10 px-3 py-2">AI prefill and paste-to-prefill cut repetitive typing while keeping manual confirmation.</li>
               <li className="rounded-md border border-violet-300/20 bg-violet-300/10 px-3 py-2">Decisions workspace keeps your in-trade thought process clean, chronological, and linked to chart context.</li>
+              <li className="rounded-md border border-fuchsia-300/20 bg-fuchsia-300/10 px-3 py-2">Floating chart widgets let you compare multiple active trades at once without tab hopping.</li>
               <li className="rounded-md border border-indigo-300/20 bg-indigo-300/10 px-3 py-2">Keep-open add flow lets you log many backtests quickly without context switching.</li>
               <li className="rounded-md border border-emerald-300/20 bg-emerald-300/10 px-3 py-2">Selection-based stats reveal what changed in a specific subset of trades instantly.</li>
               <li className="rounded-md border border-sky-300/20 bg-sky-300/10 px-3 py-2">Day/hour rankings (#1/#2) expose your best and worst execution windows.</li>
