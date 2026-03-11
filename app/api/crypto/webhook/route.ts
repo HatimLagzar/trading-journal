@@ -11,6 +11,9 @@ type WebhookPayload = {
   pay_currency?: unknown;
   outcome_amount?: unknown;
   actually_paid?: unknown;
+  network_fee?: unknown;
+  service_fee?: unknown;
+  fee?: unknown;
   network?: unknown;
   tx_hash?: unknown;
 };
@@ -22,6 +25,7 @@ type CryptoPaymentRow = {
 };
 
 const SUCCESS_STATUSES = new Set(['confirmed', 'finished']);
+const PARTIAL_PAID_STATUSES = new Set(['partially_paid', 'partially-paid', 'partially paid']);
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -87,9 +91,22 @@ export async function POST(request: Request) {
 
     const rawPayload = payload as Record<string, unknown>;
 
+    const expectedAmount = toNumber(payload.pay_amount ?? payload.outcome_amount);
+    const actuallyPaid = toNumber(payload.actually_paid);
+    const networkFee = toNumber(payload.network_fee);
+    const serviceFee = toNumber(payload.service_fee ?? payload.fee);
+    const partialAccepted = isPartialPaymentAccepted({
+      paymentStatus,
+      expectedAmount,
+      actuallyPaid,
+      networkFee,
+      serviceFee,
+    });
+    const effectiveStatus = partialAccepted ? 'partially_paid_accepted' : paymentStatus;
+
     const commonUpdate = {
-      status: paymentStatus,
-      pay_amount: toNumber(payload.pay_amount ?? payload.outcome_amount ?? payload.actually_paid),
+      status: effectiveStatus,
+      pay_amount: actuallyPaid ?? expectedAmount,
       pay_currency: toUpperCaseString(payload.pay_currency),
       network: toUpperCaseString(payload.network),
       tx_hash: toStringValue(payload.tx_hash),
@@ -97,7 +114,7 @@ export async function POST(request: Request) {
     };
 
     const alreadySuccessful = SUCCESS_STATUSES.has(paymentRow.status);
-    const nowSuccessful = SUCCESS_STATUSES.has(paymentStatus);
+    const nowSuccessful = SUCCESS_STATUSES.has(paymentStatus) || partialAccepted;
 
     if (!nowSuccessful || alreadySuccessful) {
       const { error: updateError } = await supabase
@@ -109,6 +126,7 @@ export async function POST(request: Request) {
 
       console.info('[crypto-webhook] Non-success or duplicate success event processed', {
         paymentStatus,
+        partialAccepted,
         alreadySuccessful,
         providerPaymentId: paymentRow.providerPaymentId,
       });
@@ -157,6 +175,8 @@ export async function POST(request: Request) {
     console.info('[crypto-webhook] Subscription activated from crypto payment', {
       userId: paymentRow.user_id,
       plan: paymentRow.plan,
+      paymentStatus,
+      partialAccepted,
       periodEnd: periodEnd.toISOString(),
       providerPaymentId: paymentRow.providerPaymentId,
     });
@@ -267,4 +287,47 @@ function toNumber(value: unknown): number | null {
   }
 
   return null;
+}
+
+function isPartialPaymentAccepted(input: {
+  paymentStatus: string;
+  expectedAmount: number | null;
+  actuallyPaid: number | null;
+  networkFee: number | null;
+  serviceFee: number | null;
+}): boolean {
+  if (!PARTIAL_PAID_STATUSES.has(input.paymentStatus)) {
+    return false;
+  }
+
+  if (input.expectedAmount === null || input.actuallyPaid === null) {
+    return false;
+  }
+
+  if (input.expectedAmount <= 0 || input.actuallyPaid <= 0) {
+    return false;
+  }
+
+  const minRatio = getPartialAcceptanceRatio();
+  const paidRatio = input.actuallyPaid / input.expectedAmount;
+  if (paidRatio >= minRatio) {
+    return true;
+  }
+
+  const feeAdjustedPaid = input.actuallyPaid
+    + Math.max(input.networkFee ?? 0, 0)
+    + Math.max(input.serviceFee ?? 0, 0);
+
+  return feeAdjustedPaid / input.expectedAmount >= minRatio;
+}
+
+function getPartialAcceptanceRatio(): number {
+  const configured = Number(process.env.NOWPAYMENTS_PARTIAL_PAYMENT_RATIO ?? '0.995');
+  if (!Number.isFinite(configured)) return 0.995;
+
+  if (configured <= 0 || configured > 1) {
+    return 0.995;
+  }
+
+  return configured;
 }
