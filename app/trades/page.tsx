@@ -68,6 +68,7 @@ export default function TradesPage() {
   const [selectedSystemId, setSelectedSystemId] = useState<string>('')
   const [selectedSubSystemId, setSelectedSubSystemId] = useState<string>('')
   const [selectedOutcomeFilter, setSelectedOutcomeFilter] = useState<'all' | 'won' | 'lost'>('all')
+  const [selectedDirectionFilter, setSelectedDirectionFilter] = useState<'all' | 'long' | 'short'>('all')
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
   const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('none')
   
@@ -152,9 +153,17 @@ export default function TradesPage() {
         return (trade.realised_loss ?? 0) > 0
       }
 
+      if (selectedDirectionFilter === 'long') {
+        return trade.direction === 'long'
+      }
+
+      if (selectedDirectionFilter === 'short') {
+        return trade.direction === 'short'
+      }
+
       return true
     })
-  }, [selectedOutcomeFilter, selectedSubSystemId, selectedSystemId, trades])
+  }, [selectedDirectionFilter, selectedOutcomeFilter, selectedSubSystemId, selectedSystemId, trades])
 
   const dateSortedTrades = useMemo(() => {
     if (dateSortDirection === 'none') return filteredTrades
@@ -683,7 +692,7 @@ export default function TradesPage() {
 
       {/* Filters */}
       <div className="mb-6 border rounded-lg p-4 bg-gray-50">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">System</label>
             <select
@@ -726,6 +735,19 @@ export default function TradesPage() {
               <option value="all">All Trades</option>
               <option value="won">Won Trades</option>
               <option value="lost">Lost Trades</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Direction</label>
+            <select
+              value={selectedDirectionFilter}
+              onChange={(e) => setSelectedDirectionFilter(e.target.value as 'all' | 'long' | 'short')}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+            >
+              <option value="all">All Directions</option>
+              <option value="long">Long Trades</option>
+              <option value="short">Short Trades</option>
             </select>
           </div>
         </div>

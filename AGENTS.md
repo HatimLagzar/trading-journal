@@ -222,8 +222,9 @@ try {
 4. Display trade date/time in `DD/MM/YY HH:mm` format in table rows
 5. Support date sorting by clicking the `Date` header (cycle: default, ascending, descending)
 6. Keep outcome filtering options (`All Trades`, `Won Trades`, `Lost Trades`) in the filters bar
-7. Preserve per-row actions (`Close`, `Decisions`, `Chart`, `Edit`, `Delete`) across both tables
-8. Keep row selection for closed trades compatible with stats cards and filtered rows
+7. Keep direction filtering options (`All Directions`, `Long Trades`, `Short Trades`) in the filters bar
+8. Preserve per-row actions (`Close`, `Decisions`, `Chart`, `Edit`, `Delete`) across both tables
+9. Keep row selection for closed trades compatible with stats cards and filtered rows
 
 ### Importing trades from sheets/files
 1. Use `/app/trades/ImportTradesForm.tsx` for CSV/TSV/XLS/XLSX upload + mapping UI
@@ -253,6 +254,7 @@ try {
 14. Disable add/update submit while AI screenshot extraction is running
 15. Show a subtle session status line for `Time spent backtesting` based on elapsed time between first and last trade `created_at`
 16. Support date sorting in the backtesting trades table by clicking the `Date` header (default, ascending, descending)
+17. Support direction filtering in backtesting sessions (`All Directions`, `Long Trades`, `Short Trades`) and keep stats aligned with filtered/selected rows
 
 ### Exporting backtesting sessions
 1. Export is available from `/app/backtesting/page.tsx` as `Export CSV`

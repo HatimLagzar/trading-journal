@@ -85,6 +85,7 @@ type PerformanceStats = {
 }
 
 type DateSortDirection = 'none' | 'asc' | 'desc'
+type DirectionFilter = 'all' | 'long' | 'short'
 
 type SessionStats = {
   totalTrades: number
@@ -127,6 +128,7 @@ export default function BacktestingPage() {
   const [trades, setTrades] = useState<BacktestingTrade[]>([])
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
   const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('none')
+  const [selectedDirectionFilter, setSelectedDirectionFilter] = useState<DirectionFilter>('all')
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -201,26 +203,31 @@ export default function BacktestingPage() {
     return systems.find((system) => system.id === selectedSession.system_id)?.name ?? 'No system'
   }, [selectedSession, systems])
 
+  const filteredTrades = useMemo(() => {
+    if (selectedDirectionFilter === 'all') return trades
+    return trades.filter((trade) => trade.direction === selectedDirectionFilter)
+  }, [selectedDirectionFilter, trades])
+
   useEffect(() => {
-    setSelectedTradeIds((prev) => prev.filter((id) => trades.some((trade) => trade.id === id)))
-  }, [trades])
+    setSelectedTradeIds((prev) => prev.filter((id) => filteredTrades.some((trade) => trade.id === id)))
+  }, [filteredTrades])
 
   const selectedTrades = useMemo(() => {
-    return trades.filter((trade) => selectedTradeIds.includes(trade.id))
-  }, [trades, selectedTradeIds])
+    return filteredTrades.filter((trade) => selectedTradeIds.includes(trade.id))
+  }, [filteredTrades, selectedTradeIds])
 
   const sortedTrades = useMemo(() => {
-    if (dateSortDirection === 'none') return trades
+    if (dateSortDirection === 'none') return filteredTrades
 
-    return [...trades].sort((a, b) => {
+    return [...filteredTrades].sort((a, b) => {
       const aKey = getBacktestingDateTimeSortKey(a.trade_date, a.trade_time)
       const bKey = getBacktestingDateTimeSortKey(b.trade_date, b.trade_time)
       const compare = aKey.localeCompare(bKey)
       return dateSortDirection === 'asc' ? compare : -compare
     })
-  }, [dateSortDirection, trades])
+  }, [dateSortDirection, filteredTrades])
 
-  const statsTrades = selectedTrades.length > 0 ? selectedTrades : trades
+  const statsTrades = selectedTrades.length > 0 ? selectedTrades : filteredTrades
 
   function toggleDateSortDirection() {
     setDateSortDirection((prev) => {
@@ -779,7 +786,16 @@ export default function BacktestingPage() {
                     )}
                     <p className="mt-1 text-xs text-gray-500">{sessionDurationLabel}</p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedDirectionFilter}
+                      onChange={(event) => setSelectedDirectionFilter(event.target.value as DirectionFilter)}
+                      className="px-3 py-2 text-sm border rounded bg-white"
+                    >
+                      <option value="all">All Directions</option>
+                      <option value="long">Long Trades</option>
+                      <option value="short">Short Trades</option>
+                    </select>
                     <button
                       onClick={handleExportSessionCsv}
                       className="px-4 py-2 text-sm bg-slate-700 text-white rounded hover:bg-slate-800"
@@ -837,7 +853,7 @@ export default function BacktestingPage() {
 
               <div className="border rounded-lg">
                 <div className="px-3 py-2 border-b bg-gray-50 flex items-center justify-end">
-                  {trades.length > 0 && (
+                  {sortedTrades.length > 0 && (
                     <button
                       onClick={() => toggleSelectAllTrades(sortedTrades.map((trade) => trade.id))}
                       className="text-xs text-gray-600 hover:text-gray-900 hover:underline cursor-pointer"
