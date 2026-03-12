@@ -330,7 +330,7 @@ export default function PremiumClient({
               which can make the invoice appear as partially paid.
             </p>
             <p className="mt-3 text-sm leading-6 text-amber-100">
-              Small network or exchange withdrawal fees may apply and should be paid on top of the quoted amount.
+              Double-check the final send amount in your wallet/exchange so it matches the invoice exactly.
             </p>
             <p className="mt-3 text-sm leading-6 text-cyan-100">
               If NOWPayments still shows partially paid, return to the app. We accept near-full partial payments and
