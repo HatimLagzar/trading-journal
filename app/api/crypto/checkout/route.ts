@@ -40,10 +40,9 @@ export async function POST(request: Request) {
     const origin = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL ?? headerStore.get('origin') ?? 'http://localhost:3000');
     const checkoutReference = randomUUID();
     const selectedPricing = pricing[body.plan];
-    const quotePriceAmount = calculateQuotePrice(selectedPricing.priceUsd);
 
     const invoice = await createNowPaymentsInvoice({
-      priceAmount: quotePriceAmount,
+      priceAmount: selectedPricing.priceUsd,
       orderId: checkoutReference,
       orderDescription: `Trade In Systems Premium ${body.plan === 'monthly' ? '3-month' : 'annual'} (USDT Polygon)`,
       ipnCallbackUrl: `${origin}/api/crypto/webhook`,
@@ -59,7 +58,7 @@ export async function POST(request: Request) {
       plan: body.plan,
       status: 'waiting',
       price_usd: selectedPricing.priceUsd,
-      pay_amount: quotePriceAmount,
+      pay_amount: selectedPricing.priceUsd,
       pay_currency: 'USDT',
       network: 'POLYGON',
       raw_payload: invoice.raw,
@@ -132,30 +131,4 @@ function parseUsd(value: string | undefined, fallback: number): number {
   }
 
   return Math.round(parsed * 100) / 100;
-}
-
-function calculateQuotePrice(basePrice: number): number {
-  const flatMin = parseNonNegative(process.env.NOWPAYMENTS_QUOTE_BUFFER_FLAT, 0.03);
-  const percent = parseNonNegative(process.env.NOWPAYMENTS_QUOTE_BUFFER_PERCENT, 0.005);
-  const flatCap = parseNonNegative(process.env.NOWPAYMENTS_QUOTE_BUFFER_CAP, 0.2);
-
-  const rawBuffer = Math.max(flatMin, basePrice * percent);
-  const cappedBuffer = Math.min(rawBuffer, Math.max(flatCap, flatMin));
-
-  return roundCurrency(basePrice + cappedBuffer);
-}
-
-function parseNonNegative(value: string | undefined, fallback: number): number {
-  if (!value) return fallback;
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return fallback;
-  }
-
-  return parsed;
-}
-
-function roundCurrency(value: number): number {
-  return Math.round(value * 100) / 100;
 }
