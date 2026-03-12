@@ -329,6 +329,9 @@ export default function PremiumClient({
               Please send the exact amount shown by NOWPayments. Some wallets/exchanges deduct fees from the transfer,
               which can make the invoice appear as partially paid.
             </p>
+            <p className="mt-3 text-sm leading-6 text-amber-100">
+              Small network or exchange withdrawal fees may apply and should be paid on top of the quoted amount.
+            </p>
             <p className="mt-3 text-sm leading-6 text-cyan-100">
               If NOWPayments still shows partially paid, return to the app. We accept near-full partial payments and
               will grant Premium access automatically after webhook processing.

@@ -293,8 +293,8 @@ try {
 8. Customer self-service billing is handled by `POST /api/stripe/portal`
 9. Checkout redirects to `/premium/success` on success and `/premium/cancelled` when canceled
 10. Crypto webhook signature uses `NOWPAYMENTS_IPN_SECRET`; API requests use `NOWPAYMENTS_API_KEY`
-11. Partial crypto payments can be auto-accepted when close to expected amount via `NOWPAYMENTS_PARTIAL_PAYMENT_RATIO` (default `0.995`)
-12. Crypto quote amount can be tuned with `NOWPAYMENTS_PLAN_DISCOUNT_RATIO` and `NOWPAYMENTS_QUOTE_BUFFER_RATIO` (defaults `0.01` and `1.01`) to offset small fee buffers while keeping displayed pricing stable
+11. Checkout quote uses a small hybrid buffer via `NOWPAYMENTS_QUOTE_BUFFER_FLAT` (default `0.03`), `NOWPAYMENTS_QUOTE_BUFFER_PERCENT` (default `0.005`), and `NOWPAYMENTS_QUOTE_BUFFER_CAP` (default `0.2`)
+12. Partial payment handling uses tolerance bands: auto-accept (`NOWPAYMENTS_AUTO_TOLERANCE_FLAT`, `NOWPAYMENTS_AUTO_TOLERANCE_PERCENT`) and manual-review zone (`NOWPAYMENTS_REVIEW_TOLERANCE_FLAT`, `NOWPAYMENTS_REVIEW_TOLERANCE_PERCENT`)
 13. For stablecoin checkout, avoid cross-currency conversion rails (e.g. `price_currency=usd` + `pay_currency=usdttrc20`) unless explicitly intended; prefer same-currency rails to reduce hidden conversion fees
 14. Before shipping payment config changes, create a fresh test invoice and verify expected amount/fee sanity against target price to avoid expensive misconfiguration
 15. Premium status for UI gating is fetched via `GET /api/subscription/status` and consumed through global provider `lib/PremiumContext.tsx` (single shared fetch per auth session) via `lib/usePremiumAccess.ts`

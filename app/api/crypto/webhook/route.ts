@@ -23,11 +23,19 @@ type CryptoPaymentRow = {
   plan: 'monthly' | 'annual';
   status: string;
   period_end: string | null;
+  pay_amount: number | null;
 };
 
 const SUCCESS_EVENT_STATUSES = new Set(['finished']);
 const ALREADY_SUCCESSFUL_STATUSES = new Set(['finished', 'partially_paid_accepted', 'confirmed']);
 const PARTIAL_PAID_STATUSES = new Set(['partially_paid', 'partially-paid', 'partially paid']);
+
+type SettlementDecision = {
+  action: 'accept' | 'review' | 'reject' | 'pending';
+  status: string;
+  reason: string;
+  shortfall: number | null;
+};
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -93,23 +101,19 @@ export async function POST(request: Request) {
 
     const rawPayload = payload as Record<string, unknown>;
 
-    const expectedAmount = toNumber(payload.pay_amount ?? payload.outcome_amount);
+    const expectedAmount = toNumber(payload.pay_amount ?? payload.outcome_amount) ?? paymentRow.pay_amount;
     const actuallyPaid = toNumber(payload.actually_paid);
-    const networkFee = toNumber(payload.network_fee);
-    const serviceFee = toNumber(payload.service_fee ?? payload.fee);
-    const partialAccepted = isPartialPaymentAccepted({
+    const settlementDecision = evaluateSettlement({
       paymentStatus,
       expectedAmount,
       actuallyPaid,
-      networkFee,
-      serviceFee,
     });
-    const nowSuccessful = SUCCESS_EVENT_STATUSES.has(paymentStatus) || partialAccepted;
-    const effectiveStatus = nowSuccessful ? 'finished' : paymentStatus;
+    const nowSuccessful = settlementDecision.action === 'accept';
+    const effectiveStatus = settlementDecision.status;
 
     const commonUpdate = {
       status: effectiveStatus,
-      pay_amount: actuallyPaid ?? expectedAmount,
+      pay_amount: expectedAmount,
       pay_currency: toUpperCaseString(payload.pay_currency),
       network: toUpperCaseString(payload.network),
       tx_hash: toStringValue(payload.tx_hash),
@@ -128,7 +132,9 @@ export async function POST(request: Request) {
 
       console.info('[crypto-webhook] Non-success or duplicate success event processed', {
         paymentStatus,
-        partialAccepted,
+        settlementAction: settlementDecision.action,
+        settlementReason: settlementDecision.reason,
+        shortfall: settlementDecision.shortfall,
         alreadySuccessful,
         providerPaymentId: paymentRow.providerPaymentId,
       });
@@ -178,7 +184,9 @@ export async function POST(request: Request) {
       userId: paymentRow.user_id,
       plan: paymentRow.plan,
       paymentStatus,
-      partialAccepted,
+      settlementAction: settlementDecision.action,
+      settlementReason: settlementDecision.reason,
+      shortfall: settlementDecision.shortfall,
       periodEnd: periodEnd.toISOString(),
       providerPaymentId: paymentRow.providerPaymentId,
     });
@@ -205,7 +213,7 @@ async function getPaymentRow(input: {
   if (providerPaymentId) {
     const { data, error } = await supabase
       .from('crypto_payments')
-      .select('user_id, plan, status, period_end, provider_payment_id')
+      .select('user_id, plan, status, period_end, pay_amount, provider_payment_id')
       .eq('provider_payment_id', providerPaymentId)
       .maybeSingle();
 
@@ -222,7 +230,7 @@ async function getPaymentRow(input: {
 
   const { data, error } = await supabase
     .from('crypto_payments')
-    .select('user_id, plan, status, period_end, provider_payment_id')
+    .select('user_id, plan, status, period_end, pay_amount, provider_payment_id')
     .eq('checkout_reference', checkoutReference)
     .maybeSingle();
 
@@ -291,45 +299,108 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
-function isPartialPaymentAccepted(input: {
+function evaluateSettlement(input: {
   paymentStatus: string;
   expectedAmount: number | null;
   actuallyPaid: number | null;
-  networkFee: number | null;
-  serviceFee: number | null;
-}): boolean {
+}): SettlementDecision {
+  if (SUCCESS_EVENT_STATUSES.has(input.paymentStatus)) {
+    return {
+      action: 'accept',
+      status: 'finished',
+      reason: 'provider_finished',
+      shortfall: null,
+    };
+  }
+
   if (!PARTIAL_PAID_STATUSES.has(input.paymentStatus)) {
-    return false;
+    return {
+      action: 'pending',
+      status: input.paymentStatus,
+      reason: 'non_terminal_status',
+      shortfall: null,
+    };
   }
 
   if (input.expectedAmount === null || input.actuallyPaid === null) {
-    return false;
+    return {
+      action: 'review',
+      status: 'pending_manual_review',
+      reason: 'missing_amounts',
+      shortfall: null,
+    };
   }
 
   if (input.expectedAmount <= 0 || input.actuallyPaid <= 0) {
-    return false;
+    return {
+      action: 'reject',
+      status: 'underpaid_rejected',
+      reason: 'invalid_amounts',
+      shortfall: null,
+    };
   }
 
-  const minRatio = getPartialAcceptanceRatio();
-  const paidRatio = input.actuallyPaid / input.expectedAmount;
-  if (paidRatio >= minRatio) {
-    return true;
+  const shortfall = input.expectedAmount - input.actuallyPaid;
+  if (shortfall <= 0) {
+    return {
+      action: 'accept',
+      status: 'finished',
+      reason: 'partial_with_no_shortfall',
+      shortfall,
+    };
   }
 
-  const feeAdjustedPaid = input.actuallyPaid
-    + Math.max(input.networkFee ?? 0, 0)
-    + Math.max(input.serviceFee ?? 0, 0);
+  const autoTolerance = Math.max(getAutoToleranceFlat(), input.expectedAmount * getAutoTolerancePercent());
+  if (shortfall <= autoTolerance) {
+    return {
+      action: 'accept',
+      status: 'finished',
+      reason: 'shortfall_within_auto_tolerance',
+      shortfall,
+    };
+  }
 
-  return feeAdjustedPaid / input.expectedAmount >= minRatio;
+  const manualReviewTolerance = Math.max(getManualReviewFlat(), input.expectedAmount * getManualReviewPercent());
+  if (shortfall <= manualReviewTolerance) {
+    return {
+      action: 'review',
+      status: 'pending_manual_review',
+      reason: 'shortfall_requires_manual_review',
+      shortfall,
+    };
+  }
+
+  return {
+    action: 'reject',
+    status: 'underpaid_rejected',
+    reason: 'shortfall_above_rejection_threshold',
+    shortfall,
+  };
 }
 
-function getPartialAcceptanceRatio(): number {
-  const configured = Number(process.env.NOWPAYMENTS_PARTIAL_PAYMENT_RATIO ?? '0.995');
-  if (!Number.isFinite(configured)) return 0.995;
+function getAutoToleranceFlat(): number {
+  return parseNonNegative(process.env.NOWPAYMENTS_AUTO_TOLERANCE_FLAT, 0.02);
+}
 
-  if (configured <= 0 || configured > 1) {
-    return 0.995;
+function getAutoTolerancePercent(): number {
+  return parseNonNegative(process.env.NOWPAYMENTS_AUTO_TOLERANCE_PERCENT, 0.0035);
+}
+
+function getManualReviewFlat(): number {
+  return parseNonNegative(process.env.NOWPAYMENTS_REVIEW_TOLERANCE_FLAT, 0.06);
+}
+
+function getManualReviewPercent(): number {
+  return parseNonNegative(process.env.NOWPAYMENTS_REVIEW_TOLERANCE_PERCENT, 0.01);
+}
+
+function parseNonNegative(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
   }
 
-  return configured;
+  return parsed;
 }
