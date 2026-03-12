@@ -5,6 +5,15 @@ import { useRouter } from 'next/navigation'
 import AuthNavbar from '@/app/components/AuthNavbar'
 import { supabase } from '@/lib/supabase/client'
 
+type AdminInvite = {
+  id: string
+  created_at: string
+  expires_at: string | null
+  grants_days: number
+  used_at: string | null
+  used_by: string | null
+}
+
 export default function SettingsPage() {
   const router = useRouter()
   const [loadingUser, setLoadingUser] = useState(true)
@@ -14,6 +23,12 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [invitesLoading, setInvitesLoading] = useState(false)
+  const [invitesError, setInvitesError] = useState<string | null>(null)
+  const [invites, setInvites] = useState<AdminInvite[]>([])
+  const [generatedInviteUrl, setGeneratedInviteUrl] = useState<string | null>(null)
+  const [creatingInvite, setCreatingInvite] = useState(false)
 
   useEffect(() => {
     async function ensureAuthenticated() {
@@ -27,11 +42,80 @@ export default function SettingsPage() {
       }
 
       setEmail(user.email ?? '')
+      await loadAdminInvites()
       setLoadingUser(false)
     }
 
     void ensureAuthenticated()
   }, [router])
+
+  async function loadAdminInvites() {
+    setInvitesLoading(true)
+    setInvitesError(null)
+
+    try {
+      const response = await fetch('/api/admin/invites', {
+        method: 'GET',
+      })
+
+      if (response.status === 403) {
+        setIsAdmin(false)
+        setInvites([])
+        return
+      }
+
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string }
+        throw new Error(payload.error ?? 'Failed to load invites')
+      }
+
+      const payload = (await response.json()) as { invites?: AdminInvite[] }
+      setIsAdmin(true)
+      setInvites(payload.invites ?? [])
+    } catch (err) {
+      setInvitesError(err instanceof Error ? err.message : 'Failed to load invites')
+    } finally {
+      setInvitesLoading(false)
+    }
+  }
+
+  async function handleGenerateInvite() {
+    setCreatingInvite(true)
+    setInvitesError(null)
+    setGeneratedInviteUrl(null)
+
+    try {
+      const response = await fetch('/api/admin/invites', {
+        method: 'POST',
+      })
+
+      const payload = (await response.json()) as {
+        inviteUrl?: string
+        invite?: AdminInvite
+        error?: string
+      }
+
+      if (!response.ok || !payload.inviteUrl || !payload.invite) {
+        throw new Error(payload.error ?? 'Failed to create invite')
+      }
+
+      setGeneratedInviteUrl(payload.inviteUrl)
+      setInvites((prev) => [payload.invite as AdminInvite, ...prev])
+    } catch (err) {
+      setInvitesError(err instanceof Error ? err.message : 'Failed to create invite')
+    } finally {
+      setCreatingInvite(false)
+    }
+  }
+
+  async function copyInvite(url: string) {
+    try {
+      await navigator.clipboard.writeText(url)
+      setSuccess('Invite link copied')
+    } catch {
+      setInvitesError('Failed to copy invite link')
+    }
+  }
 
   async function handleUpdatePassword(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -140,7 +224,102 @@ export default function SettingsPage() {
             </button>
           </form>
         </div>
+
+        {isAdmin && (
+          <div className="mt-6 rounded-xl border bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-slate-900">Invite links</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Generate single-use invite links. Trial duration uses INVITE_PREMIUM_DAYS (default 2).
+            </p>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleGenerateInvite}
+                disabled={creatingInvite}
+                className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {creatingInvite ? 'Generating...' : 'Generate invite'}
+              </button>
+              <button
+                type="button"
+                onClick={loadAdminInvites}
+                disabled={invitesLoading}
+                className="cursor-pointer rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {invitesLoading ? 'Refreshing...' : 'Refresh list'}
+              </button>
+            </div>
+
+            {generatedInviteUrl && (
+              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                <p className="font-semibold">New invite link generated</p>
+                <p className="mt-1 break-all">{generatedInviteUrl}</p>
+                <button
+                  type="button"
+                  onClick={() => copyInvite(generatedInviteUrl)}
+                  className="mt-2 cursor-pointer rounded-lg border border-emerald-300 px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+                >
+                  Copy link
+                </button>
+              </div>
+            )}
+
+            {invitesError && (
+              <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {invitesError}
+              </p>
+            )}
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-600">
+                    <th className="px-3 py-2 font-semibold">Created</th>
+                    <th className="px-3 py-2 font-semibold">Trial days</th>
+                    <th className="px-3 py-2 font-semibold">Status</th>
+                    <th className="px-3 py-2 font-semibold">Used by</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invites.map((invite) => (
+                    <tr key={invite.id} className="border-b border-slate-100 text-slate-700">
+                      <td className="px-3 py-2">{formatDateTime(invite.created_at)}</td>
+                      <td className="px-3 py-2">{invite.grants_days}</td>
+                      <td className="px-3 py-2">{getInviteStatus(invite)}</td>
+                      <td className="px-3 py-2">{invite.used_by ?? '-'}</td>
+                    </tr>
+                  ))}
+                  {invites.length === 0 && !invitesLoading && (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-4 text-slate-500">
+                        No invites generated yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
+}
+
+function getInviteStatus(invite: AdminInvite): string {
+  if (invite.used_at) return 'Used'
+  if (invite.expires_at && new Date(invite.expires_at).getTime() <= Date.now()) {
+    return 'Expired'
+  }
+
+  return 'Active'
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) return '-'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleString()
 }

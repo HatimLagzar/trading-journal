@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 
 export default function SignupPage() {
-  const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -14,6 +14,7 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const inviteToken = searchParams.get('invite')?.trim() ?? ''
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault()
@@ -34,6 +35,13 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: inviteToken
+          ? {
+              invite_token: inviteToken,
+            }
+          : {},
+      },
     })
 
     if (error) {
@@ -54,6 +62,11 @@ export default function SignupPage() {
           <p className="text-gray-600 mb-6">
             We sent a confirmation link to <strong>{email}</strong>
           </p>
+          {inviteToken && (
+            <p className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              Invite detected. Your Premium trial starts when your account is created.
+            </p>
+          )}
           <Link href="/login" className="text-blue-600 hover:underline">
             Back to login
           </Link>
@@ -66,6 +79,12 @@ export default function SignupPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full p-8">
         <h1 className="text-2xl font-bold text-center mb-8">Create Account</h1>
+
+        {inviteToken && (
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+            You are signing up with a Premium invite.
+          </div>
+        )}
 
         <form onSubmit={handleSignup} className="space-y-4">
           <div>
