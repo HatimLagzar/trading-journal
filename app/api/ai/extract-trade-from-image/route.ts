@@ -313,6 +313,13 @@ function buildPrompt(context: ExtractionContext): string {
     '- If a gray right-axis label is horizontally aligned with that split line, that gray label MUST be used as entry.',
     '- If no explicit gray split-line label exists, estimate entry by projecting the split line horizontally to the right axis ticks.',
     '',
+    'Critical selected-tool time teaching:',
+    '- When the TradingView position tool is selected, it can show blue time labels on the bottom axis at both ends of the tool.',
+    '- Treat those two blue bottom-axis labels as the position-tool endpoints for time extraction.',
+    '- The LEFT blue endpoint label is the ENTRY time source.',
+    '- The RIGHT blue endpoint label is the EXIT time source.',
+    '- For trade_date/trade_time, always return only the LEFT blue endpoint label value (entry), never the right one.',
+    '',
     'Critical stop-loss teaching:',
     '- stop_loss must come only from the OUTER EDGE OF THE RED ZONE of the same active position tool.',
     '- For a SHORT setup, red is above green, so stop_loss = TOP edge of the red zone and must be ABOVE entry.',
@@ -328,6 +335,7 @@ function buildPrompt(context: ExtractionContext): string {
     '5. Project those exact two horizontal boundaries to the right price axis.',
     '6. Use only labels that are horizontally aligned with those exact projected boundaries.',
     '7. If a label is merely nearby but not aligned with the exact boundary, ignore it.',
+    '8. If two blue endpoint time labels are visible on the bottom axis for the selected position tool, map LEFT=entry and RIGHT=exit before choosing trade_date/trade_time.',
     '',
     'Extraction rules:',
     '1. direction is derived only from the zone order of the active position tool.',
@@ -339,11 +347,11 @@ function buildPrompt(context: ExtractionContext): string {
       : '5. Skip target_price extraction for live trade prefill.',
     '6. Extract trade_date only when explicitly visible; it must represent the ENTRY moment of the trade, not the exit moment. Format as YYYY-MM-DD; otherwise null.',
     '7. Extract trade_time only when explicitly visible; it must represent the ENTRY moment of the trade, not the exit moment. Format as HH:mm:ss in UTC; otherwise null.',
-    '8. Prefer the bottom-axis blue selected time label when it corresponds to the entry candle.',
+    '8. Time-source priority for trade_date/trade_time: (A) LEFT blue endpoint label of selected position tool, (B) clear entry-candle bottom-axis timestamp, (C) top header timestamp only if A and B are unavailable.',
     '9. If the screenshot contains multiple valid timestamps related to the same trade, choose the timestamp for the ENTRY candle only.',
     '10. If exactly two valid trade-related timestamps are visible on the bottom axis, interpret the LEFT/FIRST timestamp as entry and the RIGHT/SECOND timestamp as exit, and return only the left/first one.',
     '11. When choosing between two visible trade-related timestamps, prefer the earlier-left timestamp for entry, never the later-right timestamp for exit.',
-    '12. Use the top header date/time only when it clearly refers to the entry candle and there is no better bottom-axis entry timestamp.',
+    '12. Never use the right blue endpoint label for trade_date/trade_time.',
     '',
     'Ignore completely:',
     '- dotted line',
@@ -371,6 +379,7 @@ function buildPrompt(context: ExtractionContext): string {
     '- if exact horizontal alignment is unclear, return null',
     '- if coin/date/time are not explicitly visible, return null for those fields',
     '- when a blue bottom-axis selected time label is visible, it must be treated as explicit date/time evidence',
+    '- when two blue endpoint labels are visible for the selected position tool, trade_date/trade_time must come from the LEFT one only',
     '- trade_date and trade_time must refer to entry, never exit',
     '- if two valid timestamps are visible for the same trade, return the LEFT/FIRST one only because it is the entry timestamp',
     '- do not return the right-side/later timestamp when a left-side/earlier timestamp is also visible for the same trade',
@@ -389,6 +398,7 @@ function buildPrompt(context: ExtractionContext): string {
     '- Prefer the blue bottom-axis label over ambiguous nearby axis text because it marks the selected candle time.',
     '- If two trade-related timestamps are visible, the LEFT/earlier/first one is the entry timestamp and the RIGHT/later/second one is the exit timestamp.',
     '- If both timestamps look valid, still choose the left-side timestamp for entry and ignore the right-side timestamp for exit.',
+    '- If two blue endpoint labels are visible for the selected position tool and they differ, use the LEFT one even when the right one appears closer to the latest candles.',
     '- If you cannot determine which visible timestamp belongs to the entry candle, return null for trade_date and trade_time instead of guessing.',
     '',
     'Worked example:',
@@ -399,6 +409,7 @@ function buildPrompt(context: ExtractionContext): string {
     '- In that case, 199.17 must be ignored for entry and 181.52 must be ignored for stop_loss.',
     '- If the blue bottom-axis label reads "Sat 22 Mar \'25 23:00", then trade_date = 2025-03-22 and trade_time = 23:00:00.',
     '- The blue bottom-axis selected time label is valid even when the top header also shows OHLC data.',
+    '- If two blue endpoint labels are visible, the left endpoint label is the entry time source for output.',
     '- If two valid timestamps are visible for the same trade, such as 03:00 on the left at entry and 09:00 on the right at exit, return trade_time = 03:00:00 only.',
     '- If the left visible trade-related timestamp is 2025-03-24 03:00 and the right visible timestamp is 2025-03-24 09:00, then return trade_date = 2025-03-24 and trade_time = 03:00:00.',
     '- The left-side timestamp is the entry timestamp; the right-side timestamp is the exit timestamp and must be ignored.',
@@ -560,6 +571,32 @@ function normalizeTime(value: unknown): string | null {
   const hhmmss = trimmed.match(/^(\d{2}):(\d{2}):(\d{2})$/);
   if (hhmmss) {
     return `${hhmmss[1]}:${hhmmss[2]}:${hhmmss[3]}`;
+  }
+
+  const embedded24h = trimmed.match(/(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s|$)/);
+  if (embedded24h) {
+    const hours = Number(embedded24h[1]);
+    const minutes = Number(embedded24h[2]);
+    const seconds = embedded24h[3] ? Number(embedded24h[3]) : 0;
+
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59 && seconds >= 0 && seconds <= 59) {
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+  }
+
+  const amPmMatch = trimmed.match(/(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])(?:\s|$)/);
+  if (amPmMatch) {
+    const rawHours = Number(amPmMatch[1]);
+    const minutes = Number(amPmMatch[2]);
+    const seconds = amPmMatch[3] ? Number(amPmMatch[3]) : 0;
+    const meridiem = amPmMatch[4].toUpperCase();
+
+    if (rawHours >= 1 && rawHours <= 12 && minutes >= 0 && minutes <= 59 && seconds >= 0 && seconds <= 59) {
+      const hours24 = meridiem === 'PM'
+        ? (rawHours % 12) + 12
+        : rawHours % 12;
+      return `${String(hours24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
   }
 
   return null;
