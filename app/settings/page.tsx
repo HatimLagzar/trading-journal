@@ -223,6 +223,7 @@ export default function SettingsPage() {
               {loading ? 'Updating...' : 'Update password'}
             </button>
           </form>
+
         </div>
 
         {isAdmin && (

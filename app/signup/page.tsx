@@ -1,20 +1,24 @@
 'use client'
 
 import { useState } from 'react'
-import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 
 export default function SignupPage() {
-  const searchParams = useSearchParams()
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
-  const inviteToken = searchParams.get('invite')?.trim() ?? ''
+  const [inviteToken] = useState(() => {
+    if (typeof window === 'undefined') {
+      return ''
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    return params.get('invite')?.trim() ?? ''
+  })
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault()

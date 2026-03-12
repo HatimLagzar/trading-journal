@@ -105,11 +105,17 @@ async function requireAdmin(): Promise<{ supabase: Awaited<ReturnType<typeof cre
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data: isAdmin, error: adminError } = await supabase.rpc('is_current_user_admin');
-  if (adminError) {
-    return NextResponse.json({ error: adminError.message }, { status: 400 });
+  const { data: subscription, error: subscriptionError } = await supabase
+    .from('user_subscriptions')
+    .select('app_role')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (subscriptionError) {
+    return NextResponse.json({ error: subscriptionError.message }, { status: 400 });
   }
 
+  const isAdmin = subscription?.app_role === 'admin';
   if (!isAdmin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
