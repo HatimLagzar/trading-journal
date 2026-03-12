@@ -1,4 +1,4 @@
--- Add admin role on auth.users and premium invite tokens.
+-- Add app admin role and premium invite tokens.
 
 DO $$
 BEGIN
@@ -12,12 +12,27 @@ BEGIN
 END;
 $$;
 
-ALTER TABLE auth.users
+ALTER TABLE public.user_subscriptions
   ADD COLUMN IF NOT EXISTS app_role app_user_role NOT NULL DEFAULT 'user';
 
-UPDATE auth.users
-SET app_role = 'admin'::app_user_role
-WHERE id = '11976209-2db2-459a-b81f-f287906ebbfc';
+INSERT INTO public.user_subscriptions (
+  user_id,
+  billing_provider,
+  plan,
+  status,
+  cancel_at_period_end,
+  app_role
+)
+VALUES (
+  '11976209-2db2-459a-b81f-f287906ebbfc',
+  'none',
+  'free',
+  'inactive',
+  FALSE,
+  'admin'::app_user_role
+)
+ON CONFLICT (user_id) DO UPDATE
+SET app_role = 'admin'::app_user_role;
 
 CREATE OR REPLACE FUNCTION public.is_current_user_admin()
 RETURNS BOOLEAN
@@ -28,8 +43,8 @@ SET search_path = public, auth
 AS $$
   SELECT EXISTS (
     SELECT 1
-    FROM auth.users
-    WHERE id = auth.uid()
+    FROM public.user_subscriptions
+    WHERE user_id = auth.uid()
       AND app_role = 'admin'::app_user_role
   );
 $$;
@@ -79,88 +94,3 @@ CREATE POLICY "Admins can create premium invites" ON public.premium_invites
     public.is_current_user_admin()
     AND created_by = auth.uid()
   );
-
-CREATE OR REPLACE FUNCTION public.apply_premium_invite_on_signup()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
-DECLARE
-  invite_token TEXT;
-  invite_row public.premium_invites%ROWTYPE;
-  invite_period_end TIMESTAMP WITH TIME ZONE;
-BEGIN
-  invite_token := NULLIF(TRIM(COALESCE(NEW.raw_user_meta_data->>'invite_token', '')), '');
-
-  IF invite_token IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  SELECT *
-  INTO invite_row
-  FROM public.premium_invites
-  WHERE token_hash = ENCODE(extensions.digest(invite_token, 'sha256'), 'hex')
-    AND used_at IS NULL
-    AND (expires_at IS NULL OR expires_at > NEW.created_at)
-  ORDER BY created_at DESC
-  LIMIT 1
-  FOR UPDATE SKIP LOCKED;
-
-  IF NOT FOUND THEN
-    RETURN NEW;
-  END IF;
-
-  UPDATE public.premium_invites
-  SET
-    used_at = NEW.created_at,
-    used_by = NEW.id
-  WHERE id = invite_row.id
-    AND used_at IS NULL;
-
-  IF NOT FOUND THEN
-    RETURN NEW;
-  END IF;
-
-  invite_period_end := NEW.created_at + MAKE_INTERVAL(days => invite_row.grants_days);
-
-  INSERT INTO public.user_subscriptions (
-    user_id,
-    billing_provider,
-    plan,
-    status,
-    current_period_end,
-    cancel_at_period_end
-  )
-  VALUES (
-    NEW.id,
-    'none',
-    'premium_monthly',
-    'trialing',
-    invite_period_end,
-    FALSE
-  )
-  ON CONFLICT (user_id) DO UPDATE
-  SET
-    billing_provider = EXCLUDED.billing_provider,
-    plan = EXCLUDED.plan,
-    status = EXCLUDED.status,
-    current_period_end = GREATEST(
-      COALESCE(public.user_subscriptions.current_period_end, EXCLUDED.current_period_end),
-      EXCLUDED.current_period_end
-    ),
-    cancel_at_period_end = FALSE;
-
-  UPDATE auth.users
-  SET raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) - 'invite_token'
-  WHERE id = NEW.id;
-
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trigger_apply_premium_invite_on_signup ON auth.users;
-CREATE TRIGGER trigger_apply_premium_invite_on_signup
-  AFTER INSERT ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION public.apply_premium_invite_on_signup();

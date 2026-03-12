@@ -301,9 +301,9 @@ try {
 16. Premium-only features: screenshot upload, importing live trades, mirroring live trades to backtesting, one-click/multi-widget trade chart view, and creating more than 2 systems
 17. Locked features remain visible; non-premium users are redirected to `/premium` with a `feature` query param
 18. Keep `/api/subscription/status` as a fast DB-backed read; entitlements are reconciled by webhook flows instead of per-request provider checks
-19. Admin role is stored on `auth.users.app_role` (`user` or `admin`)
+19. Admin role is stored on `user_subscriptions.app_role` (`user` or `admin`)
 20. Admins can generate single-use premium invite links from Settings (`/api/admin/invites`)
-21. Invite signup grants trial premium at account creation time using `INVITE_PREMIUM_DAYS` (default `2`)
+21. Invite signup stores the token in auth metadata; trial is granted on first login and backdated to account creation time using `INVITE_PREMIUM_DAYS` (default `2`)
 
 ### AI screenshot trade prefill
 1. Use `POST /api/ai/extract-trade-from-image` to parse a TradingView screenshot into trade field suggestions

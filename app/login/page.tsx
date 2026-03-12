@@ -29,6 +29,14 @@ export default function LoginPage() {
       return
     }
 
+    try {
+      await fetch('/api/invites/redeem', {
+        method: 'POST',
+      })
+    } catch {
+      // Ignore invite redemption fetch errors during login.
+    }
+
     router.push('/trades')
   }
 
