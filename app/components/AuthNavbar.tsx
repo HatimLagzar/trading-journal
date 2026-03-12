@@ -25,8 +25,9 @@ const NAV_ITEMS: Array<{ key: NavSection; label: string; href: string }> = [
 export default function AuthNavbar({ current, variant = 'light' }: AuthNavbarProps) {
   const router = useRouter()
   const { user, signOut } = useAuth()
-  const { isPremium, loading: premiumLoading } = usePremiumAccess()
+  const { isPremium, loading: premiumLoading, subscription } = usePremiumAccess()
   const [signingOut, setSigningOut] = useState(false)
+  const isTrialing = subscription?.status === 'trialing'
 
   async function handleSignOut() {
     setSigningOut(true)
@@ -59,17 +60,23 @@ export default function AuthNavbar({ current, variant = 'light' }: AuthNavbarPro
             {!premiumLoading && isPremium && (
               <span
                 className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${
-                  isDark ? 'bg-emerald-300/20 text-emerald-100' : 'bg-emerald-100 text-emerald-700'
+                  isTrialing
+                    ? isDark
+                      ? 'bg-amber-300/20 text-amber-100'
+                      : 'bg-amber-100 text-amber-700'
+                    : isDark
+                      ? 'bg-emerald-300/20 text-emerald-100'
+                      : 'bg-emerald-100 text-emerald-700'
                 }`}
               >
-                Premium
+                {isTrialing ? 'Trial' : 'Premium'}
               </span>
             )}
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {NAV_ITEMS.filter((item) => !(item.key === 'premium' && isPremium)).map((item) => {
+          {NAV_ITEMS.filter((item) => !(item.key === 'premium' && isPremium && !isTrialing)).map((item) => {
             const isActive = item.key === current
             return (
               <Link

@@ -81,6 +81,14 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
     }
 
     void refreshPremiumStatus()
+
+    const retryTimer = setTimeout(() => {
+      void refreshPremiumStatus()
+    }, 1200)
+
+    return () => {
+      clearTimeout(retryTimer)
+    }
   }, [authLoading, refreshPremiumStatus, user])
 
   const value = useMemo(() => ({
