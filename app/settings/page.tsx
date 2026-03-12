@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase/client'
 
 type AdminInvite = {
   id: string
+  token: string | null
   created_at: string
   expires_at: string | null
   grants_days: number
@@ -280,6 +281,7 @@ export default function SettingsPage() {
                     <th className="px-3 py-2 font-semibold">Trial days</th>
                     <th className="px-3 py-2 font-semibold">Status</th>
                     <th className="px-3 py-2 font-semibold">Used by</th>
+                    <th className="px-3 py-2 font-semibold">Link</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -289,11 +291,24 @@ export default function SettingsPage() {
                       <td className="px-3 py-2">{invite.grants_days}</td>
                       <td className="px-3 py-2">{getInviteStatus(invite)}</td>
                       <td className="px-3 py-2">{invite.used_by ?? '-'}</td>
+                      <td className="px-3 py-2">
+                        {invite.token ? (
+                          <button
+                            type="button"
+                            onClick={() => copyInvite(buildInviteUrl(invite.token!))}
+                            className="cursor-pointer rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                          >
+                            Copy link
+                          </button>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {invites.length === 0 && !invitesLoading && (
                     <tr>
-                      <td colSpan={4} className="px-3 py-4 text-slate-500">
+                      <td colSpan={5} className="px-3 py-4 text-slate-500">
                         No invites generated yet.
                       </td>
                     </tr>
@@ -323,4 +338,12 @@ function formatDateTime(value: string | null): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
   return date.toLocaleString()
+}
+
+function buildInviteUrl(token: string): string {
+  if (typeof window === 'undefined') {
+    return `/invite/${encodeURIComponent(token)}`
+  }
+
+  return `${window.location.origin}/invite/${encodeURIComponent(token)}`
 }

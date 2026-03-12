@@ -9,6 +9,7 @@ type CreateInviteRequest = {
 
 type PremiumInviteRow = {
   id: string;
+  token: string | null;
   created_by: string;
   expires_at: string | null;
   grants_days: number;
@@ -26,7 +27,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('premium_invites')
-      .select('id, created_by, expires_at, grants_days, used_at, used_by, created_at')
+      .select('id, token, created_by, expires_at, grants_days, used_at, used_by, created_at')
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -61,12 +62,13 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from('premium_invites')
       .insert({
+        token: inviteToken,
         token_hash: tokenHash,
         created_by: userId,
         grants_days: inviteDays,
         expires_at: expiresAt,
       })
-      .select('id, created_by, expires_at, grants_days, used_at, used_by, created_at')
+      .select('id, token, created_by, expires_at, grants_days, used_at, used_by, created_at')
       .single();
 
     if (error) {
