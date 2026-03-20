@@ -46,8 +46,10 @@ export async function middleware(request: NextRequest) {
   const isAuthPath = authPaths.some(path =>
     request.nextUrl.pathname.startsWith(path)
   )
+  const isSignupPlanStep =
+    request.nextUrl.pathname.startsWith('/signup') && request.nextUrl.searchParams.get('step') === 'plan'
 
-  if (isAuthPath && user) {
+  if (isAuthPath && user && !isSignupPlanStep) {
     const url = request.nextUrl.clone()
     url.pathname = '/trades'
     return NextResponse.redirect(url)

@@ -9,8 +9,11 @@ export function usePremiumAccess() {
   const { loading, isPremium, subscription, refreshPremiumStatus } = usePremiumState();
 
   const redirectToPremium = useCallback((feature?: string) => {
-    const suffix = feature ? `?feature=${encodeURIComponent(feature)}` : '';
-    router.push(`/premium${suffix}`);
+    const params = new URLSearchParams({ intent: 'premium' });
+    if (feature) {
+      params.set('feature', feature);
+    }
+    router.push(`/?${params.toString()}#pricing`);
   }, [router]);
 
   return {

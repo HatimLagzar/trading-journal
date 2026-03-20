@@ -29,9 +29,11 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
   const [isPremium, setIsPremium] = useState(false)
   const [subscription, setSubscription] = useState<UserSubscription | null>(null)
   const inFlightRef = useRef<Promise<void> | null>(null)
+  const loadedUserIdRef = useRef<string | null>(null)
 
   const refreshPremiumStatus = useCallback(async () => {
     if (!user) {
+      loadedUserIdRef.current = null
       setIsPremium(false)
       setSubscription(null)
       setLoading(false)
@@ -57,9 +59,11 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
         const payload = (await response.json()) as PremiumStatusResponse
         setIsPremium(payload.isPremium)
         setSubscription(payload.subscription)
+        loadedUserIdRef.current = user.id
       } catch {
         setIsPremium(false)
         setSubscription(null)
+        loadedUserIdRef.current = user.id
       } finally {
         setLoading(false)
       }
@@ -74,21 +78,19 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
     if (authLoading) return
 
     if (!user) {
+      loadedUserIdRef.current = null
       setLoading(false)
       setIsPremium(false)
       setSubscription(null)
       return
     }
 
-    void refreshPremiumStatus()
-
-    const retryTimer = setTimeout(() => {
-      void refreshPremiumStatus()
-    }, 1200)
-
-    return () => {
-      clearTimeout(retryTimer)
+    if (loadedUserIdRef.current === user.id) {
+      setLoading(false)
+      return
     }
+
+    void refreshPremiumStatus()
   }, [authLoading, refreshPremiumStatus, user])
 
   const value = useMemo(() => ({

@@ -46,8 +46,8 @@ export async function POST(request: Request) {
       orderId: checkoutReference,
       orderDescription: `Trade In Systems Premium ${body.plan === 'monthly' ? '3-month' : 'annual'} (USDT Polygon)`,
       ipnCallbackUrl: `${origin}/api/crypto/webhook`,
-      successUrl: `${origin}/premium/success?checkout=success&provider=crypto`,
-      cancelUrl: `${origin}/premium/cancelled?checkout=cancelled&provider=crypto`,
+      successUrl: `${origin}/?intent=premium&checkout=success#pricing`,
+      cancelUrl: `${origin}/?intent=premium&checkout=cancelled#pricing`,
     });
 
     const { error: insertError } = await supabase.from('crypto_payments').insert({

@@ -189,6 +189,7 @@ export default function SettingsPage() {
               </label>
               <input
                 id="new-password"
+                name="password"
                 type="password"
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
@@ -204,6 +205,7 @@ export default function SettingsPage() {
               </label>
               <input
                 id="confirm-password"
+                name="password_confirmation"
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}

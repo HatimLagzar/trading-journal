@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
@@ -74,6 +74,7 @@ const FLOATING_WIDGET_MARGIN = 12
 
 export default function TradesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
 
   const [user, setUser] = useState<User | null>(null)
@@ -117,6 +118,15 @@ export default function TradesPage() {
       setError(err instanceof Error ? err.message : 'Failed to load trades')
     }
   }
+
+  useEffect(() => {
+    const intent = searchParams.get('intent')
+    const step = searchParams.get('step')
+
+    if (intent === 'premium' && step === 'plan') {
+      router.replace('/signup?intent=premium&step=plan')
+    }
+  }, [router, searchParams])
 
   useEffect(() => {
     async function loadData() {

@@ -288,22 +288,23 @@ try {
 3. Crypto checkout is handled by `POST /api/crypto/checkout`; NOWPayments IPN is handled by `POST /api/crypto/webhook`
 4. Crypto payments currently use USDT on Polygon (`pay_currency=usdtmatic`) with manual renewal (no auto-recurring wallet charges)
 5. Stripe checkout and customer portal are currently disabled for crypto-only billing mode; Stripe webhook handling remains in place for legacy events
-6. Premium page display prices use `PREMIUM_THREE_MONTH_PRICE_USD` and `PREMIUM_ANNUAL_PRICE_USD`; crypto can override with `NOWPAYMENTS_PREMIUM_THREE_MONTH_PRICE_USD` and `NOWPAYMENTS_PREMIUM_ANNUAL_PRICE_USD` (legacy `*_MONTHLY_*` / `*_TWO_MONTH_*` names remain supported for compatibility)
+6. Home-page pricing and signup plan selection use `PREMIUM_THREE_MONTH_PRICE_USD` and `PREMIUM_ANNUAL_PRICE_USD`; crypto checkout can override with `NOWPAYMENTS_PREMIUM_THREE_MONTH_PRICE_USD` and `NOWPAYMENTS_PREMIUM_ANNUAL_PRICE_USD` (legacy `*_MONTHLY_*` / `*_TWO_MONTH_*` names remain supported for compatibility)
 7. The `monthly` crypto plan grants 3 months of premium access per successful payment; `annual` grants 12 months
 8. Customer self-service billing is handled by `POST /api/stripe/portal`
-9. Checkout redirects to `/premium/success` on success and `/premium/cancelled` when canceled
+9. Checkout returns to the home-page pricing flow with `/?intent=premium&checkout=success#pricing` on success and `/?intent=premium&checkout=cancelled#pricing` when canceled (`/premium/*` routes only redirect for compatibility)
 10. Crypto webhook signature uses `NOWPAYMENTS_IPN_SECRET`; API requests use `NOWPAYMENTS_API_KEY`
 11. Checkout quotes use the configured plan price directly (no additional quote buffer)
 12. Partial payment handling uses tolerance bands: auto-accept (`NOWPAYMENTS_AUTO_TOLERANCE_FLAT`, `NOWPAYMENTS_AUTO_TOLERANCE_PERCENT`) and manual-review zone (`NOWPAYMENTS_REVIEW_TOLERANCE_FLAT`, `NOWPAYMENTS_REVIEW_TOLERANCE_PERCENT`)
 13. For stablecoin checkout, avoid cross-currency conversion rails (e.g. `price_currency=usd` + `pay_currency=usdttrc20`) unless explicitly intended; prefer same-currency rails to reduce hidden conversion fees
 14. Before shipping payment config changes, create a fresh test invoice and verify expected amount/fee sanity against target price to avoid expensive misconfiguration
-15. Premium status for UI gating is fetched via `GET /api/subscription/status` and consumed through global provider `lib/PremiumContext.tsx` (single shared fetch per auth session) via `lib/usePremiumAccess.ts`
+15. Premium status for UI gating is fetched via `GET /api/subscription/status` and consumed through global provider `lib/PremiumContext.tsx` as a single shared fetch per authenticated session via `lib/usePremiumAccess.ts`
 16. Premium-only features: screenshot upload, importing live trades, mirroring live trades to backtesting, one-click/multi-widget trade chart view, and creating more than 2 systems
-17. Locked features remain visible; non-premium users are redirected to `/premium` with a `feature` query param
-18. Keep `/api/subscription/status` as a fast DB-backed read; entitlements are reconciled by webhook flows instead of per-request provider checks
-19. Admin role is stored on `user_subscriptions.app_role` (`user` or `admin`)
-20. Admins can generate single-use premium invite links from Settings (`/api/admin/invites`)
-21. Invite signup stores the token in auth metadata; trial is granted on first login and backdated to account creation time using `INVITE_PREMIUM_DAYS` (default `2`)
+17. Locked features remain visible; non-premium users are redirected to home-page pricing with `/?intent=premium&feature=<feature>#pricing`
+18. New visitors entering the premium funnel sign up first, then land on `/signup?step=plan` (or `/signup?intent=premium&step=plan`) to choose `Free`, `3-Month`, or `Annual` before app entry or checkout
+19. Keep `/api/subscription/status` as a fast DB-backed read; entitlements are reconciled by webhook flows instead of per-request provider checks
+20. Admin role is stored on `user_subscriptions.app_role` (`user` or `admin`)
+21. Admins can generate single-use premium invite links from Settings (`/api/admin/invites`)
+22. Invite signup stores the token in auth metadata; trial is granted on first login and backdated to account creation time using `INVITE_PREMIUM_DAYS` (default `2`)
 
 ### AI screenshot trade prefill
 1. Use `POST /api/ai/extract-trade-from-image` to parse a TradingView screenshot into trade field suggestions
