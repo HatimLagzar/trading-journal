@@ -39,6 +39,7 @@ import { supabase, type TradeInsert } from './supabase/client'
 - Use functional components with TypeScript interfaces for props
 - Name components using PascalCase
 - Use file-based routing (App Router)
+- Prefer server page wrappers for authenticated dashboards when initial data can be fetched on the server; pass initial props into a client component for interactive state
 
 ```typescript
 interface TradeFormProps {
@@ -331,3 +332,9 @@ npm run dev
 ```
 
 Then visit http://localhost:3000
+
+## SSR Notes
+
+- `/app/trades/page.tsx` is a server wrapper that preloads user, trades, systems, and sub-systems, then renders `/app/trades/TradesClient.tsx`
+- `/app/backtesting/page.tsx` is a server wrapper that preloads user, systems, sessions, and initial session trades, then renders `/app/backtesting/BacktestingClient.tsx`
+- Keep modal state, sorting, filters, AI actions, and other highly interactive behavior in the client shells; keep initial auth/data fetches in the server wrappers when possible

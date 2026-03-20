@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -13,27 +13,31 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
+          cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
         },
       },
-    }
+    },
   )
 
-  // Get user and refresh session if needed
-  // This automatically refreshes expired sessions via Supabase SSR
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  // Protected routes - redirect to login if not authenticated
   const protectedPaths = ['/trades', '/dashboard', '/settings']
-  const isProtectedPath = protectedPaths.some(path =>
-    request.nextUrl.pathname.startsWith(path)
-  )
+  const isProtectedPath = protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path))
+
+  if (
+    request.nextUrl.pathname.startsWith('/trades') &&
+    request.nextUrl.searchParams.get('intent') === 'premium' &&
+    request.nextUrl.searchParams.get('step') === 'plan'
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/signup'
+    url.search = '?intent=premium&step=plan'
+    return NextResponse.redirect(url)
+  }
 
   if (isProtectedPath && !user) {
     const url = request.nextUrl.clone()
@@ -41,11 +45,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect logged-in users away from auth pages
   const authPaths = ['/login', '/signup']
-  const isAuthPath = authPaths.some(path =>
-    request.nextUrl.pathname.startsWith(path)
-  )
+  const isAuthPath = authPaths.some((path) => request.nextUrl.pathname.startsWith(path))
   const isSignupPlanStep =
     request.nextUrl.pathname.startsWith('/signup') && request.nextUrl.searchParams.get('step') === 'plan'
 
@@ -59,7 +60,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }
