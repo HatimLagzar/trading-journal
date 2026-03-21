@@ -225,8 +225,10 @@ try {
 5. Support date sorting by clicking the `Date` header (cycle: default, ascending, descending)
 6. Keep outcome filtering options (`All Trades`, `Won Trades`, `Lost Trades`) in the filters bar
 7. Keep direction filtering options (`All Directions`, `Long Trades`, `Short Trades`) in the filters bar
-8. Preserve per-row actions (`Close`, `Decisions`, `Chart`, `Edit`, `Delete`) across both tables
-9. Keep row selection for closed trades compatible with stats cards and filtered rows
+8. Add a `No System` option in the system filter to show trades with no assigned `system_id`
+9. Preserve per-row actions (`Close`, `Decisions`, `Chart`, `Edit`, `Delete`) across both tables
+10. Keep row selection for closed trades compatible with stats cards and filtered rows
+11. Show a bulk-actions toolbar for selected closed trades with `Delete Selected`, plus `Select all` / `Unselect all` for the visible filtered rows
 
 ### Importing trades from sheets/files
 1. Use `/app/trades/ImportTradesForm.tsx` for CSV/TSV/XLS/XLSX upload + mapping UI

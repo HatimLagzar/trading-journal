@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
 import {
@@ -132,7 +131,6 @@ export default function BacktestingClient({
   initialTrades,
   initialError,
 }: BacktestingClientProps) {
-  const router = useRouter()
   const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
 
   const [userId] = useState(initialUserId)
@@ -144,7 +142,7 @@ export default function BacktestingClient({
   const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('none')
   const [selectedDirectionFilter, setSelectedDirectionFilter] = useState<DirectionFilter>('all')
 
-  const [loading, setLoading] = useState(false)
+  const [loading] = useState(false)
   const [error, setError] = useState<string | null>(initialError)
 
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false)

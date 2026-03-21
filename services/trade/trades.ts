@@ -103,6 +103,17 @@ export async function deleteTrade(id: string) {
   if (error) throw error
 }
 
+export async function deleteTradesBulk(ids: string[]) {
+  if (ids.length === 0) return
+
+  const { error } = await supabase
+    .from('trades')
+    .delete()
+    .in('id', ids)
+
+  if (error) throw error
+}
+
 // ============================================
 // STATS / AGGREGATIONS
 // ============================================

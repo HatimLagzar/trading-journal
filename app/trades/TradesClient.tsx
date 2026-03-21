@@ -5,7 +5,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
-import { getTrades, deleteTrade } from '@/services/trade'
+import { getTrades, deleteTrade, deleteTradesBulk } from '@/services/trade'
 import { getSystems, getSubSystems } from '@/services/system'
 import type { Trade } from '@/services/trade'
 import type { SubSystem, System } from '@/services/system'
@@ -77,6 +77,7 @@ const FLOATING_WIDGET_DEFAULT_HEIGHT = 500
 const FLOATING_WIDGET_MIN_WIDTH = 420
 const FLOATING_WIDGET_MIN_HEIGHT = 360
 const FLOATING_WIDGET_MARGIN = 12
+const UNASSIGNED_SYSTEM_FILTER = '__no_system__'
 
 export default function TradesClient({
   initialUserId,
@@ -92,7 +93,7 @@ export default function TradesClient({
   const [trades, setTrades] = useState<Trade[]>(initialTrades)
   const [systems, setSystems] = useState<System[]>(initialSystems)
   const [subSystems, setSubSystems] = useState<SubSystem[]>(initialSubSystems)
-  const [loading, setLoading] = useState(false)
+  const [loading] = useState(false)
   const [error, setError] = useState<string | null>(initialError)
 
   const [selectedSystemId, setSelectedSystemId] = useState<string>('')
@@ -130,19 +131,28 @@ export default function TradesClient({
     }
   }
 
-  useEffect(() => {
-    setSelectedTradeIds((prev) => prev.filter((id) => trades.some((trade) => trade.id === id)))
-  }, [trades])
-
   const availableSubSystems = useMemo(() => {
-    if (!selectedSystemId) return []
+    if (!selectedSystemId || selectedSystemId === UNASSIGNED_SYSTEM_FILTER) return []
     return subSystems.filter((subSystem) => subSystem.system_id === selectedSystemId)
   }, [selectedSystemId, subSystems])
 
+  const effectiveSelectedSubSystemId = useMemo(() => {
+    if (!selectedSubSystemId) return ''
+
+    return availableSubSystems.some((subSystem) => subSystem.id === selectedSubSystemId)
+      ? selectedSubSystemId
+      : ''
+  }, [availableSubSystems, selectedSubSystemId])
+
   const filteredTrades = useMemo(() => {
     return trades.filter((trade) => {
-      if (selectedSystemId && trade.system_id !== selectedSystemId) return false
-      if (selectedSubSystemId && trade.sub_system_id !== selectedSubSystemId) return false
+      if (selectedSystemId === UNASSIGNED_SYSTEM_FILTER) {
+        if (trade.system_id) return false
+      } else if (selectedSystemId && trade.system_id !== selectedSystemId) {
+        return false
+      }
+
+      if (effectiveSelectedSubSystemId && trade.sub_system_id !== effectiveSelectedSubSystemId) return false
 
       if (selectedOutcomeFilter === 'won') {
         return (trade.realised_win ?? 0) > 0
@@ -162,7 +172,7 @@ export default function TradesClient({
 
       return true
     })
-  }, [selectedDirectionFilter, selectedOutcomeFilter, selectedSubSystemId, selectedSystemId, trades])
+  }, [effectiveSelectedSubSystemId, selectedDirectionFilter, selectedOutcomeFilter, selectedSystemId, trades])
 
   const dateSortedTrades = useMemo(() => {
     if (dateSortDirection === 'none') return filteredTrades
@@ -183,22 +193,13 @@ export default function TradesClient({
     return dateSortedTrades.filter((trade) => trade.avg_exit !== null)
   }, [dateSortedTrades])
 
-  useEffect(() => {
-    if (!selectedSubSystemId) return
-
-    const subSystemStillVisible = availableSubSystems.some((subSystem) => subSystem.id === selectedSubSystemId)
-    if (!subSystemStillVisible) {
-      setSelectedSubSystemId('')
-    }
-  }, [availableSubSystems, selectedSubSystemId])
-
-  useEffect(() => {
-    setSelectedTradeIds((prev) => prev.filter((id) => filteredTrades.some((trade) => trade.id === id)))
-  }, [filteredTrades])
+  const visibleSelectedTradeIds = useMemo(() => {
+    return selectedTradeIds.filter((id) => filteredTrades.some((trade) => trade.id === id))
+  }, [filteredTrades, selectedTradeIds])
 
   const selectedTradesInView = useMemo(() => {
-    return filteredTrades.filter((trade) => selectedTradeIds.includes(trade.id))
-  }, [filteredTrades, selectedTradeIds])
+    return filteredTrades.filter((trade) => visibleSelectedTradeIds.includes(trade.id))
+  }, [filteredTrades, visibleSelectedTradeIds])
 
   const statsTrades = selectedTradesInView.length > 0 ? selectedTradesInView : filteredTrades
 
@@ -462,6 +463,25 @@ export default function TradesClient({
     }
   }
 
+  async function handleBulkDeleteSelectedTrades() {
+    if (visibleSelectedTradeIds.length === 0) return
+
+    const confirmed = window.confirm(
+      `Delete ${visibleSelectedTradeIds.length} selected trade${visibleSelectedTradeIds.length === 1 ? '' : 's'}? This action cannot be undone.`,
+    )
+
+    if (!confirmed) return
+
+    try {
+      await deleteTradesBulk(visibleSelectedTradeIds)
+      await refreshData()
+      setSelectedTradeIds([])
+      setOpenDeleteMenuTradeId(null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete selected trades')
+    }
+  }
+
   // Format date and time as "DD/MM/YY HH:mm"
   function formatTradeDateTime(trade: Trade): string {
     const normalizedTime = normalizeDisplayTime(trade.trade_time)
@@ -511,7 +531,7 @@ export default function TradesClient({
   }
 
   function areAllTradesSelected(tradeIds: string[]): boolean {
-    return tradeIds.length > 0 && tradeIds.every((tradeId) => selectedTradeIds.includes(tradeId))
+    return tradeIds.length > 0 && tradeIds.every((tradeId) => visibleSelectedTradeIds.includes(tradeId))
   }
 
   function toggleSelectAllTrades(tradeIds: string[]) {
@@ -645,7 +665,7 @@ export default function TradesClient({
           <td className="px-4 py-3">
             <input
               type="checkbox"
-              checked={selectedTradeIds.includes(trade.id)}
+              checked={visibleSelectedTradeIds.includes(trade.id)}
               onChange={() => toggleTradeSelection(trade.id)}
             />
           </td>
@@ -777,6 +797,7 @@ export default function TradesClient({
               className="w-full px-3 py-2 border rounded-lg bg-white"
             >
               <option value="">All Systems</option>
+              <option value={UNASSIGNED_SYSTEM_FILTER}>No System</option>
               {systems.map((system) => (
                 <option key={system.id} value={system.id}>{system.name}</option>
               ))}
@@ -786,9 +807,9 @@ export default function TradesClient({
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Sub-System</label>
             <select
-              value={selectedSubSystemId}
+              value={effectiveSelectedSubSystemId}
               onChange={(e) => setSelectedSubSystemId(e.target.value)}
-              disabled={!selectedSystemId}
+              disabled={!selectedSystemId || selectedSystemId === UNASSIGNED_SYSTEM_FILTER}
               className="w-full px-3 py-2 border rounded-lg bg-white disabled:bg-gray-100"
             >
               <option value="">All Sub-Systems</option>
@@ -902,14 +923,33 @@ export default function TradesClient({
       <div className="border rounded-lg overflow-hidden">
         <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-gray-700">Closed trades ({completedTrades.length})</h2>
-          {completedTrades.length > 0 && (
-            <button
-              onClick={() => toggleSelectAllTrades(completedTrades.map((trade) => trade.id))}
-              className="text-xs text-gray-600 hover:text-gray-900 hover:underline cursor-pointer"
-            >
-              {areAllTradesSelected(completedTrades.map((trade) => trade.id)) ? 'Unselect all' : 'Select all'}
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {visibleSelectedTradeIds.length > 0 && (
+              <>
+                <span className="text-xs text-gray-600">{visibleSelectedTradeIds.length} selected</span>
+                <button
+                  onClick={handleBulkDeleteSelectedTrades}
+                  className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                >
+                  Delete Selected
+                </button>
+                <button
+                  onClick={() => setSelectedTradeIds([])}
+                  className="text-xs text-gray-600 hover:text-gray-900 hover:underline cursor-pointer"
+                >
+                  Clear
+                </button>
+              </>
+            )}
+            {completedTrades.length > 0 && (
+              <button
+                onClick={() => toggleSelectAllTrades(completedTrades.map((trade) => trade.id))}
+                className="text-xs text-gray-600 hover:text-gray-900 hover:underline cursor-pointer"
+              >
+                {areAllTradesSelected(completedTrades.map((trade) => trade.id)) ? 'Unselect all' : 'Select all'}
+              </button>
+            )}
+          </div>
         </div>
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
