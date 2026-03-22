@@ -1084,7 +1084,13 @@ export default function TradesClient({
                 : '∞'
           }
         />
-        <PeriodRCard stats={periodRStats} />
+        <PeriodRCard
+          stats={periodRStats}
+          isDark={isDark}
+          hasDateRangeSelected={activeDateRange.isActive}
+          activeDateRangeLabel={activeDateRange.label}
+          onClearDateRange={clearDateRange}
+        />
         <BestPerformersCard stats={performanceStats} />
         <WorstPerformersCard stats={performanceStats} />
       </div>
@@ -1712,7 +1718,19 @@ function StatCard({
   )
 }
 
-function PeriodRCard({ stats }: { stats: PeriodRStats }) {
+function PeriodRCard({
+  stats,
+  isDark,
+  hasDateRangeSelected,
+  activeDateRangeLabel,
+  onClearDateRange,
+}: {
+  stats: PeriodRStats
+  isDark: boolean
+  hasDateRangeSelected: boolean
+  activeDateRangeLabel: string
+  onClearDateRange: () => void
+}) {
   const rows = [
     { label: 'Today', value: stats.today },
     { label: 'This Week', value: stats.week },
@@ -1723,18 +1741,51 @@ function PeriodRCard({ stats }: { stats: PeriodRStats }) {
   ]
 
   return (
-    <div className="bg-white border rounded-lg p-4 col-span-full">
-      <div className="text-sm text-gray-500 mb-2">Total R by Period</div>
-      <div className="grid grid-cols-2 md:grid-cols-6 divide-x divide-gray-200">
+    <div className={`relative col-span-full overflow-hidden rounded-lg border p-4 ${isDark ? 'border-slate-700 bg-slate-950/70' : 'border-gray-200 bg-white'}`}>
+      <div className={`mb-2 text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Total R by Period</div>
+      <div className={`grid grid-cols-2 divide-x md:grid-cols-6 ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
         {rows.map((row) => (
           <div key={row.label} className="px-4 py-2 text-center">
-            <div className="text-xs text-gray-500">{row.label}</div>
+            <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{row.label}</div>
             <div className={`mt-1 text-lg font-semibold ${row.value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {`${row.value >= 0 ? '+' : ''}${row.value.toFixed(2)}R`}
             </div>
           </div>
         ))}
       </div>
+
+      {hasDateRangeSelected && (
+        <>
+          <div
+            aria-hidden="true"
+            className={`absolute inset-0 ${isDark ? 'bg-slate-950/58' : 'bg-white/72'}`}
+          />
+          <div className="absolute inset-x-4 top-4 flex justify-center">
+            <div
+              className={`w-full max-w-2xl rounded-2xl border px-4 py-3 shadow-xl backdrop-blur-md ${isDark ? 'border-sky-400/15 bg-slate-900/88 text-slate-100' : 'border-sky-200/90 bg-white/94 text-slate-900'}`}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${isDark ? 'text-sky-300' : 'text-sky-700'}`}>
+                    Date Range Active
+                  </p>
+                  <p className={`mt-1 text-sm ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                    Period cards pause while you review a focused slice of trades.
+                  </p>
+                  <p className={`truncate text-sm font-medium ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>{activeDateRangeLabel}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClearDateRange}
+                  className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold ${isDark ? 'bg-sky-400 text-slate-950 hover:bg-sky-300' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+                >
+                  Clear Date Range
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

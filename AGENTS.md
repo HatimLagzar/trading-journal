@@ -219,6 +219,7 @@ try {
 8. Support a trades date-range filter with presets (`Today`, `This Week`, `This Month`, `Last 30 Days`, `Last 90 Days`, `This Year`) plus custom `From` / `To`
 9. Treat trades date-range presets and period R cards as UTC-based for consistent boundary behavior
 10. Keep the live-trades date filter on its own dedicated row with a custom two-month calendar range picker, visible quick presets, and a status/actions block aligned with the rest of the filter bar
+11. When a live-trades date range is active, mute the `Total R by Period` card with an overlay that explains the focused range and offers a one-click clear action
 
 ### Organizing live trades table
 1. Keep ongoing trades (`avg_exit` is `null`) in a dedicated top table on `/app/trades/page.tsx`
