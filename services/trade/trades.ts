@@ -90,6 +90,19 @@ export async function updateTrade(id: string, updates: TradeUpdate) {
   return data
 }
 
+export async function updateTradesBulk(ids: string[], updates: TradeUpdate) {
+  if (ids.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('trades')
+    .update(updates)
+    .in('id', ids)
+    .select()
+
+  if (error) throw error
+  return data
+}
+
 // ============================================
 // DELETE TRADE
 // ============================================

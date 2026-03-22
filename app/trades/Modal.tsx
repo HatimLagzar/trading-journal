@@ -1,5 +1,7 @@
 'use client'
 
+import { useTheme } from '@/lib/ThemeContext'
+
 interface ModalProps {
   isOpen: boolean
   onClose: () => void
@@ -15,15 +17,17 @@ export default function Modal({
   closeOnOverlayClick = true,
   contentClassName = '',
 }: ModalProps) {
+  const { isDark } = useTheme()
+
   if (!isOpen) return null
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      className={`fixed inset-0 z-50 flex items-center justify-center ${isDark ? 'bg-slate-950/72 backdrop-blur-sm' : 'bg-black/50'}`}
       onClick={closeOnOverlayClick ? onClose : undefined}
     >
       <div
-        className={`bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto ${contentClassName}`}
+        className={`max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl shadow-xl ${isDark ? 'border border-white/10 bg-[#0a1726] text-slate-100' : 'bg-white'} ${contentClassName}`}
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
       >
         <div className="p-6">

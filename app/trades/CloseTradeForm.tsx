@@ -6,6 +6,7 @@ import {
   findMatchingBacktestingTrade,
   updateBacktestingMirrorFromLiveTrade,
 } from '@/services/backtesting'
+import { useTheme } from '@/lib/ThemeContext'
 import type { Trade } from '@/services/trade'
 
 interface CloseTradeFormProps {
@@ -16,6 +17,7 @@ interface CloseTradeFormProps {
 }
 
 export default function CloseTradeForm({ trade, userId, onClose, onSuccess }: CloseTradeFormProps) {
+  const { isDark } = useTheme()
   const [avgExit, setAvgExit] = useState<number>(trade.avg_exit ?? 0)
   const [realisedPnl, setRealisedPnl] = useState<number>(getInitialPnl(trade))
   const [loading, setLoading] = useState(false)
@@ -85,17 +87,17 @@ export default function CloseTradeForm({ trade, userId, onClose, onSuccess }: Cl
         <button
           type="button"
           onClick={onClose}
-          className="text-gray-500 hover:text-gray-700"
+          className={isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-500 hover:text-gray-700'}
         >
           ✕
         </button>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
-          {error}
-        </div>
-      )}
+          <div className={`rounded border p-3 text-sm ${isDark ? 'border-rose-400/20 bg-rose-400/10 text-rose-200' : 'border-red-200 bg-red-50 text-red-600'}`}>
+            {error}
+          </div>
+        )}
 
       <div>
         <label className="block text-sm font-medium mb-1">
@@ -107,7 +109,7 @@ export default function CloseTradeForm({ trade, userId, onClose, onSuccess }: Cl
           value={avgExit || ''}
           onChange={(e) => setAvgExit(parseFloat(e.target.value) || 0)}
           required
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'border-white/15 bg-slate-950 text-slate-100' : ''}`}
         />
       </div>
 
@@ -121,9 +123,9 @@ export default function CloseTradeForm({ trade, userId, onClose, onSuccess }: Cl
           value={realisedPnl || ''}
           onChange={(e) => setRealisedPnl(parseFloat(e.target.value) || 0)}
           required
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'border-white/15 bg-slate-950 text-slate-100' : ''}`}
         />
-        <p className="mt-1 text-xs text-gray-500">
+        <p className={`mt-1 text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
           Enter positive for win, negative for loss.
         </p>
       </div>
@@ -140,7 +142,7 @@ export default function CloseTradeForm({ trade, userId, onClose, onSuccess }: Cl
           type="button"
           onClick={onClose}
           disabled={loading}
-          className="px-6 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          className={`rounded-lg border px-6 py-2 disabled:opacity-50 ${isDark ? 'border-white/15 text-slate-100 hover:bg-white/5' : 'hover:bg-gray-50'}`}
         >
           Cancel
         </button>

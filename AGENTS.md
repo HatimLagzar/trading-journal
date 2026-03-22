@@ -227,8 +227,9 @@ try {
 7. Keep direction filtering options (`All Directions`, `Long Trades`, `Short Trades`) in the filters bar
 8. Add a `No System` option in the system filter to show trades with no assigned `system_id`
 9. Preserve per-row actions (`Close`, `Decisions`, `Chart`, `Edit`, `Delete`) across both tables
-10. Keep row selection for closed trades compatible with stats cards and filtered rows
-11. Show a bulk-actions toolbar for selected closed trades with `Delete Selected`, plus `Select all` / `Unselect all` for the visible filtered rows
+10. Keep row selection for ongoing and closed trades compatible with stats cards and filtered rows
+11. Show a bulk-actions toolbar for selected ongoing and closed trades with `Edit Selected`, `Delete Selected`, plus `Select all` / `Unselect all` for the visible filtered rows
+12. Bulk edit should support updating `system_id` (including `No System`) and `risk`; when risk changes, recalculate `r_multiple` from each trade's existing realized outcome
 
 ### Importing trades from sheets/files
 1. Use `/app/trades/ImportTradesForm.tsx` for CSV/TSV/XLS/XLSX upload + mapping UI
@@ -242,7 +243,8 @@ try {
 9. Keep `trade_date` mapping optional during import (default missing dates to today)
 10. Support outcome import modes for live trades: `Auto-detect`, `Signed P&L column`, and `Separate Win / Loss columns`
 11. If `realised_pnl` is mapped or win/loss both point to the same source column, treat it as signed P&L and split positive values into `realised_win` and negative values into `realised_loss`
-12. If `avg_exit` is missing during live trade import, use `avg_entry` as a placeholder close price and append note marker `[Imported] Exit missing; placeholder avg_exit=avg_entry`
+12. Parse signed P&L strings with common currency/unit suffixes (for example `-0.70 USDT`) during live trade import
+13. If `avg_exit` is missing during live trade import, use `avg_entry` as a placeholder close price and append note marker `[Imported] Exit missing; placeholder avg_exit=avg_entry`
 
 ### Backtesting sessions and theoretical trades
 1. Use `/app/backtesting/page.tsx` for session management and theoretical trade journaling

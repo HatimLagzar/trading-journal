@@ -5,9 +5,10 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
-import { getTrades, deleteTrade, deleteTradesBulk } from '@/services/trade'
+import { useTheme } from '@/lib/ThemeContext'
+import { getTrades, deleteTrade, deleteTradesBulk, updateTrade, updateTradesBulk } from '@/services/trade'
 import { getSystems, getSubSystems } from '@/services/system'
-import type { Trade } from '@/services/trade'
+import type { Trade, TradeUpdate } from '@/services/trade'
 import type { SubSystem, System } from '@/services/system'
 import Modal from './Modal'
 import CloseTradeForm from './CloseTradeForm'
@@ -72,6 +73,9 @@ type FloatingChartWidgetState = {
   zIndex: number
 }
 
+type BulkEditSystemMode = 'unchanged' | 'no_system' | 'set_system'
+type BulkEditRiskMode = 'unchanged' | 'set' | 'clear'
+
 const FLOATING_WIDGET_DEFAULT_WIDTH = 560
 const FLOATING_WIDGET_DEFAULT_HEIGHT = 500
 const FLOATING_WIDGET_MIN_WIDTH = 420
@@ -88,6 +92,7 @@ export default function TradesClient({
 }: TradesClientProps) {
   const router = useRouter()
   const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
+  const { isDark } = useTheme()
 
   const [userId] = useState(initialUserId)
   const [trades, setTrades] = useState<Trade[]>(initialTrades)
@@ -112,6 +117,14 @@ export default function TradesClient({
   const [floatingChartWidgets, setFloatingChartWidgets] = useState<FloatingChartWidgetState[]>([])
   const [topChartWidgetZIndex, setTopChartWidgetZIndex] = useState(1)
   const [openDeleteMenuTradeId, setOpenDeleteMenuTradeId] = useState<string | null>(null)
+  const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false)
+  const [bulkEditTradeIds, setBulkEditTradeIds] = useState<string[]>([])
+  const [bulkEditSystemMode, setBulkEditSystemMode] = useState<BulkEditSystemMode>('unchanged')
+  const [bulkEditSystemId, setBulkEditSystemId] = useState('')
+  const [bulkEditRiskMode, setBulkEditRiskMode] = useState<BulkEditRiskMode>('unchanged')
+  const [bulkEditRiskValue, setBulkEditRiskValue] = useState('')
+  const [bulkEditSaving, setBulkEditSaving] = useState(false)
+  const [bulkEditError, setBulkEditError] = useState<string | null>(null)
 
   // Function to refresh trades and filter data
   async function refreshData() {
@@ -200,6 +213,16 @@ export default function TradesClient({
   const selectedTradesInView = useMemo(() => {
     return filteredTrades.filter((trade) => visibleSelectedTradeIds.includes(trade.id))
   }, [filteredTrades, visibleSelectedTradeIds])
+
+  const selectedOngoingTradeIds = useMemo(() => {
+    const ongoingIds = new Set(ongoingTrades.map((trade) => trade.id))
+    return visibleSelectedTradeIds.filter((id) => ongoingIds.has(id))
+  }, [ongoingTrades, visibleSelectedTradeIds])
+
+  const selectedCompletedTradeIds = useMemo(() => {
+    const completedIds = new Set(completedTrades.map((trade) => trade.id))
+    return visibleSelectedTradeIds.filter((id) => completedIds.has(id))
+  }, [completedTrades, visibleSelectedTradeIds])
 
   const statsTrades = selectedTradesInView.length > 0 ? selectedTradesInView : filteredTrades
 
@@ -463,22 +486,116 @@ export default function TradesClient({
     }
   }
 
-  async function handleBulkDeleteSelectedTrades() {
-    if (visibleSelectedTradeIds.length === 0) return
+  async function handleBulkDeleteSelectedTrades(tradeIds: string[]) {
+    if (tradeIds.length === 0) return
 
     const confirmed = window.confirm(
-      `Delete ${visibleSelectedTradeIds.length} selected trade${visibleSelectedTradeIds.length === 1 ? '' : 's'}? This action cannot be undone.`,
+      `Delete ${tradeIds.length} selected trade${tradeIds.length === 1 ? '' : 's'}? This action cannot be undone.`,
     )
 
     if (!confirmed) return
 
     try {
-      await deleteTradesBulk(visibleSelectedTradeIds)
+      await deleteTradesBulk(tradeIds)
       await refreshData()
-      setSelectedTradeIds([])
+      setSelectedTradeIds((prev) => prev.filter((id) => !tradeIds.includes(id)))
       setOpenDeleteMenuTradeId(null)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete selected trades')
+    }
+  }
+
+  function openBulkEditModal(tradeIds: string[]) {
+    if (tradeIds.length === 0) return
+
+    setBulkEditTradeIds(tradeIds)
+    setBulkEditSystemMode('unchanged')
+    setBulkEditSystemId('')
+    setBulkEditRiskMode('unchanged')
+    setBulkEditRiskValue('')
+    setBulkEditError(null)
+    setIsBulkEditModalOpen(true)
+  }
+
+  function closeBulkEditModal() {
+    if (bulkEditSaving) return
+
+    setIsBulkEditModalOpen(false)
+    setBulkEditTradeIds([])
+    setBulkEditError(null)
+  }
+
+  async function handleBulkEditSubmit(event: React.FormEvent) {
+    event.preventDefault()
+
+    if (bulkEditTradeIds.length === 0) return
+
+    const updates: TradeUpdate = {}
+
+    if (bulkEditSystemMode === 'no_system') {
+      updates.system_id = null
+      updates.sub_system_id = null
+    }
+
+    if (bulkEditSystemMode === 'set_system') {
+      if (!bulkEditSystemId) {
+        setBulkEditError('Select a system to apply.')
+        return
+      }
+
+      updates.system_id = bulkEditSystemId
+      updates.sub_system_id = null
+    }
+
+    if (bulkEditRiskMode === 'clear') {
+      updates.risk = null
+    }
+
+    if (bulkEditRiskMode === 'set') {
+      const parsedRisk = Number(bulkEditRiskValue)
+      if (!Number.isFinite(parsedRisk) || parsedRisk <= 0) {
+        setBulkEditError('Enter a valid risk amount greater than 0.')
+        return
+      }
+
+      updates.risk = parsedRisk
+    }
+
+    if (Object.keys(updates).length === 0) {
+      setBulkEditError('Choose at least one field to update.')
+      return
+    }
+
+    setBulkEditSaving(true)
+    setBulkEditError(null)
+
+    try {
+      const selectedTrades = trades.filter((trade) => bulkEditTradeIds.includes(trade.id))
+      const needsRiskRecalculation = Object.prototype.hasOwnProperty.call(updates, 'risk')
+
+      if (needsRiskRecalculation) {
+        await Promise.all(
+          selectedTrades.map((trade) => {
+            const nextRisk = updates.risk ?? null
+            const nextRMultiple = calculateTradeRMultiple(trade, nextRisk)
+
+            return updateTrade(trade.id, {
+              ...updates,
+              r_multiple: nextRMultiple,
+            })
+          }),
+        )
+      } else {
+        await updateTradesBulk(bulkEditTradeIds, updates)
+      }
+
+      await refreshData()
+      setSelectedTradeIds((prev) => prev.filter((id) => !bulkEditTradeIds.includes(id)))
+      closeBulkEditModal()
+    } catch (err) {
+      setBulkEditError(err instanceof Error ? err.message : 'Failed to update selected trades')
+    } finally {
+      setBulkEditSaving(false)
     }
   }
 
@@ -761,7 +878,7 @@ export default function TradesClient({
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f7f9] px-4 py-8 sm:px-6 lg:px-8">
+    <div className={`app-theme min-h-screen px-4 py-8 sm:px-6 lg:px-8 ${isDark ? 'app-dark bg-[#07111f] text-slate-100' : 'bg-[#f4f7f9]'}`}>
       <div className="mx-auto max-w-7xl">
         <AuthNavbar current="trades" onError={(message) => setError(message || null)} />
 
@@ -878,19 +995,53 @@ export default function TradesClient({
       </div>
 
       {/* Ongoing Trades Table */}
-      <div className="mb-6 border border-amber-200 rounded-lg overflow-hidden bg-amber-50/40">
-        <div className="px-4 py-3 border-b border-amber-200 bg-amber-100/40 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-amber-900">Ongoing trades ({ongoingTrades.length})</h2>
+      <div className={`mb-6 overflow-hidden rounded-lg border ${isDark ? 'border-amber-400/20 bg-amber-300/8' : 'border-amber-200 bg-amber-50/40'}`}>
+        <div className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${isDark ? 'border-amber-400/20 bg-amber-300/12' : 'border-amber-200 bg-amber-100/40'}`}>
+          <h2 className={`text-sm font-semibold ${isDark ? 'text-amber-100' : 'text-amber-900'}`}>Ongoing trades ({ongoingTrades.length})</h2>
+          <div className="flex items-center gap-3">
+            {selectedOngoingTradeIds.length > 0 && (
+              <>
+                <span className={`text-xs ${isDark ? 'text-amber-100/80' : 'text-amber-900/80'}`}>{selectedOngoingTradeIds.length} selected</span>
+                <button
+                  onClick={() => openBulkEditModal(selectedOngoingTradeIds)}
+                  className="rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-900"
+                >
+                  Edit Selected
+                </button>
+                <button
+                  onClick={() => handleBulkDeleteSelectedTrades(selectedOngoingTradeIds)}
+                  className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                >
+                  Delete Selected
+                </button>
+                <button
+                  onClick={() => setSelectedTradeIds((prev) => prev.filter((id) => !selectedOngoingTradeIds.includes(id)))}
+                  className={`cursor-pointer text-xs hover:underline ${isDark ? 'text-amber-100/80 hover:text-amber-50' : 'text-amber-900/80 hover:text-amber-950'}`}
+                >
+                  Clear
+                </button>
+              </>
+            )}
+            {ongoingTrades.length > 0 && (
+              <button
+                onClick={() => toggleSelectAllTrades(ongoingTrades.map((trade) => trade.id))}
+                className={`cursor-pointer text-xs hover:underline ${isDark ? 'text-amber-100/80 hover:text-amber-50' : 'text-amber-900/80 hover:text-amber-950'}`}
+              >
+                {areAllTradesSelected(ongoingTrades.map((trade) => trade.id)) ? 'Unselect all' : 'Select all'}
+              </button>
+            )}
+          </div>
         </div>
         <table className="w-full text-sm">
-          <thead className="bg-amber-50">
+          <thead className={isDark ? 'bg-amber-300/10' : 'bg-amber-50'}>
             <tr>
+              <th className="px-4 py-3 text-left" />
               <th className="px-4 py-3 text-left">#</th>
               <th className="px-4 py-3 text-left">
                 <button
                   type="button"
                   onClick={toggleDateSortDirection}
-                  className="cursor-pointer text-left hover:underline"
+                  className={`cursor-pointer text-left hover:underline ${isDark ? 'text-amber-50' : ''}`}
                 >
                   {dateSortLabel()}
                 </button>
@@ -907,10 +1058,10 @@ export default function TradesClient({
             </tr>
           </thead>
           <tbody>
-            {ongoingTrades.map((trade) => renderTradeRow(trade, false))}
+            {ongoingTrades.map((trade) => renderTradeRow(trade, true))}
             {ongoingTrades.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={12} className={`px-4 py-8 text-center ${isDark ? 'text-amber-100/70' : 'text-gray-500'}`}>
                   No ongoing trades in this filter.
                 </td>
               </tr>
@@ -924,17 +1075,23 @@ export default function TradesClient({
         <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-gray-700">Closed trades ({completedTrades.length})</h2>
           <div className="flex items-center gap-3">
-            {visibleSelectedTradeIds.length > 0 && (
+            {selectedCompletedTradeIds.length > 0 && (
               <>
-                <span className="text-xs text-gray-600">{visibleSelectedTradeIds.length} selected</span>
+                <span className="text-xs text-gray-600">{selectedCompletedTradeIds.length} selected</span>
                 <button
-                  onClick={handleBulkDeleteSelectedTrades}
+                  onClick={() => openBulkEditModal(selectedCompletedTradeIds)}
+                  className="rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-900"
+                >
+                  Edit Selected
+                </button>
+                <button
+                  onClick={() => handleBulkDeleteSelectedTrades(selectedCompletedTradeIds)}
                   className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
                 >
                   Delete Selected
                 </button>
                 <button
-                  onClick={() => setSelectedTradeIds([])}
+                  onClick={() => setSelectedTradeIds((prev) => prev.filter((id) => !selectedCompletedTradeIds.includes(id)))}
                   className="text-xs text-gray-600 hover:text-gray-900 hover:underline cursor-pointer"
                 >
                   Clear
@@ -1012,7 +1169,7 @@ export default function TradesClient({
         </Modal>
       )}
 
-        {userId && (
+      {userId && (
         <Modal isOpen={isImportModalOpen} onClose={handleCloseImportModal}>
           <ImportTradesForm
             userId={userId}
@@ -1020,7 +1177,109 @@ export default function TradesClient({
             onSuccess={handleFormSuccess}
           />
         </Modal>
-        )}
+      )}
+
+      <Modal isOpen={isBulkEditModalOpen} onClose={closeBulkEditModal}>
+        <form onSubmit={handleBulkEditSubmit} className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Bulk Edit Trades</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Apply the same system and/or risk update to {bulkEditTradeIds.length} selected trade{bulkEditTradeIds.length === 1 ? '' : 's'}.
+              </p>
+            </div>
+            <button type="button" onClick={closeBulkEditModal} className="text-gray-500 hover:text-gray-700">
+              ✕
+            </button>
+          </div>
+
+          {bulkEditError && (
+            <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-600">{bulkEditError}</div>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2 rounded-lg border p-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">System update</label>
+                <select
+                  value={bulkEditSystemMode}
+                  onChange={(e) => setBulkEditSystemMode(e.target.value as BulkEditSystemMode)}
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                >
+                  <option value="unchanged">Leave system unchanged</option>
+                  <option value="no_system">Set to No System</option>
+                  <option value="set_system">Apply selected system</option>
+                </select>
+              </div>
+
+              {bulkEditSystemMode === 'set_system' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Choose system</label>
+                  <select
+                    value={bulkEditSystemId}
+                    onChange={(e) => setBulkEditSystemId(e.target.value)}
+                    className="mt-1 w-full rounded-lg border px-3 py-2"
+                  >
+                    <option value="">Select a system</option>
+                    {systems.map((system) => (
+                      <option key={system.id} value={system.id}>{system.name}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">Sub-system will be cleared when system is updated in bulk.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 rounded-lg border p-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Risk update</label>
+                <select
+                  value={bulkEditRiskMode}
+                  onChange={(e) => setBulkEditRiskMode(e.target.value as BulkEditRiskMode)}
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                >
+                  <option value="unchanged">Leave risk unchanged</option>
+                  <option value="set">Set risk amount</option>
+                  <option value="clear">Clear risk</option>
+                </select>
+              </div>
+
+              {bulkEditRiskMode === 'set' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Risk amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={bulkEditRiskValue}
+                    onChange={(e) => setBulkEditRiskValue(e.target.value)}
+                    className="mt-1 w-full rounded-lg border px-3 py-2"
+                    placeholder="e.g. 50"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={bulkEditSaving}
+              className="flex-1 rounded-lg bg-blue-600 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {bulkEditSaving ? 'Updating...' : 'Apply Changes'}
+            </button>
+            <button
+              type="button"
+              onClick={closeBulkEditModal}
+              disabled={bulkEditSaving}
+              className="rounded-lg border px-6 py-2 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
       </div>
 
       {floatingChartWidgets.length > 0 && (
@@ -1039,6 +1298,20 @@ export default function TradesClient({
       )}
     </div>
   )
+}
+
+function calculateTradeRMultiple(trade: Trade, nextRisk: number | null): number | null {
+  if (nextRisk === null || nextRisk <= 0) return null
+
+  if (trade.realised_win !== null && trade.realised_win > 0) {
+    return trade.realised_win / nextRisk
+  }
+
+  if (trade.realised_loss !== null && trade.realised_loss > 0) {
+    return -trade.realised_loss / nextRisk
+  }
+
+  return null
 }
 
 function FloatingChartWidget({

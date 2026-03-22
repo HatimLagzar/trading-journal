@@ -46,3 +46,81 @@ input[type='reset']:disabled,
 [role='button'][aria-disabled='true'] {
   cursor: not-allowed;
 }
+
+.app-theme.app-dark {
+  color-scheme: dark;
+}
+
+.app-theme.app-dark .bg-white {
+  background-color: #0f172a !important;
+}
+
+.app-theme.app-dark .bg-gray-50,
+.app-theme.app-dark .bg-slate-50,
+.app-theme.app-dark .bg-amber-50,
+.app-theme.app-dark .bg-amber-50\/40,
+.app-theme.app-dark .bg-amber-100\/40,
+.app-theme.app-dark .bg-emerald-50,
+.app-theme.app-dark .bg-red-50 {
+  background-color: #111827 !important;
+}
+
+.app-theme.app-dark .bg-slate-100,
+.app-theme.app-dark .bg-gray-100 {
+  background-color: #1f2937 !important;
+}
+
+.app-theme.app-dark .border,
+.app-theme.app-dark .border-slate-100,
+.app-theme.app-dark .border-slate-200,
+.app-theme.app-dark .border-slate-300,
+.app-theme.app-dark .border-gray-200,
+.app-theme.app-dark .border-gray-300,
+.app-theme.app-dark .border-amber-200,
+.app-theme.app-dark .border-emerald-200,
+.app-theme.app-dark .border-red-200,
+.app-theme.app-dark .border-dashed {
+  border-color: rgba(148, 163, 184, 0.24) !important;
+}
+
+.app-theme.app-dark .text-slate-900,
+.app-theme.app-dark .text-slate-800,
+.app-theme.app-dark .text-slate-700,
+.app-theme.app-dark .text-gray-900,
+.app-theme.app-dark .text-gray-800,
+.app-theme.app-dark .text-gray-700,
+.app-theme.app-dark .text-black {
+  color: #e5eefb !important;
+}
+
+.app-theme.app-dark .text-slate-600,
+.app-theme.app-dark .text-slate-500,
+.app-theme.app-dark .text-gray-600,
+.app-theme.app-dark .text-gray-500,
+.app-theme.app-dark .text-gray-400 {
+  color: #94a3b8 !important;
+}
+
+.app-theme.app-dark input,
+.app-theme.app-dark select,
+.app-theme.app-dark textarea {
+  background-color: #0f172a;
+  color: #e5eefb;
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
+.app-theme.app-dark input::placeholder,
+.app-theme.app-dark textarea::placeholder {
+  color: #64748b;
+}
+
+.app-theme.app-dark table thead,
+.app-theme.app-dark table tbody tr:hover {
+  background-color: rgba(15, 23, 42, 0.72) !important;
+}
+
+.app-theme.app-dark .shadow-sm,
+.app-theme.app-dark .shadow-lg,
+.app-theme.app-dark .shadow-2xl {
+  box-shadow: 0 18px 60px rgba(2, 6, 23, 0.38) !important;
+}

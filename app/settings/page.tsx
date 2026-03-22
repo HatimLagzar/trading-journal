@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AuthNavbar from '@/app/components/AuthNavbar'
 import { supabase } from '@/lib/supabase/client'
+import { useTheme } from '@/lib/ThemeContext'
 
 type AdminInvite = {
   id: string
@@ -17,6 +18,7 @@ type AdminInvite = {
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { isDark } = useTheme()
   const [loadingUser, setLoadingUser] = useState(true)
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
@@ -155,11 +157,11 @@ export default function SettingsPage() {
   }
 
   if (loadingUser) {
-    return <div className="p-8">Loading settings...</div>
+    return <div className={`app-theme min-h-screen p-8 ${isDark ? 'app-dark bg-[#07111f] text-slate-100' : ''}`}>Loading settings...</div>
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f7f9] px-4 py-8 sm:px-6 lg:px-8">
+    <div className={`app-theme min-h-screen px-4 py-8 sm:px-6 lg:px-8 ${isDark ? 'app-dark bg-[#07111f] text-slate-100' : 'bg-[#f4f7f9]'}`}>
       <div className="mx-auto max-w-4xl">
         <AuthNavbar current="settings" />
 

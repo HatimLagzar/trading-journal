@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CandlestickSeries, ColorType, HistogramSeries, createChart } from 'lightweight-charts'
 import type { UTCTimestamp } from 'lightweight-charts'
+import { useTheme } from '@/lib/ThemeContext'
 import type { BacktestingTrade } from '@/services/backtesting'
 
 interface BacktestingTradeChartViewProps {
@@ -59,6 +60,7 @@ export default function BacktestingTradeChartView({
   systemLabel,
   onClose,
 }: BacktestingTradeChartViewProps) {
+  const { isDark } = useTheme()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [candles, setCandles] = useState<CandlePoint[]>([])
   const [loading, setLoading] = useState(true)
@@ -284,22 +286,22 @@ export default function BacktestingTradeChartView({
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Backtesting Trade Chart</h2>
-          <p className="text-sm text-slate-500">
+          <h2 className={`text-xl font-semibold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>Backtesting Trade Chart</h2>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             BINANCE:{config.symbol} • {config.interval} • UTC anchor: {trade.trade_date} {trade.trade_time || '00:00:00'}
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+          className={`rounded-lg border px-3 py-1.5 text-sm ${isDark ? 'border-white/15 text-slate-100 hover:bg-white/5' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
         >
           Close
         </button>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <p className="text-sm font-semibold text-slate-900">Trade Details</p>
+      <div className={`rounded-lg border p-4 ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-50'}`}>
+        <p className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>Trade Details</p>
         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
           <Detail label="Session" value={sessionName} />
           <Detail label="System" value={systemLabel} />
@@ -332,7 +334,7 @@ export default function BacktestingTradeChartView({
         </div>
       </div>
 
-      {loading && <p className="text-sm text-slate-500">Loading chart candles...</p>}
+      {loading && <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Loading chart candles...</p>}
 
       {!loading && !error && candles.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -347,7 +349,9 @@ export default function BacktestingTradeChartView({
               className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
                 selectedInterval === option.value
                   ? 'border-blue-600 bg-blue-600 text-white'
-                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                  : isDark
+                    ? 'border-white/15 bg-slate-950 text-slate-100 hover:bg-white/5'
+                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
               {option.label}
@@ -357,7 +361,7 @@ export default function BacktestingTradeChartView({
             type="button"
             onClick={() => setContextMultiplier((prev) => Math.min(prev + 1, 6))}
             disabled={contextMultiplier >= 6}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            className={`rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-60 ${isDark ? 'border-white/15 bg-slate-950 text-slate-100 hover:bg-white/5' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
           >
             Load More Context
           </button>
@@ -365,12 +369,12 @@ export default function BacktestingTradeChartView({
       )}
 
       {!loading && error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className={`rounded-lg border p-3 text-sm ${isDark ? 'border-rose-400/20 bg-rose-400/10 text-rose-200' : 'border-red-200 bg-red-50 text-red-700'}`}>
           {error}
         </div>
       )}
 
-      <div className="relative min-h-[420px] w-full overflow-hidden rounded-lg border border-slate-200">
+      <div className={`relative min-h-[420px] w-full overflow-hidden rounded-lg border ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
         <div ref={containerRef} className="min-h-[420px] w-full" />
         {entryLineX !== null && (
           <>

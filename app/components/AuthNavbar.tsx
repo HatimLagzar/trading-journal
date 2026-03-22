@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
+import { useTheme } from '@/lib/ThemeContext'
 
 type NavSection = 'trades' | 'systems' | 'backtesting' | 'premium' | 'settings'
 
@@ -26,6 +27,7 @@ export default function AuthNavbar({ current, variant = 'light' }: AuthNavbarPro
   const router = useRouter()
   const { user, signOut } = useAuth()
   const { isPremium, loading: premiumLoading, subscription } = usePremiumAccess()
+  const { isDark: themeIsDark, toggleTheme } = useTheme()
   const [signingOut, setSigningOut] = useState(false)
   const isTrialing = subscription?.status === 'trialing'
 
@@ -39,7 +41,7 @@ export default function AuthNavbar({ current, variant = 'light' }: AuthNavbarPro
     }
   }
 
-  const isDark = variant === 'dark'
+  const isDark = variant === 'dark' || themeIsDark
 
   return (
     <header
@@ -94,6 +96,18 @@ export default function AuthNavbar({ current, variant = 'light' }: AuthNavbarPro
               </Link>
             )
           })}
+
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+              isDark
+                ? 'border border-white/20 bg-white/5 text-slate-100 hover:bg-white/10'
+                : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            {themeIsDark ? 'Light mode' : 'Dark mode'}
+          </button>
 
           {user ? (
             <>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
+import { useTheme } from '@/lib/ThemeContext'
 import {
   createBacktestingSession,
   createBacktestingTrade,
@@ -132,6 +133,7 @@ export default function BacktestingClient({
   initialError,
 }: BacktestingClientProps) {
   const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
+  const { isDark } = useTheme()
 
   const [userId] = useState(initialUserId)
   const [systems, setSystems] = useState<System[]>(initialSystems)
@@ -679,7 +681,7 @@ export default function BacktestingClient({
   if (loading) return <div className="p-8">Loading backtesting...</div>
 
   return (
-    <div className="min-h-screen bg-[#f4f7f9] px-4 py-8 sm:px-6 lg:px-8">
+    <div className={`app-theme min-h-screen px-4 py-8 sm:px-6 lg:px-8 ${isDark ? 'app-dark bg-[#07111f] text-slate-100' : 'bg-[#f4f7f9]'}`}>
       <div className="mx-auto max-w-[92rem]">
         <AuthNavbar current="backtesting" onError={(message) => setError(message || null)} />
 

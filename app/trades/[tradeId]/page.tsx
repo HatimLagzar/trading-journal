@@ -7,6 +7,7 @@ import { Source_Serif_4 } from 'next/font/google'
 import { supabase } from '@/lib/supabase/client'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
+import { useTheme } from '@/lib/ThemeContext'
 import TradeFocusChartSnippet from '@/app/trades/TradeFocusChartSnippet'
 import { getSystems } from '@/services/system'
 import { createTradeThinkingQuote, getTrade, getTradeThinkingQuotes } from '@/services/trade'
@@ -29,6 +30,7 @@ export default function TradeFocusPage() {
   const params = useParams<{ tradeId: string }>()
   const tradeId = params.tradeId
   const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
+  const { isDark } = useTheme()
 
   const [user, setUser] = useState<User | null>(null)
   const [trade, setTrade] = useState<Trade | null>(null)
@@ -251,19 +253,19 @@ export default function TradeFocusPage() {
   }
 
   if (loading) {
-    return <div className="p-8">Loading focus view...</div>
+    return <div className={`app-theme min-h-screen p-8 ${isDark ? 'app-dark bg-[#07111f] text-slate-100' : ''}`}>Loading focus view...</div>
   }
 
   if (error && !trade) {
-    return <div className="p-8 text-rose-600">Error: {error}</div>
+    return <div className={`app-theme min-h-screen p-8 ${isDark ? 'app-dark bg-[#07111f] text-rose-300' : 'text-rose-600'}`}>Error: {error}</div>
   }
 
   if (!trade) {
-    return <div className="p-8">Trade not found.</div>
+    return <div className={`app-theme min-h-screen p-8 ${isDark ? 'app-dark bg-[#07111f] text-slate-100' : ''}`}>Trade not found.</div>
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-100 px-4 py-8 sm:px-6 lg:px-8">
+    <div className={`app-theme min-h-screen px-4 py-8 sm:px-6 lg:px-8 ${isDark ? 'app-dark bg-[#07111f] text-slate-100' : 'bg-gradient-to-br from-slate-100 via-white to-slate-100'}`}>
       <div className="mx-auto max-w-7xl space-y-6">
         <AuthNavbar current="trades" onError={(message) => setError(message || null)} />
 

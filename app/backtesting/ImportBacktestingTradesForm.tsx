@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { createBacktestingTradesBulk, getBacktestingTrades } from '@/services/backtesting'
+import { useTheme } from '@/lib/ThemeContext'
 import type { BacktestingTrade, BacktestingTradeInsert } from '@/services/backtesting'
 
 interface ImportBacktestingTradesFormProps {
@@ -62,6 +63,7 @@ export default function ImportBacktestingTradesForm({
   onClose,
   onSuccess,
 }: ImportBacktestingTradesFormProps) {
+  const { isDark } = useTheme()
   const [fileName, setFileName] = useState('')
   const [rowsToSkip, setRowsToSkip] = useState(0)
   const [rawRows, setRawRows] = useState<string[][]>([])
@@ -310,13 +312,13 @@ export default function ImportBacktestingTradesForm({
     <form onSubmit={handleImport} className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold">Import Backtesting Trades</h2>
-        <button type="button" onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
+        <button type="button" onClick={onClose} className={isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-500 hover:text-gray-700'}>✕</button>
       </div>
 
-      <p className="text-sm text-gray-600">Upload CSV/TSV/XLSX, map columns, preview values, and import in bulk.</p>
+      <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Upload CSV/TSV/XLSX, map columns, preview values, and import in bulk.</p>
 
-      {error && <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm">{error}</div>}
-      {summary && <div className="p-3 bg-green-50 border border-green-200 rounded text-green-700 text-sm">{summary}</div>}
+      {error && <div className={`rounded border p-3 text-sm ${isDark ? 'border-rose-400/20 bg-rose-400/10 text-rose-200' : 'border-red-200 bg-red-50 text-red-600'}`}>{error}</div>}
+      {summary && <div className={`rounded border p-3 text-sm ${isDark ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200' : 'border-green-200 bg-green-50 text-green-700'}`}>{summary}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="md:col-span-2">
@@ -325,9 +327,9 @@ export default function ImportBacktestingTradesForm({
             type="file"
             accept=".csv,.tsv,.txt,.xlsx,.xls,text/csv,text/tab-separated-values,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
             onChange={handleFileChange}
-            className="w-full px-3 py-2 border rounded-lg"
+            className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-white/15 bg-slate-950 text-slate-100' : ''}`}
           />
-          {fileName && <p className="text-xs text-gray-500 mt-1">Loaded: {fileName}</p>}
+          {fileName && <p className={`mt-1 text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Loaded: {fileName}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Rows to Skip</label>
@@ -336,7 +338,7 @@ export default function ImportBacktestingTradesForm({
             min="0"
             value={rowsToSkip}
             onChange={(e) => setRowsToSkip(Math.max(0, Number(e.target.value) || 0))}
-            className="w-full px-3 py-2 border rounded-lg"
+            className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-white/15 bg-slate-950 text-slate-100' : ''}`}
           />
         </div>
       </div>
@@ -347,7 +349,7 @@ export default function ImportBacktestingTradesForm({
           <select
             value={selectedWorksheetName}
             onChange={(e) => handleWorksheetChange(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg"
+            className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-white/15 bg-slate-950 text-slate-100' : ''}`}
           >
             {worksheetNames.map((name) => (
               <option key={name} value={name}>{name}</option>
@@ -361,7 +363,7 @@ export default function ImportBacktestingTradesForm({
         <select
           value={defaultDirection}
           onChange={(e) => setDefaultDirection(e.target.value as Direction)}
-          className="w-full px-3 py-2 border rounded-lg"
+          className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-white/15 bg-slate-950 text-slate-100' : ''}`}
         >
           <option value="long">Long</option>
           <option value="short">Short</option>
@@ -370,35 +372,35 @@ export default function ImportBacktestingTradesForm({
 
       {rawRows.length > 0 && (
         <>
-          <div className="border rounded-lg p-3 space-y-3">
+          <div className={`space-y-3 rounded-lg border p-3 ${isDark ? 'border-white/10 bg-white/[0.02]' : ''}`}>
             <h3 className="text-sm font-semibold">Column Mapping + Preview</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {mappingFields.map((field) => (
-                <div key={field.key} className="border rounded-md p-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                <div key={field.key} className={`rounded-md border p-2 ${isDark ? 'border-white/10 bg-slate-950/30' : ''}`}>
+                  <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
                     {field.label}{field.required ? ' *' : ''}
                   </label>
                   <select
                     value={mapping[field.key] ?? ''}
                     onChange={(e) => updateMapping(field.key, e.target.value)}
-                    className="w-full px-2 py-1.5 border rounded"
+                    className={`w-full rounded border px-2 py-1.5 ${isDark ? 'border-white/15 bg-slate-950 text-slate-100' : ''}`}
                   >
                     <option value="">Not mapped</option>
                     {columnOptions.map((column) => (
                       <option key={column.value} value={column.value}>{column.label}</option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">{getPreview(mapping[field.key])}</p>
+                  <p className={`mt-1 text-xs ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>{getPreview(mapping[field.key])}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="border rounded-lg overflow-hidden">
-            <div className="px-3 py-2 bg-gray-50 text-sm font-medium">Rows Preview</div>
+          <div className={`overflow-hidden rounded-lg border ${isDark ? 'border-white/10' : ''}`}>
+            <div className={`px-3 py-2 text-sm font-medium ${isDark ? 'bg-white/[0.04]' : 'bg-gray-50'}`}>Rows Preview</div>
             <div className="overflow-x-auto">
               <table className="min-w-full text-xs">
-                <thead className="bg-gray-50 border-t">
+                <thead className={`${isDark ? 'border-t border-white/10 bg-white/[0.04]' : 'bg-gray-50 border-t'}`}>
                   <tr>
                     {Array.from({ length: maxColumns }, (_, index) => (
                       <th key={index} className="px-2 py-1 text-left border-r last:border-r-0">{toColumnLetter(index)}</th>
@@ -415,7 +417,7 @@ export default function ImportBacktestingTradesForm({
                   ))}
                   {previewRows.length === 0 && (
                     <tr>
-                      <td colSpan={Math.max(maxColumns, 1)} className="px-2 py-3 text-center text-gray-500">No preview rows available after skip.</td>
+                      <td colSpan={Math.max(maxColumns, 1)} className={`px-2 py-3 text-center ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>No preview rows available after skip.</td>
                     </tr>
                   )}
                 </tbody>
@@ -437,7 +439,7 @@ export default function ImportBacktestingTradesForm({
           type="button"
           onClick={onClose}
           disabled={loading}
-          className="px-6 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          className={`rounded-lg border px-6 py-2 disabled:opacity-50 ${isDark ? 'border-white/15 text-slate-100 hover:bg-white/5' : 'hover:bg-gray-50'}`}
         >
           Cancel
         </button>

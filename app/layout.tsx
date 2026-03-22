@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/lib/AuthContext'
 import { PremiumProvider } from '@/lib/PremiumContext'
+import { ThemeProvider } from '@/lib/ThemeContext'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -28,15 +29,22 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>
-          <PremiumProvider>
-            {children}
-          </PremiumProvider>
-        </AuthProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var theme=localStorage.getItem('app_theme_mode');if(theme==='dark'){document.documentElement.classList.add('app-dark-mode')}}catch(e){}})();`,
+          }}
+        />
+        <ThemeProvider>
+          <AuthProvider>
+            <PremiumProvider>
+              {children}
+            </PremiumProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

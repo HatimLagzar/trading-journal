@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
+import { useTheme } from '@/lib/ThemeContext'
 import { getSystems, createSystem, updateSystem, deleteSystem, getSubSystems, createSubSystem, updateSubSystem, deleteSubSystem, mergeSystems } from '@/services/system'
 import type { System, SystemInsert, SubSystem, SubSystemInsert } from '@/services/system'
 import type { User } from '@supabase/supabase-js'
@@ -12,6 +13,7 @@ import type { User } from '@supabase/supabase-js'
 export default function SystemsPage() {
   const router = useRouter()
   const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
+  const { isDark } = useTheme()
 
   const [user, setUser] = useState<User | null>(null)
   const [systems, setSystems] = useState<System[]>([])
@@ -302,7 +304,7 @@ export default function SystemsPage() {
   if (loading) return <div className="p-8">Loading...</div>
 
   return (
-    <div className="min-h-screen bg-[#f4f7f9] px-4 py-8 sm:px-6 lg:px-8">
+    <div className={`app-theme min-h-screen px-4 py-8 sm:px-6 lg:px-8 ${isDark ? 'app-dark bg-[#07111f] text-slate-100' : 'bg-[#f4f7f9]'}`}>
       <div className="mx-auto max-w-7xl">
         <AuthNavbar current="systems" onError={(message) => setError(message || null)} />
 
