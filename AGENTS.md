@@ -216,6 +216,9 @@ try {
 5. Keep best/worst performer cards (system, asset, weekday, hour bucket `HH:00`) calculated from the same filtered/selected rows
 6. Show `Time #1` and `Time #2` in both best/worst performer cards
 7. Keep `EV / Trade` displayed in R (not dollars)
+8. Support a trades date-range filter with presets (`Today`, `This Week`, `This Month`, `Last 30 Days`, `Last 90 Days`, `This Year`) plus custom `From` / `To`
+9. Treat trades date-range presets and period R cards as UTC-based for consistent boundary behavior
+10. Keep the live-trades date filter on its own dedicated row with a custom two-month calendar range picker, visible quick presets, and a status/actions block aligned with the rest of the filter bar
 
 ### Organizing live trades table
 1. Keep ongoing trades (`avg_exit` is `null`) in a dedicated top table on `/app/trades/page.tsx`
@@ -225,11 +228,12 @@ try {
 5. Support date sorting by clicking the `Date` header (cycle: default, ascending, descending)
 6. Keep outcome filtering options (`All Trades`, `Won Trades`, `Lost Trades`) in the filters bar
 7. Keep direction filtering options (`All Directions`, `Long Trades`, `Short Trades`) in the filters bar
-8. Add a `No System` option in the system filter to show trades with no assigned `system_id`
-9. Preserve per-row actions (`Close`, `Decisions`, `Chart`, `Edit`, `Delete`) across both tables
-10. Keep row selection for ongoing and closed trades compatible with stats cards and filtered rows
-11. Show a bulk-actions toolbar for selected ongoing and closed trades with `Edit Selected`, `Delete Selected`, plus `Select all` / `Unselect all` for the visible filtered rows
-12. Bulk edit should support updating `system_id` (including `No System`) and `risk`; when risk changes, recalculate `r_multiple` from each trade's existing realized outcome
+8. Keep the date-range filter in the filters bar and apply it before table sorting
+9. Add a `No System` option in the system filter to show trades with no assigned `system_id`
+10. Preserve per-row actions (`Close`, `Decisions`, `Chart`, `Edit`, `Delete`) across both tables
+11. Keep row selection for ongoing and closed trades compatible with stats cards and filtered rows
+12. Show a bulk-actions toolbar for selected ongoing and closed trades with `Edit Selected`, `Delete Selected`, plus `Select all` / `Unselect all` for the visible filtered rows
+13. Bulk edit should support updating `system_id` (including `No System`) and `risk`; when risk changes, recalculate `r_multiple` from each trade's existing realized outcome
 
 ### Importing trades from sheets/files
 1. Use `/app/trades/ImportTradesForm.tsx` for CSV/TSV/XLS/XLSX upload + mapping UI

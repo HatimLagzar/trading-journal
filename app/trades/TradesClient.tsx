@@ -15,6 +15,8 @@ import CloseTradeForm from './CloseTradeForm'
 import ImportTradesForm from './ImportTradesForm'
 import TradeForm from './TradeForm'
 import TradeChartView from './TradeChartView'
+import DateRangePicker from './DateRangePicker'
+import type { DateRangePreset } from './DateRangePicker'
 
 interface TradesClientProps {
   initialUserId: string
@@ -62,6 +64,13 @@ type PerformanceStats = {
 
 type DateSortDirection = 'none' | 'asc' | 'desc'
 
+type ActiveDateRange = {
+  start: string | null
+  end: string | null
+  label: string
+  isActive: boolean
+}
+
 type FloatingChartWidgetState = {
   widgetId: string
   trade: Trade
@@ -105,6 +114,9 @@ export default function TradesClient({
   const [selectedSubSystemId, setSelectedSubSystemId] = useState<string>('')
   const [selectedOutcomeFilter, setSelectedOutcomeFilter] = useState<'all' | 'won' | 'lost'>('all')
   const [selectedDirectionFilter, setSelectedDirectionFilter] = useState<'all' | 'long' | 'short'>('all')
+  const [selectedDateRangePreset, setSelectedDateRangePreset] = useState<DateRangePreset>('all')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
   const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('none')
   
@@ -157,35 +169,72 @@ export default function TradesClient({
       : ''
   }, [availableSubSystems, selectedSubSystemId])
 
+  const dateRangeError = useMemo(() => {
+    if (selectedDateRangePreset !== 'custom') return null
+    if (!customStartDate || !customEndDate) return null
+    return customStartDate <= customEndDate ? null : 'From date must be on or before To date.'
+  }, [customEndDate, customStartDate, selectedDateRangePreset])
+
+  const activeDateRange = useMemo<ActiveDateRange>(() => {
+    if (selectedDateRangePreset === 'all') {
+      return {
+        start: null,
+        end: null,
+        label: 'All time',
+        isActive: false,
+      }
+    }
+
+    if (selectedDateRangePreset === 'custom') {
+      if (dateRangeError) {
+        return {
+          start: null,
+          end: null,
+          label: 'Invalid custom range',
+          isActive: false,
+        }
+      }
+
+      const start = customStartDate || null
+      const end = customEndDate || null
+      return {
+        start,
+        end,
+        label: formatDateRangeLabel(start, end),
+        isActive: Boolean(start || end),
+      }
+    }
+
+    const presetRange = getUtcPresetRange(selectedDateRangePreset)
+    return {
+      ...presetRange,
+      isActive: true,
+    }
+  }, [customEndDate, customStartDate, dateRangeError, selectedDateRangePreset])
+
   const filteredTrades = useMemo(() => {
     return trades.filter((trade) => {
-      if (selectedSystemId === UNASSIGNED_SYSTEM_FILTER) {
-        if (trade.system_id) return false
-      } else if (selectedSystemId && trade.system_id !== selectedSystemId) {
-        return false
-      }
+      const normalizedTradeDate = normalizeTradeDate(trade.trade_date)
 
-      if (effectiveSelectedSubSystemId && trade.sub_system_id !== effectiveSelectedSubSystemId) return false
+      const matchesSystem = selectedSystemId === UNASSIGNED_SYSTEM_FILTER
+        ? trade.system_id === null
+        : !selectedSystemId || trade.system_id === selectedSystemId
 
-      if (selectedOutcomeFilter === 'won') {
-        return (trade.realised_win ?? 0) > 0
-      }
+      const matchesSubSystem = !effectiveSelectedSubSystemId || trade.sub_system_id === effectiveSelectedSubSystemId
 
-      if (selectedOutcomeFilter === 'lost') {
-        return (trade.realised_loss ?? 0) > 0
-      }
+      const matchesOutcome = selectedOutcomeFilter === 'all'
+        || (selectedOutcomeFilter === 'won' && (trade.realised_win ?? 0) > 0)
+        || (selectedOutcomeFilter === 'lost' && (trade.realised_loss ?? 0) > 0)
 
-      if (selectedDirectionFilter === 'long') {
-        return trade.direction === 'long'
-      }
+      const matchesDirection = selectedDirectionFilter === 'all'
+        || (selectedDirectionFilter === 'long' && trade.direction === 'long')
+        || (selectedDirectionFilter === 'short' && trade.direction === 'short')
 
-      if (selectedDirectionFilter === 'short') {
-        return trade.direction === 'short'
-      }
+      const matchesDateRange = isDateWithinRange(normalizedTradeDate, activeDateRange.start, activeDateRange.end)
 
-      return true
+      return matchesSystem && matchesSubSystem && matchesOutcome && matchesDirection && matchesDateRange
     })
-  }, [effectiveSelectedSubSystemId, selectedDirectionFilter, selectedOutcomeFilter, selectedSystemId, trades])
+  }, [activeDateRange.end, activeDateRange.start, effectiveSelectedSubSystemId, selectedDirectionFilter, selectedOutcomeFilter, selectedSystemId, trades])
 
   const dateSortedTrades = useMemo(() => {
     if (dateSortDirection === 'none') return filteredTrades
@@ -264,27 +313,14 @@ export default function TradesClient({
   }, [statsTrades])
 
   const periodRStats = useMemo<PeriodRStats>(() => {
-    const now = new Date()
-
-    const startOfWeek = new Date(now)
-    const dayOfWeek = startOfWeek.getDay()
-    const daysFromMonday = (dayOfWeek + 6) % 7
-    startOfWeek.setDate(startOfWeek.getDate() - daysFromMonday)
-    const weekStart = toLocalDateString(startOfWeek)
-
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const monthStart = toLocalDateString(startOfMonth)
-
-    const startOfLast90Days = new Date(now)
-    startOfLast90Days.setDate(startOfLast90Days.getDate() - 89)
-    const last90DaysStart = toLocalDateString(startOfLast90Days)
-
-    const startOfYear = new Date(now.getFullYear(), 0, 1)
-    const yearStart = toLocalDateString(startOfYear)
-    const previousYear = now.getFullYear() - 1
+    const todayRange = getUtcPresetRange('today')
+    const weekRange = getUtcPresetRange('this_week')
+    const monthRange = getUtcPresetRange('this_month')
+    const last90DaysRange = getUtcPresetRange('last_90_days')
+    const yearRange = getUtcPresetRange('this_year')
+    const previousYear = new Date().getUTCFullYear() - 1
     const previousYearStart = `${previousYear}-01-01`
     const previousYearEnd = `${previousYear}-12-31`
-    const today = toLocalDateString(now)
 
     const sumRInRange = (start: string, end: string): number => {
       return statsTrades.reduce((sum, trade) => {
@@ -296,11 +332,11 @@ export default function TradesClient({
     }
 
     return {
-      today: sumRInRange(today, today),
-      week: sumRInRange(weekStart, today),
-      month: sumRInRange(monthStart, today),
-      last90Days: sumRInRange(last90DaysStart, today),
-      year: sumRInRange(yearStart, today),
+      today: sumRInRange(todayRange.start ?? '9999-12-31', todayRange.end ?? '9999-12-31'),
+      week: sumRInRange(weekRange.start ?? '9999-12-31', weekRange.end ?? '9999-12-31'),
+      month: sumRInRange(monthRange.start ?? '9999-12-31', monthRange.end ?? '9999-12-31'),
+      last90Days: sumRInRange(last90DaysRange.start ?? '9999-12-31', last90DaysRange.end ?? '9999-12-31'),
+      year: sumRInRange(yearRange.start ?? '9999-12-31', yearRange.end ?? '9999-12-31'),
       previousYear: sumRInRange(previousYearStart, previousYearEnd),
     }
   }, [statsTrades])
@@ -770,6 +806,47 @@ export default function TradesClient({
     return 'Date'
   }
 
+  function applyDatePreset(preset: DateRangePreset) {
+    if (preset === 'all') {
+      setSelectedDateRangePreset('all')
+      setCustomStartDate('')
+      setCustomEndDate('')
+      return
+    }
+
+    if (preset === 'custom') {
+      setSelectedDateRangePreset('custom')
+      return
+    }
+
+    const range = getUtcPresetRange(preset)
+    setSelectedDateRangePreset(preset)
+    setCustomStartDate(range.start ?? '')
+    setCustomEndDate(range.end ?? '')
+  }
+
+  function handleCustomStartDateChange(value: string) {
+    setSelectedDateRangePreset(value || customEndDate ? 'custom' : 'all')
+    setCustomStartDate(value)
+  }
+
+  function handleCustomEndDateChange(value: string) {
+    setSelectedDateRangePreset(customStartDate || value ? 'custom' : 'all')
+    setCustomEndDate(value)
+  }
+
+  function clearDateRange() {
+    applyDatePreset('all')
+  }
+
+  function resetFilters() {
+    setSelectedSystemId('')
+    setSelectedSubSystemId('')
+    setSelectedOutcomeFilter('all')
+    setSelectedDirectionFilter('all')
+    clearDateRange()
+  }
+
   function handleOpenFocus(trade: Trade) {
     setOpenDeleteMenuTradeId(null)
     router.push(`/trades/${trade.id}`)
@@ -900,69 +977,87 @@ export default function TradesClient({
           </div>
         </div>
 
-      {/* Filters */}
-      <div className="mb-6 border rounded-lg p-4 bg-gray-50">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">System</label>
-            <select
-              value={selectedSystemId}
-              onChange={(e) => {
-                setSelectedSystemId(e.target.value)
-                setSelectedSubSystemId('')
-              }}
-              className="w-full px-3 py-2 border rounded-lg bg-white"
-            >
-              <option value="">All Systems</option>
-              <option value={UNASSIGNED_SYSTEM_FILTER}>No System</option>
-              {systems.map((system) => (
-                <option key={system.id} value={system.id}>{system.name}</option>
-              ))}
-            </select>
-          </div>
+        {/* Filters */}
+        <div className={`mb-6 rounded-lg border p-4 ${isDark ? 'border-slate-700 bg-slate-900/35' : 'border-gray-200 bg-gray-50'}`}>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div>
+                <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>System</label>
+                <select
+                  value={selectedSystemId}
+                  onChange={(e) => {
+                    setSelectedSystemId(e.target.value)
+                    setSelectedSubSystemId('')
+                  }}
+                  className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                >
+                  <option value="">All Systems</option>
+                  <option value={UNASSIGNED_SYSTEM_FILTER}>No System</option>
+                  {systems.map((system) => (
+                    <option key={system.id} value={system.id}>{system.name}</option>
+                  ))}
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Sub-System</label>
-            <select
-              value={effectiveSelectedSubSystemId}
-              onChange={(e) => setSelectedSubSystemId(e.target.value)}
-              disabled={!selectedSystemId || selectedSystemId === UNASSIGNED_SYSTEM_FILTER}
-              className="w-full px-3 py-2 border rounded-lg bg-white disabled:bg-gray-100"
-            >
-              <option value="">All Sub-Systems</option>
-              {availableSubSystems.map((subSystem) => (
-                <option key={subSystem.id} value={subSystem.id}>{subSystem.name}</option>
-              ))}
-            </select>
-          </div>
+              <div>
+                <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Sub-System</label>
+                <select
+                  value={effectiveSelectedSubSystemId}
+                  onChange={(e) => setSelectedSubSystemId(e.target.value)}
+                  disabled={!selectedSystemId || selectedSystemId === UNASSIGNED_SYSTEM_FILTER}
+                  className={`w-full rounded-lg border px-3 py-2 disabled:cursor-not-allowed ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100 disabled:bg-slate-900 disabled:text-slate-500' : 'border-gray-300 bg-white text-gray-900 disabled:bg-gray-100 disabled:text-gray-500'}`}
+                >
+                  <option value="">All Sub-Systems</option>
+                  {availableSubSystems.map((subSystem) => (
+                    <option key={subSystem.id} value={subSystem.id}>{subSystem.name}</option>
+                  ))}
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Outcome</label>
-            <select
-              value={selectedOutcomeFilter}
-              onChange={(e) => setSelectedOutcomeFilter(e.target.value as 'all' | 'won' | 'lost')}
-              className="w-full px-3 py-2 border rounded-lg bg-white"
-            >
-              <option value="all">All Trades</option>
-              <option value="won">Won Trades</option>
-              <option value="lost">Lost Trades</option>
-            </select>
-          </div>
+              <div>
+                <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Outcome</label>
+                <select
+                  value={selectedOutcomeFilter}
+                  onChange={(e) => setSelectedOutcomeFilter(e.target.value as 'all' | 'won' | 'lost')}
+                  className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                >
+                  <option value="all">All Trades</option>
+                  <option value="won">Won Trades</option>
+                  <option value="lost">Lost Trades</option>
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Direction</label>
-            <select
-              value={selectedDirectionFilter}
-              onChange={(e) => setSelectedDirectionFilter(e.target.value as 'all' | 'long' | 'short')}
-              className="w-full px-3 py-2 border rounded-lg bg-white"
-            >
-              <option value="all">All Directions</option>
-              <option value="long">Long Trades</option>
-              <option value="short">Short Trades</option>
-            </select>
+              <div>
+                <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Direction</label>
+                <select
+                  value={selectedDirectionFilter}
+                  onChange={(e) => setSelectedDirectionFilter(e.target.value as 'all' | 'long' | 'short')}
+                  className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                >
+                  <option value="all">All Directions</option>
+                  <option value="long">Long Trades</option>
+                  <option value="short">Short Trades</option>
+                </select>
+              </div>
+            </div>
+
+            <DateRangePicker
+              isDark={isDark}
+              selectedPreset={selectedDateRangePreset}
+              startDate={customStartDate}
+              endDate={customEndDate}
+              activeLabel={activeDateRange.label}
+              isActive={activeDateRange.isActive}
+              filteredTradeCount={filteredTrades.length}
+              error={dateRangeError}
+              onPresetChange={applyDatePreset}
+              onStartDateChange={handleCustomStartDateChange}
+              onEndDateChange={handleCustomEndDateChange}
+              onClear={clearDateRange}
+              onReset={resetFilters}
+            />
           </div>
         </div>
-      </div>
 
       {/* Stats Summary */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
@@ -1422,11 +1517,96 @@ function FloatingChartWidget({
   )
 }
 
-function toLocalDateString(date: Date): string {
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, '0')
-  const day = `${date.getDate()}`.padStart(2, '0')
+function toUtcDateString(date: Date): string {
+  const year = date.getUTCFullYear()
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getUTCDate()}`.padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function shiftUtcDays(date: Date, days: number): Date {
+  const shifted = new Date(date)
+  shifted.setUTCDate(shifted.getUTCDate() + days)
+  return shifted
+}
+
+function getUtcPresetRange(preset: Exclude<DateRangePreset, 'all' | 'custom'>): Omit<ActiveDateRange, 'isActive'> {
+  const now = new Date()
+  const today = toUtcDateString(now)
+
+  if (preset === 'today') {
+    return {
+      start: today,
+      end: today,
+      label: today,
+    }
+  }
+
+  if (preset === 'this_week') {
+    const startOfWeek = new Date(now)
+    const dayOfWeek = startOfWeek.getUTCDay()
+    const daysFromMonday = (dayOfWeek + 6) % 7
+    startOfWeek.setUTCDate(startOfWeek.getUTCDate() - daysFromMonday)
+    const start = toUtcDateString(startOfWeek)
+
+    return {
+      start,
+      end: today,
+      label: formatDateRangeLabel(start, today),
+    }
+  }
+
+  if (preset === 'this_month') {
+    const start = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`
+
+    return {
+      start,
+      end: today,
+      label: formatDateRangeLabel(start, today),
+    }
+  }
+
+  if (preset === 'last_30_days') {
+    const start = toUtcDateString(shiftUtcDays(now, -29))
+
+    return {
+      start,
+      end: today,
+      label: formatDateRangeLabel(start, today),
+    }
+  }
+
+  if (preset === 'last_90_days') {
+    const start = toUtcDateString(shiftUtcDays(now, -89))
+
+    return {
+      start,
+      end: today,
+      label: formatDateRangeLabel(start, today),
+    }
+  }
+
+  const start = `${now.getUTCFullYear()}-01-01`
+  return {
+    start,
+    end: today,
+    label: formatDateRangeLabel(start, today),
+  }
+}
+
+function formatDateRangeLabel(start: string | null, end: string | null): string {
+  if (start && end) return `${start} -> ${end}`
+  if (start) return `${start} onward`
+  if (end) return `Until ${end}`
+  return 'All time'
+}
+
+function isDateWithinRange(tradeDate: string | null, start: string | null, end: string | null): boolean {
+  if (!start && !end) return true
+  if (!tradeDate) return false
+  if (start && tradeDate < start) return false
+  if (end && tradeDate > end) return false
+  return true
 }
 
 function normalizeTradeDate(tradeDate: string): string | null {
@@ -1455,7 +1635,7 @@ function normalizeTradeDate(tradeDate: string): string | null {
 
   const fallback = new Date(trimmed)
   if (Number.isNaN(fallback.getTime())) return null
-  return toLocalDateString(fallback)
+  return toUtcDateString(fallback)
 }
 
 function getWeekdayLabelFromTradeDate(tradeDate: string): string | null {
