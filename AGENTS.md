@@ -350,3 +350,11 @@ Then visit http://localhost:3000
 - `/app/trades/page.tsx` is a server wrapper that preloads user, trades, systems, and sub-systems, then renders `/app/trades/TradesClient.tsx`
 - `/app/backtesting/page.tsx` is a server wrapper that preloads user, systems, sessions, and initial session trades, then renders `/app/backtesting/BacktestingClient.tsx`
 - Keep modal state, sorting, filters, AI actions, and other highly interactive behavior in the client shells; keep initial auth/data fetches in the server wrappers when possible
+
+## SEO Notes
+
+- Global SEO defaults live in `/app/layout.tsx` and use canonical domain `https://tradeinsystems.com`
+- Keep `/app/robots.ts` and `/app/sitemap.ts` updated whenever public marketing routes are added
+- Private app areas (`/trades`, `/backtesting`, `/systems`, `/settings`) should remain `noindex`
+- Auth routes (`/login`, `/signup`) should remain `noindex,follow`
+- Homepage structured data lives in `/app/page.tsx` and currently includes `Organization`, `SoftwareApplication`, and `FAQPage`

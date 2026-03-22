@@ -16,9 +16,92 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Trade In Systems | Trading Journal and Backtesting Platform',
+  title: 'Trading Journal Software for Trade Review and Backtesting',
   description:
-    'Journal live trades, run backtesting sessions, review decisions, and use AI screenshot prefill inside one serious trading workflow.',
+    'Trade In Systems is trading journal software for reviewing trades, tracking R-multiple performance, and running structured backtesting workflows.',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'Trade In Systems | Trading Journal and Backtesting Platform',
+    description: 'Journal live trades, review your decisions, track R-multiple performance, and run backtesting sessions in one trading workflow.',
+    url: 'https://tradeinsystems.com',
+  },
+  twitter: {
+    title: 'Trade In Systems | Trading Journal and Backtesting Platform',
+    description: 'Trading journal software for trade review, R-multiple tracking, and structured backtesting.',
+  },
+}
+
+const organizationSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Trade In Systems',
+  url: 'https://tradeinsystems.com',
+  logo: 'https://tradeinsystems.com/opengraph-image',
+  description: 'Trading journal and backtesting software built for deliberate trade review.',
+}
+
+const softwareApplicationSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Trade In Systems',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+    availability: 'https://schema.org/InStock',
+  },
+  description: 'Trade In Systems helps traders journal live trades, review decision-making, track R-multiple performance, and run backtesting workflows.',
+  url: 'https://tradeinsystems.com',
+  featureList: [
+    'Trading journal',
+    'Trade review workflow',
+    'Backtesting sessions',
+    'R-multiple tracking',
+    'Trade import and chart review',
+  ],
+}
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'What is a trading journal used for?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'A trading journal helps traders record entries, exits, risk, mistakes, and post-trade notes so they can review patterns and improve decision-making over time.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Can I backtest trading ideas inside Trade In Systems?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. Trade In Systems includes dedicated backtesting sessions so you can log theoretical trades, review outcomes in R, and analyze your process before risking capital live.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Does Trade In Systems help me review trades in R-multiple?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. The platform tracks R-multiple and performance cards so traders can evaluate strategy quality beyond raw PnL.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Who is Trade In Systems built for?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Trade In Systems is built for discretionary traders, systematic traders, backtesters, and prop-style traders who want a serious review workflow instead of a generic spreadsheet.',
+      },
+    },
+  ],
 }
 
 const featureCards = [
@@ -115,6 +198,9 @@ export default async function Home({ searchParams }: HomePageProps) {
 
   return (
     <div className={`${dmSans.className} min-h-screen overflow-x-hidden bg-[#07111f] text-slate-100`}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_8%,_rgba(56,189,248,0.14),_transparent_28%),radial-gradient(circle_at_78%_22%,_rgba(245,158,11,0.12),_transparent_18%),linear-gradient(180deg,_rgba(7,17,31,0.86)_0%,_rgba(7,17,31,1)_62%)]" />
         <div className="absolute inset-0 opacity-[0.05] [background-image:linear-gradient(rgba(148,163,184,0.28)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.28)_1px,transparent_1px)] [background-size:60px_60px]" />

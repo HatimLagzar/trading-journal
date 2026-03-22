@@ -20,7 +20,32 @@ export const metadata: Metadata = {
     default: 'Trade In Systems',
     template: '%s | Trade In Systems',
   },
-  description: 'Track, analyze, and improve your trading performance.',
+  metadataBase: new URL('https://tradeinsystems.com'),
+  description: 'Trade In Systems helps traders journal trades, review decisions, track R-multiple performance, and run structured backtesting in one workflow.',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    type: 'website',
+    url: 'https://tradeinsystems.com',
+    siteName: 'Trade In Systems',
+    title: 'Trade In Systems',
+    description: 'Journal live trades, backtest ideas, and review performance with a serious workflow built for traders.',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Trade In Systems trading journal platform',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Trade In Systems',
+    description: 'Journal trades, track R-multiple performance, and backtest with one serious trading workflow.',
+    images: ['/opengraph-image'],
+  },
 }
 
 export default function RootLayout({

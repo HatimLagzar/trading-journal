@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Systems',
+  title: 'Settings',
   robots: {
     index: false,
     follow: false,
   },
 }
 
-export default function SystemsLayout({ children }: { children: React.ReactNode }) {
+export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   return children
 }
