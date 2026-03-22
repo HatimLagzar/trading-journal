@@ -23,12 +23,15 @@ type ColumnMapping = {
   avg_entry: number | null
   avg_exit: number | null
   stop_loss: number | null
+  realised_pnl: number | null
   realised_loss: number | null
   realised_win: number | null
   risk: number | null
   r_multiple: number | null
   notes: number | null
 }
+
+type OutcomeImportMode = 'auto' | 'signed' | 'split'
 
 type MappingField = {
   key: keyof ColumnMapping
@@ -46,6 +49,7 @@ const mappingFields: MappingField[] = [
   { key: 'avg_entry', label: 'Entry Price', required: true, numeric: true },
   { key: 'avg_exit', label: 'Exit Price', numeric: true },
   { key: 'stop_loss', label: 'Stop Loss', numeric: true },
+  { key: 'realised_pnl', label: 'Realised P&L (signed)', numeric: true },
   { key: 'realised_loss', label: 'Realised Loss', numeric: true },
   { key: 'realised_win', label: 'Realised Win', numeric: true },
   { key: 'risk', label: 'Risk', numeric: true },
@@ -62,12 +66,15 @@ const initialMapping: ColumnMapping = {
   avg_entry: null,
   avg_exit: null,
   stop_loss: null,
+  realised_pnl: null,
   realised_loss: null,
   realised_win: null,
   risk: null,
   r_multiple: null,
   notes: null,
 }
+
+const MISSING_EXIT_IMPORT_NOTE = '[Imported] Exit missing; placeholder avg_exit=avg_entry'
 
 export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportTradesFormProps) {
   const [fileName, setFileName] = useState('')
@@ -77,6 +84,7 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
   const [sheetRowsByName, setSheetRowsByName] = useState<Record<string, string[][]>>({})
   const [selectedWorksheetName, setSelectedWorksheetName] = useState('')
   const [mapping, setMapping] = useState<ColumnMapping>(initialMapping)
+  const [outcomeImportMode, setOutcomeImportMode] = useState<OutcomeImportMode>('auto')
   const [defaultDirection, setDefaultDirection] = useState<Direction>('long')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -112,9 +120,10 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
     if (!file) return
 
     setError(null)
-    setSummary(null)
-    setMapping(initialMapping)
-    setWorksheetNames([])
+      setSummary(null)
+      setMapping(initialMapping)
+      setOutcomeImportMode('auto')
+      setWorksheetNames([])
     setSheetRowsByName({})
     setSelectedWorksheetName('')
 
@@ -160,6 +169,7 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
     setSelectedWorksheetName(name)
     setRawRows(sheetRowsByName[name] || [])
     setMapping(initialMapping)
+    setOutcomeImportMode('auto')
     setSummary(null)
     setError(null)
   }
@@ -242,6 +252,31 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
 
         const directionValue = parseDirectionValue(getCell(row, mapping.direction))
         const direction: Direction = directionValue ?? defaultDirection
+        const importedExit = parseNumberValue(getCell(row, mapping.avg_exit))
+        const normalizedOutcome = normalizeImportedOutcome({
+          mode: outcomeImportMode,
+          realisedPnlValue: parseNumberValue(getCell(row, mapping.realised_pnl)),
+          realisedLossValue: parseNumberValue(getCell(row, mapping.realised_loss)),
+          realisedWinValue: parseNumberValue(getCell(row, mapping.realised_win)),
+          sameSplitColumn:
+            mapping.realised_loss !== null &&
+            mapping.realised_loss === mapping.realised_win,
+        })
+
+        if (!normalizedOutcome.valid) {
+          const sourceRowNumber = rowsToSkip + rowIndex + 1
+          console.warn(`[ImportTrades] Skipping row ${sourceRowNumber}: ${normalizedOutcome.reason}`, {
+            row,
+          })
+          skipped += 1
+          return
+        }
+
+        const resolvedExit = importedExit ?? avgEntry
+        const importedNotes = getNullableText(getCell(row, mapping.notes))
+        const notes = importedExit === null
+          ? appendImportNote(importedNotes, MISSING_EXIT_IMPORT_NOTE)
+          : importedNotes
 
         importCandidates.push({
           trade: {
@@ -253,11 +288,11 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
             entry_order_type: null,
             avg_entry: avgEntry,
             stop_loss: parseNumberValue(getCell(row, mapping.stop_loss)),
-            avg_exit: parseNumberValue(getCell(row, mapping.avg_exit)),
+            avg_exit: resolvedExit,
             risk: parseNumberValue(getCell(row, mapping.risk)),
             expected_loss: null,
-            realised_loss: parseNumberValue(getCell(row, mapping.realised_loss)),
-            realised_win: parseNumberValue(getCell(row, mapping.realised_win)),
+            realised_loss: normalizedOutcome.realisedLoss,
+            realised_win: normalizedOutcome.realisedWin,
             deviation: null,
             r_multiple: parseNumberValue(getCell(row, mapping.r_multiple)),
             early_exit_reason: null,
@@ -265,7 +300,7 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
             system_number: null,
             system_id: null,
             sub_system_id: null,
-            notes: getNullableText(getCell(row, mapping.notes)),
+            notes,
           },
           systemName,
         })
@@ -473,6 +508,25 @@ export default function ImportTradesForm({ userId, onClose, onSuccess }: ImportT
         </select>
       </div>
 
+      <div className="border rounded-lg p-3 space-y-3 bg-slate-50">
+        <div>
+          <label className="block text-sm font-medium mb-1">Outcome Import Mode</label>
+          <select
+            value={outcomeImportMode}
+            onChange={(e) => setOutcomeImportMode(e.target.value as OutcomeImportMode)}
+            className="w-full px-3 py-2 border rounded-lg bg-white"
+          >
+            <option value="auto">Auto-detect (recommended)</option>
+            <option value="signed">Signed P&amp;L column</option>
+            <option value="split">Separate Win / Loss columns</option>
+          </select>
+        </div>
+        <div className="text-xs text-gray-600 space-y-1">
+          <p>{getOutcomeModeHelperText(outcomeImportMode)}</p>
+          {getOutcomeMappingHint(mapping) && <p className="text-sky-700">{getOutcomeMappingHint(mapping)}</p>}
+        </div>
+      </div>
+
       {rawRows.length > 0 && (
         <>
           <div className="border rounded-lg p-3 space-y-3">
@@ -677,6 +731,102 @@ function parseNumberValue(value: string): number | null {
   const parsed = Number(cleaned)
   if (!Number.isFinite(parsed)) return null
   return isParenthesesNegative ? -parsed : parsed
+}
+
+function normalizeImportedOutcome({
+  mode,
+  realisedPnlValue,
+  realisedLossValue,
+  realisedWinValue,
+  sameSplitColumn,
+}: {
+  mode: OutcomeImportMode
+  realisedPnlValue: number | null
+  realisedLossValue: number | null
+  realisedWinValue: number | null
+  sameSplitColumn: boolean
+}): {
+  valid: boolean
+  realisedLoss: number | null
+  realisedWin: number | null
+  reason?: string
+} {
+  const treatAsSigned =
+    mode === 'signed' || realisedPnlValue !== null || (mode === 'auto' && sameSplitColumn)
+
+  if (treatAsSigned) {
+    const signedValue = realisedPnlValue ?? realisedWinValue ?? realisedLossValue
+    if (signedValue === null || signedValue === 0) {
+      return { valid: true, realisedLoss: null, realisedWin: null }
+    }
+
+    if (signedValue > 0) {
+      return { valid: true, realisedLoss: null, realisedWin: signedValue }
+    }
+
+    return { valid: true, realisedLoss: Math.abs(signedValue), realisedWin: null }
+  }
+
+  const normalizedWin = realisedWinValue === null ? null : realisedWinValue > 0 ? realisedWinValue : null
+  const normalizedLoss =
+    realisedLossValue === null
+      ? null
+      : realisedLossValue < 0
+        ? Math.abs(realisedLossValue)
+        : realisedLossValue
+
+  if (realisedWinValue !== null && realisedWinValue < 0) {
+    return { valid: true, realisedLoss: Math.abs(realisedWinValue), realisedWin: null }
+  }
+
+  if (normalizedWin !== null && normalizedLoss !== null) {
+    return {
+      valid: false,
+      realisedLoss: null,
+      realisedWin: null,
+      reason: 'conflicting realised win/loss values',
+    }
+  }
+
+  return {
+    valid: true,
+    realisedLoss: normalizedLoss,
+    realisedWin: normalizedWin,
+  }
+}
+
+function getOutcomeModeHelperText(mode: OutcomeImportMode): string {
+  if (mode === 'signed') {
+    return 'Use one signed P&L column. Positive values import as realised win and negative values import as realised loss.'
+  }
+
+  if (mode === 'split') {
+    return 'Use separate win and loss columns. If a win value is negative, it will be converted into a realised loss automatically.'
+  }
+
+  return 'Auto-detect prefers a signed P&L column when mapped and also detects when win and loss point to the same source column.'
+}
+
+function getOutcomeMappingHint(mapping: ColumnMapping): string | null {
+  if (mapping.realised_pnl !== null) {
+    return 'Signed P&L is mapped. It will take priority over separate win/loss fields.'
+  }
+
+  if (
+    mapping.realised_loss !== null &&
+    mapping.realised_win !== null &&
+    mapping.realised_loss === mapping.realised_win
+  ) {
+    return 'Win and loss are mapped to the same column. This will be treated like a signed P&L column.'
+  }
+
+  return null
+}
+
+function appendImportNote(existing: string | null, note: string): string {
+  if (!existing) return note
+  if (existing.includes(note)) return existing
+  return `${existing}\n${note}`
 }
 
 function parseDirectionValue(value: string): Direction | null {

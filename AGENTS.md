@@ -240,6 +240,9 @@ try {
 7. Skip file-internal duplicates while importing
 8. Support both separate date/time columns and combined date-time in one column (users can map both fields to same source column)
 9. Keep `trade_date` mapping optional during import (default missing dates to today)
+10. Support outcome import modes for live trades: `Auto-detect`, `Signed P&L column`, and `Separate Win / Loss columns`
+11. If `realised_pnl` is mapped or win/loss both point to the same source column, treat it as signed P&L and split positive values into `realised_win` and negative values into `realised_loss`
+12. If `avg_exit` is missing during live trade import, use `avg_entry` as a placeholder close price and append note marker `[Imported] Exit missing; placeholder avg_exit=avg_entry`
 
 ### Backtesting sessions and theoretical trades
 1. Use `/app/backtesting/page.tsx` for session management and theoretical trade journaling
