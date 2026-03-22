@@ -18,9 +18,7 @@ const DATE_RANGE_PRESET_OPTIONS: Array<{ value: DateRangePreset; label: string }
   { value: 'today', label: 'Today' },
   { value: 'this_week', label: 'Week' },
   { value: 'this_month', label: 'Month' },
-  { value: 'last_30_days', label: '30D' },
   { value: 'last_90_days', label: '90D' },
-  { value: 'this_year', label: 'YTD' },
 ]
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
