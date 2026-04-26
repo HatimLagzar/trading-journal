@@ -1665,15 +1665,14 @@ function buildBacktestingSessionCsv(input: {
   return ['sep=;', ...csvRows].join('\r\n')
 }
 
+const csvNumberFormatter = new Intl.NumberFormat('en-US', {
+  useGrouping: false,
+  maximumFractionDigits: 20,
+})
+
 function formatCsvNumber(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return ''
-
-  const normalized = value.toString()
-  if (!normalized.includes('e') && !normalized.includes('E')) {
-    return normalized
-  }
-
-  return value.toFixed(12).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
+  return csvNumberFormatter.format(value)
 }
 
 function toCsvCell(value: string, delimiter: string): string {
