@@ -1269,7 +1269,12 @@ export default function TradesClient({
 
       {/* Modal for Add/Edit Trade */}
       {userId && (
-        <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
+        <Modal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          draggable
+          dragHandleSelector="[data-modal-drag-handle='live-trade-form']"
+        >
           <TradeForm
             trade={selectedTrade}
             onClose={handleCloseModal}

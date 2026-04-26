@@ -1033,9 +1033,14 @@ export default function BacktestingClient({
         </form>
       </Modal>
 
-      <Modal isOpen={isTradeModalOpen} onClose={closeTradeModal}>
+      <Modal
+        isOpen={isTradeModalOpen}
+        onClose={closeTradeModal}
+        draggable
+        dragHandleSelector="[data-modal-drag-handle='backtesting-trade-form']"
+      >
         <form onSubmit={handleSaveTrade} className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex cursor-move select-none justify-between items-center" data-modal-drag-handle="backtesting-trade-form">
             <h2 className="text-xl font-bold">{editingTrade ? 'Edit Theoretical Trade' : 'Add Theoretical Trade'}</h2>
             <button type="button" onClick={closeTradeModal} className="text-gray-500 hover:text-gray-700">
               ✕

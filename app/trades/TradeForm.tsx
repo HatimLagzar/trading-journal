@@ -472,7 +472,7 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
+      <div className="mb-4 flex cursor-move select-none justify-between items-center" data-modal-drag-handle="live-trade-form">
         <h2 className="text-xl font-bold">
           {isEditing ? 'Edit Trade' : 'Add New Trade'}
         </h2>
