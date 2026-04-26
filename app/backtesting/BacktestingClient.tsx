@@ -1646,7 +1646,13 @@ function buildBacktestingSessionCsv(input: {
 
 function formatCsvNumber(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return ''
-  return String(value).replace('.', ',')
+
+  const normalized = value.toString()
+  if (!normalized.includes('e') && !normalized.includes('E')) {
+    return normalized
+  }
+
+  return value.toFixed(12).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
 }
 
 function toCsvCell(value: string, delimiter: string): string {
