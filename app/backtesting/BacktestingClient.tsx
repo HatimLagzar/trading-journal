@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import * as XLSX from 'xlsx'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
 import { useTheme } from '@/lib/ThemeContext'
@@ -520,19 +521,26 @@ export default function BacktestingClient({
     setIsImportModalOpen(true)
   }
 
-  function handleExportSessionCsv() {
+  function handleExportSessionXlsx() {
     if (!selectedSession) return
 
-    const csvContent = buildBacktestingSessionCsv({
+    const rows = buildBacktestingSessionExportRows({
       trades,
     })
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const worksheet = XLSX.utils.aoa_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Backtesting Trades')
+
+    const workbookBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([workbookBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     const sessionSlug = selectedSession.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'session'
     link.href = url
-    link.download = `backtesting-${sessionSlug}-${new Date().toISOString().slice(0, 10)}.csv`
+    link.download = `backtesting-${sessionSlug}-${new Date().toISOString().slice(0, 10)}.xlsx`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -782,10 +790,10 @@ export default function BacktestingClient({
                       <option value="short">Short Trades</option>
                     </select>
                     <button
-                      onClick={handleExportSessionCsv}
+                      onClick={handleExportSessionXlsx}
                       className="px-4 py-2 text-sm bg-slate-700 text-white rounded hover:bg-slate-800"
                     >
-                      Export CSV
+                      Export XLSX
                     </button>
                     <button
                       onClick={openImportModal}
@@ -1627,12 +1635,10 @@ function calculateBacktestingPerformanceStats(trades: BacktestingTrade[]): Perfo
   }
 }
 
-function buildBacktestingSessionCsv(input: {
+function buildBacktestingSessionExportRows(input: {
   trades: BacktestingTrade[]
-}): string {
-  const delimiter = ';'
-
-  const rows: string[][] = [
+}): Array<Array<string | number>> {
+  const rows: Array<Array<string | number>> = [
     [
       'Trade Date',
       'Trade Time',
@@ -1652,35 +1658,15 @@ function buildBacktestingSessionCsv(input: {
       trade.trade_time ?? '',
       trade.asset,
       trade.direction,
-      formatCsvNumber(trade.entry_price),
-      formatCsvNumber(trade.stop_loss),
-      formatCsvNumber(trade.target_price),
-      formatCsvNumber(trade.outcome_r),
+      trade.entry_price ?? '',
+      trade.stop_loss ?? '',
+      trade.target_price ?? '',
+      trade.outcome_r,
       trade.notes ?? '',
     ])
   })
 
-  const csvRows = rows.map((row) => row.map((value) => toCsvCell(value, delimiter)).join(delimiter))
-
-  return ['sep=;', ...csvRows].join('\r\n')
-}
-
-const csvNumberFormatter = new Intl.NumberFormat(undefined, {
-  useGrouping: false,
-  maximumFractionDigits: 20,
-  numberingSystem: 'latn',
-})
-
-function formatCsvNumber(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return ''
-  return csvNumberFormatter.format(value)
-}
-
-function toCsvCell(value: string, delimiter: string): string {
-  const escapedDelimiter = delimiter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const needsQuotes = new RegExp(`${escapedDelimiter}|"|\n`).test(value)
-  if (!needsQuotes) return value
-  return `"${value.replace(/"/g, '""')}"`
+  return rows
 }
 
 function formatDuration(milliseconds: number): string {
