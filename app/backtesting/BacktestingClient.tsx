@@ -1665,9 +1665,10 @@ function buildBacktestingSessionCsv(input: {
   return ['sep=;', ...csvRows].join('\r\n')
 }
 
-const csvNumberFormatter = new Intl.NumberFormat('en-US', {
+const csvNumberFormatter = new Intl.NumberFormat(undefined, {
   useGrouping: false,
   maximumFractionDigits: 20,
+  numberingSystem: 'latn',
 })
 
 function formatCsvNumber(value: number | null): string {
