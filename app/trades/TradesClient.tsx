@@ -117,6 +117,7 @@ export default function TradesClient({
   const [selectedDateRangePreset, setSelectedDateRangePreset] = useState<DateRangePreset>('all')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
+  const [showNotesColumn, setShowNotesColumn] = useState(false)
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
   const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('none')
   
@@ -888,6 +889,11 @@ export default function TradesClient({
         >
           {trade.realised_win ? `+$${trade.realised_win}` : trade.realised_loss ? `-$${trade.realised_loss}` : '-'}
         </td>
+        {showNotesColumn && (
+          <td className="px-4 py-3 max-w-[260px] truncate" title={trade.notes ?? ''}>
+            {trade.notes?.trim() || '-'}
+          </td>
+        )}
         <td className="px-4 py-3 text-right">
           <div className="flex gap-2 justify-end">
             {trade.avg_exit === null && (
@@ -1056,6 +1062,18 @@ export default function TradesClient({
               onClear={clearDateRange}
               onReset={resetFilters}
             />
+
+            <div className="flex items-center justify-end">
+              <label className={`inline-flex items-center gap-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                <input
+                  type="checkbox"
+                  checked={showNotesColumn}
+                  onChange={(event) => setShowNotesColumn(event.target.checked)}
+                  className="h-4 w-4 cursor-pointer"
+                />
+                Show notes
+              </label>
+            </div>
           </div>
         </div>
 
@@ -1155,6 +1173,7 @@ export default function TradesClient({
               <th className="px-4 py-3 text-right">Exit</th>
               <th className="px-4 py-3 text-right">R-Multiple</th>
               <th className="px-4 py-3 text-right">P&L</th>
+              {showNotesColumn && <th className="px-4 py-3 text-left">Notes</th>}
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -1162,7 +1181,7 @@ export default function TradesClient({
             {ongoingTrades.map((trade) => renderTradeRow(trade, true))}
             {ongoingTrades.length === 0 && (
               <tr>
-                <td colSpan={12} className={`px-4 py-8 text-center ${isDark ? 'text-amber-100/70' : 'text-gray-500'}`}>
+                <td colSpan={showNotesColumn ? 13 : 12} className={`px-4 py-8 text-center ${isDark ? 'text-amber-100/70' : 'text-gray-500'}`}>
                   No ongoing trades in this filter.
                 </td>
               </tr>
@@ -1231,6 +1250,7 @@ export default function TradesClient({
               <th className="px-4 py-3 text-right">Exit</th>
               <th className="px-4 py-3 text-right">R-Multiple</th>
               <th className="px-4 py-3 text-right">P&L</th>
+              {showNotesColumn && <th className="px-4 py-3 text-left">Notes</th>}
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -1238,7 +1258,7 @@ export default function TradesClient({
             {completedTrades.map((trade) => renderTradeRow(trade, true))}
             {completedTrades.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={showNotesColumn ? 13 : 12} className="px-4 py-8 text-center text-gray-500">
                   No closed trades in this filter.
                 </td>
               </tr>

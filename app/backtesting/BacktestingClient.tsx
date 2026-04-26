@@ -143,6 +143,7 @@ export default function BacktestingClient({
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
   const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('none')
   const [selectedDirectionFilter, setSelectedDirectionFilter] = useState<DirectionFilter>('all')
+  const [showNotesColumn, setShowNotesColumn] = useState(false)
 
   const [loading] = useState(false)
   const [error, setError] = useState<string | null>(initialError)
@@ -762,6 +763,15 @@ export default function BacktestingClient({
                     <p className="mt-1 text-xs text-gray-500">{sessionDurationLabel}</p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <label className="inline-flex items-center gap-2 px-2 text-xs text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={showNotesColumn}
+                        onChange={(event) => setShowNotesColumn(event.target.checked)}
+                        className="h-4 w-4 cursor-pointer"
+                      />
+                      Show notes
+                    </label>
                     <select
                       value={selectedDirectionFilter}
                       onChange={(event) => setSelectedDirectionFilter(event.target.value as DirectionFilter)}
@@ -856,6 +866,7 @@ export default function BacktestingClient({
                       <th className="px-3 py-2 text-right">SL</th>
                       <th className="px-3 py-2 text-right">TP</th>
                       <th className="px-3 py-2 text-right">Profit (R)</th>
+                      {showNotesColumn && <th className="px-3 py-2 text-left">Notes</th>}
                       <th className="px-3 py-2 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -878,6 +889,11 @@ export default function BacktestingClient({
                         <td className={`px-3 py-2 text-right font-medium ${trade.outcome_r >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {`${trade.outcome_r >= 0 ? '+' : ''}${trade.outcome_r.toFixed(2)}R`}
                         </td>
+                        {showNotesColumn && (
+                          <td className="px-3 py-2 max-w-[240px] truncate" title={trade.notes ?? ''}>
+                            {trade.notes?.trim() || '-'}
+                          </td>
+                        )}
                         <td className="px-3 py-2 text-right">
                           <div className="flex justify-end">
                             <div className="relative">
@@ -926,7 +942,7 @@ export default function BacktestingClient({
                     ))}
                     {sortedTrades.length === 0 && (
                       <tr>
-                        <td colSpan={9} className="px-3 py-6 text-center text-gray-500">
+                        <td colSpan={showNotesColumn ? 10 : 9} className="px-3 py-6 text-center text-gray-500">
                           No theoretical trades yet.
                         </td>
                       </tr>
