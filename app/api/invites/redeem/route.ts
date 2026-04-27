@@ -168,7 +168,7 @@ function parseDate(value: string | null | undefined, fallback: Date | null): Dat
 
 function normalizeInviteDays(days: number): number {
   if (!Number.isFinite(days) || days <= 0) {
-    return 2;
+    return 15;
   }
 
   return Math.floor(days);

@@ -235,7 +235,7 @@ export default function SettingsPage() {
           <div className="mt-6 rounded-xl border bg-white p-6 shadow-sm">
             <h2 className="text-xl font-bold text-slate-900">Invite links</h2>
             <p className="mt-2 text-sm text-slate-600">
-              Generate single-use invite links. Trial duration uses INVITE_PREMIUM_DAYS (default 2).
+              Generate single-use invite links. Trial duration uses INVITE_PREMIUM_DAYS (default 15).
             </p>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">

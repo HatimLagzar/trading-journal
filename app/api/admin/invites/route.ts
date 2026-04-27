@@ -150,7 +150,7 @@ function hashInviteToken(token: string): string {
 function getInvitePremiumDays(): number {
   const parsed = Number(process.env.INVITE_PREMIUM_DAYS);
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    return 2;
+    return 15;
   }
 
   return Math.floor(parsed);
