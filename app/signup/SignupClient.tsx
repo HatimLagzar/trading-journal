@@ -79,6 +79,14 @@ export default function SignupClient({ intent, step, threeMonthPriceUsd, annualP
     }
 
     if (data.session) {
+      try {
+        await fetch('/api/invites/redeem', {
+          method: 'POST',
+        })
+      } catch {
+        // Ignore invite redemption fetch errors during signup.
+      }
+
       setForcePlanStep(true)
       router.push(isPremiumFlow ? '/signup?intent=premium&step=plan' : '/signup?step=plan')
       router.refresh()

@@ -1,7 +1,7 @@
 'use client'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabase/client'
-import { User } from '@supabase/supabase-js'
+import type { User } from '@supabase/supabase-js'
 
 interface AuthContextType {
   user: User | null
@@ -33,6 +33,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+
+    let cancelled = false
+
+    async function redeemInvite() {
+      try {
+        await fetch('/api/invites/redeem', {
+          method: 'POST',
+        })
+      } catch {
+        if (cancelled) return
+        // Ignore invite redemption fetch errors during auth bootstrap.
+      }
+    }
+
+    void redeemInvite()
+
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
 
   const value = {
     user,
