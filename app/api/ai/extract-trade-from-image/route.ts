@@ -135,6 +135,13 @@ export async function POST(request: Request) {
     return NextResponse.json({
       fields,
       warnings,
+      debug: {
+        raw_trade_date: parsed?.trade_date ?? null,
+        raw_trade_time: parsed?.trade_time ?? null,
+        entry_time_source: parsed?.entry_time_source ?? null,
+        entry_time_confidence: parsed?.entry_time_confidence ?? null,
+        entry_time_reason: parsed?.entry_time_reason ?? null,
+      },
     });
   } catch (err) {
     return NextResponse.json(
@@ -281,18 +288,24 @@ function buildPrompt(context: ExtractionContext): string {
     '',
     'Step 3. Extract entry time from x-axis geometry:',
     '- Entry time belongs ONLY to the LEFT vertical boundary of the active position tool.',
+    '- If two blue endpoint labels are visible at the bottom axis, they mark the selected position tool time range.',
+    '- The LEFT blue endpoint label is ENTRY time.',
+    '- The RIGHT blue endpoint label is EXIT/proJECTION time and must be ignored for trade_date/trade_time.',
     '- First identify the LEFT vertical boundary visually: it is where both green and red zones begin.',
     '- Project that boundary straight down to the bottom time axis.',
-    '- If a blue label is directly attached to that same LEFT boundary, use it and set entry_time_source = "left_blue_label".',
+    '- If a blue label is directly attached to the same LEFT boundary, use it and set entry_time_source = "left_blue_label".',
+    '- If the visible blue label is attached to the RIGHT boundary, never use it for trade_date/trade_time.',
     '- Do NOT use any blue label unless its vertical guide/boundary is exactly the same LEFT edge of the position tool.',
-    '- If a blue label is centered under the tool, under the right edge, or detached from the left edge, ignore it.',
-    '- If no exact label exists, use the candle under the LEFT boundary.',
+    '- If a blue label is centered under the tool, under the right edge, detached from the left edge, or later than the left endpoint, ignore it.',
+    '- If no exact left blue label exists, use the candle under the LEFT boundary.',
     '- If the boundary falls between candles, choose the first candle to the right.',
     '- Use visible x-axis labels only as anchors, then count candle intervals from the nearest anchor and set entry_time_source = "candle_count".',
     '- Candle interval must match the visible timeframe from the toolbar.',
     '- If timeframe is not visible, do not interpolate.',
     '- If candle counting requires more than 10 candles from a visible anchor, return null.',
     '- If you project the boundary directly to an axis label without candle counting, set entry_time_source = "x_axis_projection".',
+    '- Critical example: if bottom axis shows LEFT label "Sat 02 May 26 14:00" and RIGHT label "Mon 04 May 26 10:00", trade_date must be "2026-05-02" and trade_time must be "14:00:00".',
+    '- Returning the RIGHT label date/time is a fatal error.',
     '- Return null unless the entry time source is visually defensible.',
     '- Always explain the time evidence in entry_time_reason.',
     '',
@@ -317,7 +330,7 @@ function buildPrompt(context: ExtractionContext): string {
     'Extraction rules:',
     '- Extract coin from chart header only if clearly visible; return base ticker only (e.g. BTC, ETH, SOL).',
     '- trade_date/trade_time must always refer to ENTRY, never EXIT.',
-    '- Time-source priority for trade_date/trade_time: (A) LEFT blue endpoint label, (B) projected LEFT boundary to x-axis, (C) top/header timestamp only if A and B unavailable and clearly tied to entry.',
+    '- Time-source priority for trade_date/trade_time: (A) LEFT blue endpoint label only, (B) projected LEFT boundary to x-axis, (C) candle counting from the LEFT boundary. Never use the RIGHT blue endpoint label.',
     '',
     'Hard constraints:',
     '- entry must be the split line between red and green zones.',
@@ -328,6 +341,7 @@ function buildPrompt(context: ExtractionContext): string {
     '- for long setups, stop_loss must be below entry.',
     '- if two blue endpoint labels are visible, use LEFT only for trade_date/trade_time.',
     '- never use right/later endpoint timestamp for entry.',
+    '- if trade_date/trade_time equals the RIGHT endpoint label, the answer is invalid; return null instead.',
     '- return null instead of guessing when alignment is unclear.',
     includeTargetPrice
       ? '- target_price must come only from the green-zone outer boundary; otherwise null.'
@@ -342,6 +356,7 @@ function buildPrompt(context: ExtractionContext): string {
       : '- do not infer target_price for live extraction.',
     '- If you cannot confidently map entry time to the LEFT boundary/LEFT blue endpoint, return null for trade_date and trade_time.',
     '- trade_time must refer to the LEFT vertical boundary where the position tool starts only.',
+    '- Before returning, compare visible blue endpoint labels: choose the earlier/left label, never the later/right label.',
     '- If entry_time_confidence is "low", trade_date and trade_time must be null.',
     '- entry_time_reason must describe the exact visual evidence used for trade_time.',
   ].join("\n");
