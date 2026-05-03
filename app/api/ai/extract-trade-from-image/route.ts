@@ -33,6 +33,9 @@ type GeminiExtractionPayload = {
   r_multiple?: unknown;
   trade_date?: unknown;
   trade_time?: unknown;
+  entry_time_source?: unknown;
+  entry_time_confidence?: unknown;
+  entry_time_reason?: unknown;
 };
 
 type ExtractionContext = 'live' | 'backtesting';
@@ -242,7 +245,10 @@ function buildPrompt(context: ExtractionContext): string {
     '  "stop_loss": number | null,',
     ...(includeTargetPrice ? ['  "target_price": number | null,'] : []),
     '  "trade_date": string | null,',
-    '  "trade_time": string | null',
+    '  "trade_time": string | null,',
+    '  "entry_time_source": "left_blue_label" | "x_axis_projection" | "candle_count" | null,',
+    '  "entry_time_confidence": "high" | "medium" | "low",',
+    '  "entry_time_reason": string | null',
     '}',
   ];
 
@@ -274,17 +280,26 @@ function buildPrompt(context: ExtractionContext): string {
     '- Ignore the black current-price label and dotted current-price line.',
     '',
     'Step 3. Extract entry time from x-axis geometry:',
-    '- The entry timestamp belongs to the LEFT vertical boundary of the active position tool.',
-    '- Never use the right boundary of the tool for entry time.',
-    '- If blue selected endpoint labels are visible, use the LEFT blue label as the entry timestamp source.',
-    '- If two blue endpoint labels are visible, LEFT is entry and RIGHT is exit; return only LEFT.',
-    '- If blue labels are not visible, project the LEFT vertical boundary of the active position tool downward to the bottom time axis and read the aligned timestamp.',
-    '- If this boundary is clearly aligned to a candle, use that candle time.',
+    '- Entry time belongs ONLY to the LEFT vertical boundary of the active position tool.',
+    '- First identify the LEFT vertical boundary visually: it is where both green and red zones begin.',
+    '- Project that boundary straight down to the bottom time axis.',
+    '- If a blue label is directly attached to that same LEFT boundary, use it and set entry_time_source = "left_blue_label".',
+    '- Do NOT use any blue label unless its vertical guide/boundary is exactly the same LEFT edge of the position tool.',
+    '- If a blue label is centered under the tool, under the right edge, or detached from the left edge, ignore it.',
+    '- If no exact label exists, use the candle under the LEFT boundary.',
+    '- If the boundary falls between candles, choose the first candle to the right.',
+    '- Use visible x-axis labels only as anchors, then count candle intervals from the nearest anchor and set entry_time_source = "candle_count".',
+    '- Candle interval must match the visible timeframe from the toolbar.',
+    '- If timeframe is not visible, do not interpolate.',
+    '- If candle counting requires more than 10 candles from a visible anchor, return null.',
+    '- If you project the boundary directly to an axis label without candle counting, set entry_time_source = "x_axis_projection".',
+    '- Return null unless the entry time source is visually defensible.',
+    '- Always explain the time evidence in entry_time_reason.',
     '',
     'Step 4. Timeframe-aware interpolation (strictly optional):',
     '- Candles are evenly spaced on the x-axis.',
     '- Interpolate time only if timeframe is explicitly visible and spacing is visually reliable.',
-    '- If interpolation is ambiguous, return null instead of guessing.',
+    '- If interpolation is ambiguous, return null for trade_date and trade_time, set entry_time_confidence = "low", and explain why.',
     '- If only time is reliable but date is not explicit, return trade_time and set trade_date = null.',
     '',
     'Step 5. Date handling rules:',
@@ -295,6 +310,9 @@ function buildPrompt(context: ExtractionContext): string {
     '- Do not convert timezones; return chart-visible time.',
     '- trade_time format must be HH:mm:ss.',
     '- trade_date format must be YYYY-MM-DD when provided.',
+    '- entry_time_confidence = "high" only when the LEFT boundary has a directly attached blue label or exact x-axis label.',
+    '- entry_time_confidence = "medium" only when candle counting uses the visible timeframe and is within 10 candles of a visible anchor.',
+    '- entry_time_confidence = "low" when the time is uncertain; in that case trade_date and trade_time must be null.',
     '',
     'Extraction rules:',
     '- Extract coin from chart header only if clearly visible; return base ticker only (e.g. BTC, ETH, SOL).',
@@ -318,11 +336,14 @@ function buildPrompt(context: ExtractionContext): string {
     'Sanity checks before answering:',
     '- For long, stop_loss must be below entry.',
     '- For short, stop_loss must be above entry.',
-    '- trade_time must refer to the LEFT boundary / LEFT blue endpoint of the active position tool only.',
+    '- trade_time must refer to the LEFT vertical boundary where the position tool starts, not the selected range end, not the right edge, not the visible current time.',
     includeTargetPrice
       ? '- target_price must come from the green-zone outer boundary of the same active position tool only.'
       : '- do not infer target_price for live extraction.',
     '- If you cannot confidently map entry time to the LEFT boundary/LEFT blue endpoint, return null for trade_date and trade_time.',
+    '- trade_time must refer to the LEFT vertical boundary where the position tool starts only.',
+    '- If entry_time_confidence is "low", trade_date and trade_time must be null.',
+    '- entry_time_reason must describe the exact visual evidence used for trade_time.',
   ].join("\n");
 }
 
@@ -407,6 +428,14 @@ function sanitizeFields(payload: GeminiExtractionPayload | null): {
     }
   }
 
+  const entryTimeConfidence = normalizeEntryTimeConfidence(payload.entry_time_confidence);
+  const tradeDate = entryTimeConfidence === 'low' ? null : normalizeDate(payload.trade_date);
+  const tradeTime = entryTimeConfidence === 'low' ? null : normalizeTime(payload.trade_time);
+
+  if (entryTimeConfidence === 'low') {
+    computedWarnings.push('Entry time rejected because AI marked the time evidence as low confidence.');
+  }
+
   return {
     fields: {
       coin,
@@ -416,8 +445,8 @@ function sanitizeFields(payload: GeminiExtractionPayload | null): {
       avg_exit: avgExit,
       risk,
       r_multiple: null,
-      trade_date: normalizeDate(payload.trade_date),
-      trade_time: normalizeTime(payload.trade_time),
+      trade_date: tradeDate,
+      trade_time: tradeTime,
       notes: null,
     },
     computedWarnings,
@@ -507,6 +536,17 @@ function normalizeTime(value: unknown): string | null {
         : rawHours % 12;
       return `${String(hours24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     }
+  }
+
+  return null;
+}
+
+function normalizeEntryTimeConfidence(value: unknown): 'high' | 'medium' | 'low' | null {
+  if (typeof value !== 'string') return null;
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'high' || normalized === 'medium' || normalized === 'low') {
+    return normalized;
   }
 
   return null;
