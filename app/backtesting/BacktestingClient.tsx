@@ -855,8 +855,9 @@ export default function BacktestingClient({
                     </button>
                   )}
                 </div>
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
+                <div className="overflow-x-auto">
+                  <table className="min-w-max w-full text-sm">
+                    <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-2 text-left" />
                       <th className="px-3 py-2 text-left">
@@ -877,9 +878,9 @@ export default function BacktestingClient({
                       {showNotesColumn && <th className="px-3 py-2 text-left">Notes</th>}
                       <th className="px-3 py-2 text-right">Actions</th>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {sortedTrades.map((trade) => (
+                    </thead>
+                    <tbody>
+                      {sortedTrades.map((trade) => (
                       <tr key={trade.id} className="border-t">
                         <td className="px-3 py-2">
                           <input
@@ -947,16 +948,17 @@ export default function BacktestingClient({
                           </div>
                         </td>
                       </tr>
-                    ))}
-                    {sortedTrades.length === 0 && (
-                      <tr>
-                        <td colSpan={showNotesColumn ? 10 : 9} className="px-3 py-6 text-center text-gray-500">
-                          No theoretical trades yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      ))}
+                      {sortedTrades.length === 0 && (
+                        <tr>
+                          <td colSpan={showNotesColumn ? 10 : 9} className="px-3 py-6 text-center text-gray-500">
+                            No theoretical trades yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </>
           )}

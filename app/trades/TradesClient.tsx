@@ -1151,8 +1151,9 @@ export default function TradesClient({
             )}
           </div>
         </div>
-        <table className="w-full text-sm">
-          <thead className={isDark ? 'bg-amber-300/10' : 'bg-amber-50'}>
+        <div className="overflow-x-auto">
+          <table className="min-w-max w-full text-sm">
+            <thead className={isDark ? 'bg-amber-300/10' : 'bg-amber-50'}>
             <tr>
               <th className="px-4 py-3 text-left" />
               <th className="px-4 py-3 text-left">#</th>
@@ -1176,18 +1177,19 @@ export default function TradesClient({
               {showNotesColumn && <th className="px-4 py-3 text-left">Notes</th>}
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
-          </thead>
-          <tbody>
-            {ongoingTrades.map((trade) => renderTradeRow(trade, true))}
-            {ongoingTrades.length === 0 && (
-              <tr>
-                <td colSpan={showNotesColumn ? 13 : 12} className={`px-4 py-8 text-center ${isDark ? 'text-amber-100/70' : 'text-gray-500'}`}>
-                  No ongoing trades in this filter.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {ongoingTrades.map((trade) => renderTradeRow(trade, true))}
+              {ongoingTrades.length === 0 && (
+                <tr>
+                  <td colSpan={showNotesColumn ? 13 : 12} className={`px-4 py-8 text-center ${isDark ? 'text-amber-100/70' : 'text-gray-500'}`}>
+                    No ongoing trades in this filter.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Completed Trades Table */}
@@ -1228,8 +1230,9 @@ export default function TradesClient({
             )}
           </div>
         </div>
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+        <div className="overflow-x-auto">
+          <table className="min-w-max w-full text-sm">
+            <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left" />
               <th className="px-4 py-3 text-left">#</th>
@@ -1253,18 +1256,19 @@ export default function TradesClient({
               {showNotesColumn && <th className="px-4 py-3 text-left">Notes</th>}
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
-          </thead>
-          <tbody>
-            {completedTrades.map((trade) => renderTradeRow(trade, true))}
-            {completedTrades.length === 0 && (
-              <tr>
-                <td colSpan={showNotesColumn ? 13 : 12} className="px-4 py-8 text-center text-gray-500">
-                  No closed trades in this filter.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {completedTrades.map((trade) => renderTradeRow(trade, true))}
+              {completedTrades.length === 0 && (
+                <tr>
+                  <td colSpan={showNotesColumn ? 13 : 12} className="px-4 py-8 text-center text-gray-500">
+                    No closed trades in this filter.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Modal for Add/Edit Trade */}
