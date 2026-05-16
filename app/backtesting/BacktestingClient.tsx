@@ -103,7 +103,7 @@ type SessionStats = {
   averageWinR: number
   averageLossR: number
   tradesPerWeek: number
-  profitFactor: number | null
+  mev: number
 }
 
 const initialSessionFormState: SessionFormState = {
@@ -827,14 +827,9 @@ export default function BacktestingClient({
                     valueClassName="text-red-600"
                   />
                   <MiniStat
-                    label="Profit Factor"
-                    value={
-                      sessionStats.profitFactor === null
-                        ? '-'
-                        : Number.isFinite(sessionStats.profitFactor)
-                          ? sessionStats.profitFactor.toFixed(2)
-                          : '∞'
-                    }
+                    label="MEV"
+                    value={`${sessionStats.mev.toFixed(2)}R`}
+                    valueClassName={sessionStats.mev >= 0 ? 'text-green-600' : 'text-red-600'}
                   />
                 </div>
 
@@ -1546,17 +1541,16 @@ function calculateBacktestingSessionStats(trades: BacktestingTrade[]): SessionSt
   const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0
   const totalPositiveR = winningTrades.reduce((sum, trade) => sum + trade.outcome_r, 0)
   const totalNegativeR = losingTrades.reduce((sum, trade) => sum + trade.outcome_r, 0)
-  const totalNegativeRAbs = Math.abs(totalNegativeR)
 
-  const expectedValueR = totalTrades > 0 ? totalR / totalTrades : 0
+  const winRateRatio = totalTrades > 0 ? wins / totalTrades : 0
+  const lossRateRatio = totalTrades > 0 ? losingTrades.length / totalTrades : 0
   const averageWinR = winningTrades.length > 0 ? totalPositiveR / winningTrades.length : 0
+  const averageLossRAbs = losingTrades.length > 0 ? Math.abs(totalNegativeR / losingTrades.length) : 0
+  const expectedValueR = (winRateRatio * averageWinR) - (lossRateRatio * averageLossRAbs)
   const averageLossR = losingTrades.length > 0 ? totalNegativeR / losingTrades.length : 0
   const tradesPerWeek = monthWeekBuckets.size > 0 ? totalTrades / monthWeekBuckets.size : 0
-  const profitFactor = totalNegativeRAbs > 0
-    ? totalPositiveR / totalNegativeRAbs
-    : totalPositiveR > 0
-      ? Number.POSITIVE_INFINITY
-      : null
+  const monthsTraded = calculateMonthsTraded(trades.map((trade) => normalizeTradeDate(trade.trade_date)))
+  const mev = monthsTraded > 0 ? (expectedValueR * totalTrades) / monthsTraded : 0
 
   return {
     totalTrades,
@@ -1566,8 +1560,30 @@ function calculateBacktestingSessionStats(trades: BacktestingTrade[]): SessionSt
     averageWinR,
     averageLossR,
     tradesPerWeek,
-    profitFactor,
+    mev,
   }
+}
+
+function calculateMonthsTraded(normalizedTradeDates: Array<string | null>): number {
+  const validDates = normalizedTradeDates
+    .filter((value): value is string => value !== null)
+    .sort((a, b) => a.localeCompare(b))
+
+  if (validDates.length === 0) return 1
+
+  const firstDate = new Date(`${validDates[0]}T00:00:00Z`)
+  const lastDate = new Date(`${validDates[validDates.length - 1]}T00:00:00Z`)
+
+  if (Number.isNaN(firstDate.getTime()) || Number.isNaN(lastDate.getTime())) return 1
+
+  let months = (lastDate.getUTCFullYear() - firstDate.getUTCFullYear()) * 12
+    + (lastDate.getUTCMonth() - firstDate.getUTCMonth())
+
+  if (lastDate.getUTCDate() < firstDate.getUTCDate()) {
+    months -= 1
+  }
+
+  return Math.max(1, months)
 }
 
 function calculateBacktestingPerformanceStats(trades: BacktestingTrade[]): PerformanceStats {

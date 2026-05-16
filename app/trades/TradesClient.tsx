@@ -32,7 +32,7 @@ type DashboardStats = {
   netPnL: number
   totalR: number
   expectedValue: number
-  profitFactor: number | null
+  mev: number
 }
 
 type PeriodRStats = {
@@ -286,30 +286,35 @@ export default function TradesClient({
         netPnL: 0,
         totalR: 0,
         expectedValue: 0,
-        profitFactor: null,
+        mev: 0,
       }
     }
 
-    const winners = statsTrades.filter((trade) => (trade.realised_win ?? 0) > 0).length
+    const winners = statsTrades.filter((trade) => (trade.r_multiple ?? 0) > 0)
+    const losers = statsTrades.filter((trade) => (trade.r_multiple ?? 0) < 0)
     const totalProfit = statsTrades.reduce((sum, trade) => sum + (trade.realised_win ?? 0), 0)
     const totalLoss = statsTrades.reduce((sum, trade) => sum + (trade.realised_loss ?? 0), 0)
 
     const totalR = statsTrades.reduce((sum, trade) => sum + (trade.r_multiple ?? 0), 0)
-
-    const expectedValue = totalR / totalTrades
-    const profitFactor = totalLoss > 0
-      ? totalProfit / totalLoss
-      : totalProfit > 0
-        ? Number.POSITIVE_INFINITY
-        : null
+    const winRate = winners.length / totalTrades
+    const lossRate = losers.length / totalTrades
+    const averageWinR = winners.length > 0
+      ? winners.reduce((sum, trade) => sum + (trade.r_multiple ?? 0), 0) / winners.length
+      : 0
+    const averageLossR = losers.length > 0
+      ? Math.abs(losers.reduce((sum, trade) => sum + (trade.r_multiple ?? 0), 0) / losers.length)
+      : 0
+    const expectedValue = (winRate * averageWinR) - (lossRate * averageLossR)
+    const monthsTraded = calculateMonthsTraded(statsTrades.map((trade) => normalizeTradeDate(trade.trade_date)))
+    const mev = monthsTraded > 0 ? (expectedValue * totalTrades) / monthsTraded : 0
 
     return {
       totalTrades,
-      winRate: (winners / totalTrades) * 100,
+      winRate: winRate * 100,
       netPnL: totalProfit - totalLoss,
       totalR,
       expectedValue,
-      profitFactor,
+      mev,
     }
   }, [statsTrades])
 
@@ -1093,14 +1098,9 @@ export default function TradesClient({
           className={stats.expectedValue >= 0 ? 'text-green-600' : 'text-red-600'}
         />
         <StatCard
-          label="Profit Factor"
-          value={
-            stats.profitFactor === null
-              ? '-'
-              : Number.isFinite(stats.profitFactor)
-                ? stats.profitFactor.toFixed(2)
-                : '∞'
-          }
+          label="MEV"
+          value={`${stats.mev.toFixed(2)}R`}
+          className={stats.mev >= 0 ? 'text-green-600' : 'text-red-600'}
         />
         <PeriodRCard
           stats={periodRStats}
@@ -1671,6 +1671,28 @@ function normalizeTradeDate(tradeDate: string): string | null {
   const fallback = new Date(trimmed)
   if (Number.isNaN(fallback.getTime())) return null
   return toUtcDateString(fallback)
+}
+
+function calculateMonthsTraded(normalizedTradeDates: Array<string | null>): number {
+  const validDates = normalizedTradeDates
+    .filter((value): value is string => value !== null)
+    .sort((a, b) => a.localeCompare(b))
+
+  if (validDates.length === 0) return 1
+
+  const firstDate = new Date(`${validDates[0]}T00:00:00Z`)
+  const lastDate = new Date(`${validDates[validDates.length - 1]}T00:00:00Z`)
+
+  if (Number.isNaN(firstDate.getTime()) || Number.isNaN(lastDate.getTime())) return 1
+
+  let months = (lastDate.getUTCFullYear() - firstDate.getUTCFullYear()) * 12
+    + (lastDate.getUTCMonth() - firstDate.getUTCMonth())
+
+  if (lastDate.getUTCDate() < firstDate.getUTCDate()) {
+    months -= 1
+  }
+
+  return Math.max(1, months)
 }
 
 function getWeekdayLabelFromTradeDate(tradeDate: string): string | null {
