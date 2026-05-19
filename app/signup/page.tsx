@@ -4,6 +4,7 @@ type SignupPageProps = {
   searchParams: Promise<{
     intent?: string
     step?: string
+    invite?: string
   }>
 }
 
@@ -24,6 +25,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
     <SignupClient
       intent={params.intent ?? null}
       step={params.step ?? null}
+      inviteToken={params.invite?.trim() ?? null}
       threeMonthPriceUsd={threeMonthPriceUsd}
       annualPriceUsd={annualPriceUsd}
     />

@@ -10,11 +10,12 @@ import type { CheckoutPlan } from '@/services/subscription'
 interface SignupClientProps {
   intent: string | null
   step: string | null
+  inviteToken: string | null
   threeMonthPriceUsd: number
   annualPriceUsd: number
 }
 
-export default function SignupClient({ intent, step, threeMonthPriceUsd, annualPriceUsd }: SignupClientProps) {
+export default function SignupClient({ intent, step, inviteToken, threeMonthPriceUsd, annualPriceUsd }: SignupClientProps) {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
 
@@ -30,10 +31,14 @@ export default function SignupClient({ intent, step, threeMonthPriceUsd, annualP
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
 
   const isPremiumFlow = intent === 'premium'
-  const showPlanStep = step === 'plan' && (Boolean(user) || forcePlanStep)
+  const isInviteFlow = Boolean(inviteToken && inviteToken.length > 0)
+  const shouldBypassPlanStep = isInviteFlow && !isPremiumFlow
+  const showPlanStep = !shouldBypassPlanStep && step === 'plan' && (Boolean(user) || forcePlanStep)
   const loginHref = isPremiumFlow
     ? '/login?next=%2Fsignup%3Fintent%3Dpremium%26step%3Dplan'
-    : '/login?next=%2Fsignup%3Fstep%3Dplan'
+    : shouldBypassPlanStep
+      ? '/login'
+      : '/login?next=%2Fsignup%3Fstep%3Dplan'
   const annualMonthlyEquivalent = annualPriceUsd / 12
   const threeMonthMonthlyEquivalent = threeMonthPriceUsd / 3
 
@@ -58,8 +63,6 @@ export default function SignupClient({ intent, step, threeMonthPriceUsd, annualP
     }
 
     setLoading(true)
-    const inviteToken = getInviteTokenFromLocation()
-
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -87,8 +90,12 @@ export default function SignupClient({ intent, step, threeMonthPriceUsd, annualP
         // Ignore invite redemption fetch errors during signup.
       }
 
-      setForcePlanStep(true)
-      router.push(isPremiumFlow ? '/signup?intent=premium&step=plan' : '/signup?step=plan')
+      if (shouldBypassPlanStep) {
+        router.push('/trades')
+      } else {
+        setForcePlanStep(true)
+        router.push(isPremiumFlow ? '/signup?intent=premium&step=plan' : '/signup?step=plan')
+      }
       router.refresh()
       return
     }
@@ -158,14 +165,16 @@ export default function SignupClient({ intent, step, threeMonthPriceUsd, annualP
               We sent a confirmation link to <strong>{email}</strong>.
               {isPremiumFlow
                 ? ' After confirming, sign in and we will take you to plan selection.'
-                : ' After confirming, sign in and choose how you want to start.'}
+                : shouldBypassPlanStep
+                  ? ' After confirming, sign in and you will enter the app directly.'
+                  : ' After confirming, sign in and choose how you want to start.'}
             </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link
                 href={loginHref}
                 className="rounded-2xl bg-sky-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-200"
               >
-                {isPremiumFlow ? 'Continue to Plan Selection' : 'Back to Login'}
+                {isPremiumFlow ? 'Continue to Plan Selection' : shouldBypassPlanStep ? 'Continue to App' : 'Back to Login'}
               </Link>
               <Link
                 href="/"
@@ -281,7 +290,9 @@ export default function SignupClient({ intent, step, threeMonthPriceUsd, annualP
           <p className="mt-2 text-sm leading-6 text-slate-400">
             {isPremiumFlow
               ? 'After signup, you will choose Free, 3-Month, or Annual on the next step.'
-              : 'After signup, you will choose Free, 3-Month, or Annual before entering the app.'}
+              : shouldBypassPlanStep
+                ? 'This invite grants free access automatically. After signup, you will enter the app directly.'
+                : 'After signup, you will choose Free, 3-Month, or Annual before entering the app.'}
           </p>
         </div>
 
@@ -340,7 +351,13 @@ export default function SignupClient({ intent, step, threeMonthPriceUsd, annualP
             disabled={loading}
             className="w-full rounded-2xl bg-sky-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? 'Creating account...' : isPremiumFlow ? 'Create Account and Continue' : 'Sign Up'}
+            {loading
+              ? 'Creating account...'
+              : isPremiumFlow
+                ? 'Create Account and Continue'
+                : shouldBypassPlanStep
+                  ? 'Create Account and Enter App'
+                  : 'Sign Up'}
           </button>
         </form>
 
@@ -450,13 +467,6 @@ function CheckoutModal({
       </div>
     </div>
   )
-}
-
-function getInviteTokenFromLocation(): string {
-  if (typeof window === 'undefined') return ''
-
-  const params = new URLSearchParams(window.location.search)
-  return params.get('invite')?.trim() ?? ''
 }
 
 function formatPrice(value: number): string {
