@@ -216,10 +216,13 @@ try {
 5. Keep best/worst performer cards (system, asset, weekday, hour bucket `HH:00`) calculated from the same filtered/selected rows
 6. Show `Time #1` and `Time #2` in both best/worst performer cards
 7. Keep `EV / Trade` displayed in R (not dollars)
-8. Support a trades date-range filter with presets (`Today`, `This Week`, `This Month`, `Last 30 Days`, `Last 90 Days`, `This Year`) plus custom `From` / `To`
-9. Treat trades date-range presets and period R cards as UTC-based for consistent boundary behavior
-10. Keep the live-trades date filter on its own dedicated row with a custom two-month calendar range picker, visible quick presets, and a status/actions block aligned with the rest of the filter bar
-11. When a live-trades date range is active, mute the `Total R by Period` card with an overlay that explains the focused range and offers a one-click clear action
+8. Replace `Profit Factor` with `MEV` in stats cards
+9. Compute EV explicitly as `EV = (Win Rate x Average Win) - (Loss Rate x Average Loss)` using R values (`r_multiple`)
+10. Compute `MEV = EV x Number of Trades / Number of Months Traded` where months traded is elapsed whole months between first and last trade date (minimum `1`)
+11. Support a trades date-range filter with presets (`Today`, `This Week`, `This Month`, `Last 30 Days`, `Last 90 Days`, `This Year`) plus custom `From` / `To`
+12. Treat trades date-range presets and period R cards as UTC-based for consistent boundary behavior
+13. Keep the live-trades date filter on its own dedicated row with a custom two-month calendar range picker, visible quick presets, and a status/actions block aligned with the rest of the filter bar
+14. When a live-trades date range is active, mute the `Total R by Period` card with an overlay that explains the focused range and offers a one-click clear action
 
 ### Organizing live trades table
 1. Keep ongoing trades (`avg_exit` is `null`) in a dedicated top table on `/app/trades/page.tsx`
@@ -263,12 +266,15 @@ try {
 9. Backtesting table supports row selection; when rows are selected, session/performance stats should calculate from selected rows only (otherwise all rows)
 10. Session stat cards include `Trades / Week`, calculated as `totalTrades / distinctMonthWeekBuckets` where each bucket is week-in-month within the same `YYYY-MM`
 11. Session stat cards also include `Avg Win (R)` and `Avg Loss (R)`
-12. Backtesting performance cards include best/worst `Asset`, plus day/time rankings with #1 and #2 entries (day names and `HH:00` time buckets)
-13. Add-trade modal supports a `Keep modal open after adding` checkbox; on add success it keeps modal open and clears only entry/SL/TP (and recalculated outcome field)
-14. Disable add/update submit while AI screenshot extraction is running
-15. Show a subtle session status line for `Time spent backtesting` based on elapsed time between first and last trade `created_at`
-16. Support date sorting in the backtesting trades table by clicking the `Date` header (default, ascending, descending)
-17. Support direction filtering in backtesting sessions (`All Directions`, `Long Trades`, `Short Trades`) and keep stats aligned with filtered/selected rows
+12. Replace `Profit Factor` with `MEV` in session stat cards
+13. Compute EV explicitly as `EV = (Win Rate x Average Win) - (Loss Rate x Average Loss)` using `outcome_r`
+14. Compute `MEV = EV x Number of Trades / Number of Months Traded` where months traded is elapsed whole months between first and last trade date (minimum `1`)
+15. Backtesting performance cards include best/worst `Asset`, plus day/time rankings with #1 and #2 entries (day names and `HH:00` time buckets)
+16. Add-trade modal supports a `Keep modal open after adding` checkbox; on add success it keeps modal open and clears only entry/SL/TP (and recalculated outcome field)
+17. Disable add/update submit while AI screenshot extraction is running
+18. Show a subtle session status line for `Time spent backtesting` based on elapsed time between first and last trade `created_at`
+19. Support date sorting in the backtesting trades table by clicking the `Date` header (default, ascending, descending)
+20. Support direction filtering in backtesting sessions (`All Directions`, `Long Trades`, `Short Trades`) and keep stats aligned with filtered/selected rows
 
 ### Exporting backtesting sessions
 1. Export is available from `/app/backtesting/page.tsx` as `Export CSV`
