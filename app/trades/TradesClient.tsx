@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
@@ -110,7 +110,7 @@ export default function TradesClient({
   const [loading] = useState(false)
   const [error, setError] = useState<string | null>(initialError)
 
-  const [selectedSystemId, setSelectedSystemId] = useState<string>('')
+  const [selectedSystemIds, setSelectedSystemIds] = useState<string[]>([])
   const [selectedSubSystemId, setSelectedSubSystemId] = useState<string>('')
   const [selectedOutcomeFilter, setSelectedOutcomeFilter] = useState<'all' | 'won' | 'lost'>('all')
   const [selectedDirectionFilter, setSelectedDirectionFilter] = useState<'all' | 'long' | 'short'>('all')
@@ -138,6 +138,8 @@ export default function TradesClient({
   const [bulkEditRiskValue, setBulkEditRiskValue] = useState('')
   const [bulkEditSaving, setBulkEditSaving] = useState(false)
   const [bulkEditError, setBulkEditError] = useState<string | null>(null)
+  const [isSystemFilterMenuOpen, setIsSystemFilterMenuOpen] = useState(false)
+  const systemFilterMenuRef = useRef<HTMLDivElement | null>(null)
 
   // Function to refresh trades and filter data
   async function refreshData() {
@@ -157,10 +159,20 @@ export default function TradesClient({
     }
   }
 
+  const selectedRealSystemIds = useMemo(
+    () => selectedSystemIds.filter((id) => id !== UNASSIGNED_SYSTEM_FILTER),
+    [selectedSystemIds],
+  )
+
+  const singleSelectedSystemId = useMemo(() => {
+    if (selectedRealSystemIds.length !== 1) return ''
+    return selectedRealSystemIds[0] ?? ''
+  }, [selectedRealSystemIds])
+
   const availableSubSystems = useMemo(() => {
-    if (!selectedSystemId || selectedSystemId === UNASSIGNED_SYSTEM_FILTER) return []
-    return subSystems.filter((subSystem) => subSystem.system_id === selectedSystemId)
-  }, [selectedSystemId, subSystems])
+    if (!singleSelectedSystemId) return []
+    return subSystems.filter((subSystem) => subSystem.system_id === singleSelectedSystemId)
+  }, [singleSelectedSystemId, subSystems])
 
   const effectiveSelectedSubSystemId = useMemo(() => {
     if (!selectedSubSystemId) return ''
@@ -169,6 +181,28 @@ export default function TradesClient({
       ? selectedSubSystemId
       : ''
   }, [availableSubSystems, selectedSubSystemId])
+
+  useEffect(() => {
+    if (!isSystemFilterMenuOpen) return
+
+    function handleDocumentMouseDown(event: MouseEvent) {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (!systemFilterMenuRef.current?.contains(target)) {
+        setIsSystemFilterMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleDocumentMouseDown)
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentMouseDown)
+    }
+  }, [isSystemFilterMenuOpen])
+
+  useEffect(() => {
+    if (selectedRealSystemIds.length === 1) return
+    setSelectedSubSystemId('')
+  }, [selectedRealSystemIds.length])
 
   const dateRangeError = useMemo(() => {
     if (selectedDateRangePreset !== 'custom') return null
@@ -217,9 +251,11 @@ export default function TradesClient({
     return trades.filter((trade) => {
       const normalizedTradeDate = normalizeTradeDate(trade.trade_date)
 
-      const matchesSystem = selectedSystemId === UNASSIGNED_SYSTEM_FILTER
-        ? trade.system_id === null
-        : !selectedSystemId || trade.system_id === selectedSystemId
+      const matchesSystem = selectedSystemIds.length === 0
+        ? true
+        : selectedSystemIds.some((systemId) =>
+          systemId === UNASSIGNED_SYSTEM_FILTER ? trade.system_id === null : trade.system_id === systemId,
+        )
 
       const matchesSubSystem = !effectiveSelectedSubSystemId || trade.sub_system_id === effectiveSelectedSubSystemId
 
@@ -235,7 +271,7 @@ export default function TradesClient({
 
       return matchesSystem && matchesSubSystem && matchesOutcome && matchesDirection && matchesDateRange
     })
-  }, [activeDateRange.end, activeDateRange.start, effectiveSelectedSubSystemId, selectedDirectionFilter, selectedOutcomeFilter, selectedSystemId, trades])
+  }, [activeDateRange.end, activeDateRange.start, effectiveSelectedSubSystemId, selectedDirectionFilter, selectedOutcomeFilter, selectedSystemIds, trades])
 
   const dateSortedTrades = useMemo(() => {
     if (dateSortDirection === 'none') return filteredTrades
@@ -846,11 +882,45 @@ export default function TradesClient({
   }
 
   function resetFilters() {
-    setSelectedSystemId('')
+    setSelectedSystemIds([])
     setSelectedSubSystemId('')
     setSelectedOutcomeFilter('all')
     setSelectedDirectionFilter('all')
     clearDateRange()
+  }
+
+  function toggleSystemFilterOption(systemId: string) {
+    setSelectedSystemIds((prev) => {
+      if (prev.includes(systemId)) {
+        return prev.filter((id) => id !== systemId)
+      }
+
+      return [...prev, systemId]
+    })
+  }
+
+  function clearSystemFilters() {
+    setSelectedSystemIds([])
+    setSelectedSubSystemId('')
+  }
+
+  function getSystemFilterSummaryLabel(): string {
+    if (selectedSystemIds.length === 0) return 'All Systems'
+
+    const includesNoSystem = selectedSystemIds.includes(UNASSIGNED_SYSTEM_FILTER)
+    const selectedCount = selectedSystemIds.length - (includesNoSystem ? 1 : 0)
+
+    if (includesNoSystem && selectedCount === 0) return 'No System'
+    if (!includesNoSystem && selectedCount === 1) {
+      const system = systems.find((item) => item.id === selectedSystemIds[0])
+      return system?.name ?? '1 system selected'
+    }
+
+    if (includesNoSystem) {
+      return `No System + ${selectedCount} system${selectedCount === 1 ? '' : 's'}`
+    }
+
+    return `${selectedCount} systems selected`
   }
 
   function handleOpenFocus(trade: Trade) {
@@ -994,20 +1064,55 @@ export default function TradesClient({
             <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div>
                 <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>System</label>
-                <select
-                  value={selectedSystemId}
-                  onChange={(e) => {
-                    setSelectedSystemId(e.target.value)
-                    setSelectedSubSystemId('')
-                  }}
-                  className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100' : 'border-gray-300 bg-white text-gray-900'}`}
-                >
-                  <option value="">All Systems</option>
-                  <option value={UNASSIGNED_SYSTEM_FILTER}>No System</option>
-                  {systems.map((system) => (
-                    <option key={system.id} value={system.id}>{system.name}</option>
-                  ))}
-                </select>
+                <div className="relative" ref={systemFilterMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsSystemFilterMenuOpen((prev) => !prev)}
+                    className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                  >
+                    <span className="truncate text-sm">{getSystemFilterSummaryLabel()}</span>
+                    <span className="ml-3 text-xs">{isSystemFilterMenuOpen ? '▲' : '▼'}</span>
+                  </button>
+
+                  {isSystemFilterMenuOpen && (
+                    <div className={`absolute z-30 mt-2 w-full rounded-lg border p-2 shadow-lg ${isDark ? 'border-slate-600 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+                      <button
+                        type="button"
+                        onClick={clearSystemFilters}
+                        className={`mb-2 w-full rounded-md px-2 py-1 text-left text-xs font-medium hover:opacity-90 ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-gray-100 text-gray-700'}`}
+                      >
+                        All Systems
+                      </button>
+
+                      <label className={`mb-1 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
+                        <input
+                          type="checkbox"
+                          checked={selectedSystemIds.includes(UNASSIGNED_SYSTEM_FILTER)}
+                          onChange={() => toggleSystemFilterOption(UNASSIGNED_SYSTEM_FILTER)}
+                          className="h-4 w-4 cursor-pointer"
+                        />
+                        <span>No System</span>
+                      </label>
+
+                      <div className="max-h-44 overflow-auto">
+                        {systems.map((system) => (
+                          <label
+                            key={system.id}
+                            className={`mb-1 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedSystemIds.includes(system.id)}
+                              onChange={() => toggleSystemFilterOption(system.id)}
+                              className="h-4 w-4 cursor-pointer"
+                            />
+                            <span className="truncate">{system.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -1015,10 +1120,10 @@ export default function TradesClient({
                 <select
                   value={effectiveSelectedSubSystemId}
                   onChange={(e) => setSelectedSubSystemId(e.target.value)}
-                  disabled={!selectedSystemId || selectedSystemId === UNASSIGNED_SYSTEM_FILTER}
+                  disabled={!singleSelectedSystemId}
                   className={`w-full rounded-lg border px-3 py-2 disabled:cursor-not-allowed ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100 disabled:bg-slate-900 disabled:text-slate-500' : 'border-gray-300 bg-white text-gray-900 disabled:bg-gray-100 disabled:text-gray-500'}`}
                 >
-                  <option value="">All Sub-Systems</option>
+                  <option value="">{singleSelectedSystemId ? 'All Sub-Systems' : 'Select exactly one system first'}</option>
                   {availableSubSystems.map((subSystem) => (
                     <option key={subSystem.id} value={subSystem.id}>{subSystem.name}</option>
                   ))}

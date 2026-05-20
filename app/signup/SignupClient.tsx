@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/AuthContext'
 import type { CheckoutPlan } from '@/services/subscription'
 
@@ -63,33 +62,26 @@ export default function SignupClient({ intent, step, inviteToken, threeMonthPric
     }
 
     setLoading(true)
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: inviteToken
-          ? {
-              invite_token: inviteToken,
-            }
-          : {},
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        email,
+        password,
+        inviteToken,
+      }),
     })
 
-    if (error) {
-      setError(error.message)
+    const payload = (await response.json()) as { error?: string; hasSession?: boolean }
+    if (!response.ok) {
+      setError(payload.error ?? 'Failed to sign up')
       setLoading(false)
       return
     }
 
-    if (data.session) {
-      try {
-        await fetch('/api/invites/redeem', {
-          method: 'POST',
-        })
-      } catch {
-        // Ignore invite redemption fetch errors during signup.
-      }
-
+    if (payload.hasSession) {
       if (shouldBypassPlanStep) {
         router.push('/trades')
       } else {
