@@ -336,7 +336,7 @@ try {
 8. Backtesting trade modal supports both image upload and clipboard paste flows for AI prefill
 9. Direction and `r_multiple` should be concluded/calculated by app logic from extracted prices, not trusted from model output
 10. Configure OpenRouter with `OPENROUTER_API_KEY`
-11. Preferred model list env is `OPENROUTER_VISION_MODELS` (comma-separated); legacy fallbacks `OPENROUTER_QWEN_MODELS` and `OPENROUTER_QWEN_MODEL` are still supported
+11. Configure the AI screenshot extraction model with `OPENROUTER_MODEL`
 12. Default fallback model is `qwen/qwen3-vl-8b-instruct` when no model env vars are set
 
 ### Creating a new page

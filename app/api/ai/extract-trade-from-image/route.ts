@@ -93,12 +93,7 @@ export async function POST(request: Request) {
 
     const imageBytes = await image.arrayBuffer();
     const imageBase64 = Buffer.from(imageBytes).toString('base64');
-    const configuredModels = (
-      process.env.OPENROUTER_VISION_MODELS
-      || process.env.OPENROUTER_QWEN_MODELS
-      || process.env.OPENROUTER_QWEN_MODEL
-      || ''
-    )
+    const configuredModels = (process.env.OPENROUTER_MODEL || '')
       .split(',')
       .map((item) => item.trim())
       .filter((item) => item.length > 0);
@@ -177,7 +172,7 @@ async function requestOpenRouterExtraction(input: {
 
   return {
     ok: false,
-    error: `All configured OpenRouter models failed. Set OPENROUTER_QWEN_MODELS to models available on your account.\n${modelErrors.join('\n')}`,
+    error: `All configured OpenRouter models failed. Set OPENROUTER_MODEL to a model available on your account.\n${modelErrors.join('\n')}`,
   };
 }
 
