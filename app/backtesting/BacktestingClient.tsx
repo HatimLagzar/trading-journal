@@ -103,7 +103,7 @@ type SessionStats = {
   averageWinR: number
   averageLossR: number
   tradesPerWeek: number
-  mev: number
+  maxDrawdownR: number
 }
 
 const initialSessionFormState: SessionFormState = {
@@ -827,9 +827,9 @@ export default function BacktestingClient({
                     valueClassName="text-red-600"
                   />
                   <MiniStat
-                    label="MEV"
-                    value={`${sessionStats.mev.toFixed(2)}R`}
-                    valueClassName={sessionStats.mev >= 0 ? 'text-green-600' : 'text-red-600'}
+                    label="Max DD"
+                    value={`${sessionStats.maxDrawdownR.toFixed(2)}R`}
+                    valueClassName={sessionStats.maxDrawdownR > 0 ? 'text-red-600' : undefined}
                   />
                 </div>
 
@@ -1549,8 +1549,7 @@ function calculateBacktestingSessionStats(trades: BacktestingTrade[]): SessionSt
   const expectedValueR = (winRateRatio * averageWinR) - (lossRateRatio * averageLossRAbs)
   const averageLossR = losingTrades.length > 0 ? totalNegativeR / losingTrades.length : 0
   const tradesPerWeek = monthWeekBuckets.size > 0 ? totalTrades / monthWeekBuckets.size : 0
-  const monthsTraded = calculateMonthsTraded(trades.map((trade) => normalizeTradeDate(trade.trade_date)))
-  const mev = monthsTraded > 0 ? (expectedValueR * totalTrades) / monthsTraded : 0
+  const maxDrawdownR = calculateMaxDrawdownR(trades)
 
   return {
     totalTrades,
@@ -1560,30 +1559,28 @@ function calculateBacktestingSessionStats(trades: BacktestingTrade[]): SessionSt
     averageWinR,
     averageLossR,
     tradesPerWeek,
-    mev,
+    maxDrawdownR,
   }
 }
 
-function calculateMonthsTraded(normalizedTradeDates: Array<string | null>): number {
-  const validDates = normalizedTradeDates
-    .filter((value): value is string => value !== null)
-    .sort((a, b) => a.localeCompare(b))
+function calculateMaxDrawdownR(trades: BacktestingTrade[]): number {
+  const chronologicalTrades = [...trades].sort((a, b) => {
+    const aKey = `${getBacktestingDateTimeSortKey(a.trade_date, a.trade_time)}-${a.created_at}`
+    const bKey = `${getBacktestingDateTimeSortKey(b.trade_date, b.trade_time)}-${b.created_at}`
+    return aKey.localeCompare(bKey)
+  })
 
-  if (validDates.length === 0) return 1
+  let equity = 0
+  let peak = 0
+  let maxDrawdown = 0
 
-  const firstDate = new Date(`${validDates[0]}T00:00:00Z`)
-  const lastDate = new Date(`${validDates[validDates.length - 1]}T00:00:00Z`)
+  chronologicalTrades.forEach((trade) => {
+    equity += trade.outcome_r
+    peak = Math.max(peak, equity)
+    maxDrawdown = Math.max(maxDrawdown, peak - equity)
+  })
 
-  if (Number.isNaN(firstDate.getTime()) || Number.isNaN(lastDate.getTime())) return 1
-
-  let months = (lastDate.getUTCFullYear() - firstDate.getUTCFullYear()) * 12
-    + (lastDate.getUTCMonth() - firstDate.getUTCMonth())
-
-  if (lastDate.getUTCDate() < firstDate.getUTCDate()) {
-    months -= 1
-  }
-
-  return Math.max(1, months)
+  return maxDrawdown
 }
 
 function calculateBacktestingPerformanceStats(trades: BacktestingTrade[]): PerformanceStats {
