@@ -429,7 +429,7 @@ function CheckoutModal({
   onConfirm: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
       <div className="w-full max-w-lg rounded-[1.6rem] border border-white/12 bg-[#0a1726] p-6 text-slate-100 shadow-2xl">
         <h3 className="text-2xl font-semibold text-white">Before you continue</h3>
         <p className="mt-4 text-sm leading-7 text-slate-200">

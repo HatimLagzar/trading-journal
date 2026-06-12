@@ -97,7 +97,7 @@ export default function Modal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center ${isDark ? 'bg-slate-950/72 backdrop-blur-sm' : 'bg-black/50'}`}
+      className={`fixed inset-0 z-50 flex items-center justify-center ${isDark ? 'bg-slate-950/72' : 'bg-black/50'}`}
       onClick={closeOnOverlayClick ? () => {
         if (didDragRef.current) return
         onClose()
