@@ -127,6 +127,17 @@ export async function deleteBacktestingTrade(id: string) {
   if (error) throw error;
 }
 
+export async function deleteBacktestingTradesBulk(ids: string[]) {
+  if (ids.length === 0) return;
+
+  const { error } = await supabase
+    .from('backtesting_trades')
+    .delete()
+    .in('id', ids);
+
+  if (error) throw error;
+}
+
 export async function findMatchingBacktestingTrade({
   userId,
   asset,

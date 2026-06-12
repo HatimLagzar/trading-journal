@@ -10,6 +10,7 @@ import {
   createBacktestingTrade,
   deleteBacktestingSession,
   deleteBacktestingTrade,
+  deleteBacktestingTradesBulk,
   getBacktestingSessions,
   getBacktestingTrades,
   updateBacktestingTrade,
@@ -649,6 +650,25 @@ export default function BacktestingClient({
     }
   }
 
+  async function handleBulkDeleteSelectedTrades(tradeIds: string[]) {
+    if (tradeIds.length === 0) return
+
+    const confirmed = window.confirm(
+      `Delete ${tradeIds.length} selected trade${tradeIds.length === 1 ? '' : 's'}? This action cannot be undone.`,
+    )
+
+    if (!confirmed) return
+
+    try {
+      await deleteBacktestingTradesBulk(tradeIds)
+      await refreshTrades()
+      setSelectedTradeIds((prev) => prev.filter((id) => !tradeIds.includes(id)))
+      setOpenTradeMenuId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete selected trades')
+    }
+  }
+
   function applyLossToTargetPrice() {
     const stopLossValue = tradeForm.stop_loss.trim()
     if (!stopLossValue) return
@@ -848,11 +868,32 @@ export default function BacktestingClient({
               </div>
 
               <div className="border rounded-lg">
-                <div className="px-3 py-2 border-b bg-gray-50 flex items-center justify-end">
+                <div className="px-3 py-2 border-b bg-gray-50 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {selectedTradeIds.length > 0 && (
+                      <>
+                        <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+                          {selectedTradeIds.length} selected
+                        </span>
+                        <button
+                          onClick={() => handleBulkDeleteSelectedTrades(selectedTradeIds)}
+                          className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 cursor-pointer"
+                        >
+                          Delete Selected
+                        </button>
+                        <button
+                          onClick={() => setSelectedTradeIds([])}
+                          className={`cursor-pointer text-xs hover:underline ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-600 hover:text-gray-900'}`}
+                        >
+                          Clear
+                        </button>
+                      </>
+                    )}
+                  </div>
                   {sortedTrades.length > 0 && (
                     <button
                       onClick={() => toggleSelectAllTrades(sortedTrades.map((trade) => trade.id))}
-                      className="text-xs text-gray-600 hover:text-gray-900 hover:underline cursor-pointer"
+                      className={`cursor-pointer text-xs hover:underline ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-600 hover:text-gray-900'}`}
                     >
                       {areAllTradesSelected(sortedTrades.map((trade) => trade.id)) ? 'Unselect all' : 'Select all'}
                     </button>
