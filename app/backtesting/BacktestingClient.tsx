@@ -728,7 +728,15 @@ export default function BacktestingClient({
                 return (
                   <div
                     key={session.id}
-                    className={`border rounded p-3 cursor-pointer ${selectedSessionId === session.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'}`}
+                    className={`border rounded p-3 cursor-pointer ${
+                      selectedSessionId === session.id
+                        ? isDark
+                          ? 'border-blue-400 bg-blue-500/15 ring-1 ring-blue-400/30'
+                          : 'border-blue-500 bg-blue-50'
+                        : isDark
+                          ? 'hover:bg-white/5'
+                          : 'hover:bg-gray-50'
+                    }`}
                     onClick={() => setSelectedSessionId(session.id)}
                   >
                     <div className="flex justify-between items-start gap-2">
