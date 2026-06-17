@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import AuthNavbar from '@/app/components/AuthNavbar'
 import { supabase } from '@/lib/supabase/client'
 import { useTheme } from '@/lib/ThemeContext'
+import { useUserPreferences } from '@/lib/UserPreferencesContext'
+import { updateUserPreferences } from '@/services/preferences'
 
 type AdminInvite = {
   id: string
@@ -19,6 +21,7 @@ type AdminInvite = {
 export default function SettingsPage() {
   const router = useRouter()
   const { isDark } = useTheme()
+  const { breakEvenRThreshold, setPreferences } = useUserPreferences()
   const [loadingUser, setLoadingUser] = useState(true)
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
@@ -32,6 +35,10 @@ export default function SettingsPage() {
   const [invites, setInvites] = useState<AdminInvite[]>([])
   const [generatedInviteUrl, setGeneratedInviteUrl] = useState<string | null>(null)
   const [creatingInvite, setCreatingInvite] = useState(false)
+  const [breakEvenThresholdInput, setBreakEvenThresholdInput] = useState('0.01')
+  const [preferencesLoading, setPreferencesLoading] = useState(false)
+  const [preferencesError, setPreferencesError] = useState<string | null>(null)
+  const [preferencesSuccess, setPreferencesSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     async function ensureAuthenticated() {
@@ -51,6 +58,51 @@ export default function SettingsPage() {
 
     void ensureAuthenticated()
   }, [router])
+
+  useEffect(() => {
+    setBreakEvenThresholdInput(String(breakEvenRThreshold))
+  }, [breakEvenRThreshold])
+
+  async function handleSaveTradingPreferences(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setPreferencesError(null)
+    setPreferencesSuccess(null)
+
+    const parsedThreshold = Number(breakEvenThresholdInput)
+    if (!Number.isFinite(parsedThreshold) || parsedThreshold < 0) {
+      setPreferencesError('Break-even threshold must be a number greater than or equal to 0')
+      return
+    }
+
+    if (parsedThreshold > 5) {
+      setPreferencesError('Break-even threshold must be 5R or less')
+      return
+    }
+
+    setPreferencesLoading(true)
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      const updatedPreferences = await updateUserPreferences(user.id, {
+        break_even_r_threshold: parsedThreshold,
+      })
+
+      setPreferences(updatedPreferences)
+      setPreferencesSuccess('Trading preferences saved')
+    } catch (err) {
+      setPreferencesError(err instanceof Error ? err.message : 'Failed to save trading preferences')
+    } finally {
+      setPreferencesLoading(false)
+    }
+  }
 
   async function loadAdminInvites() {
     setInvitesLoading(true)
@@ -229,6 +281,54 @@ export default function SettingsPage() {
             </button>
           </form>
 
+        </div>
+
+        <div className="mt-6 rounded-xl border bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-900">Trading preferences</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Trades within this R band are treated as break-even (BE) instead of wins or losses.
+          </p>
+
+          <form onSubmit={handleSaveTradingPreferences} className="mt-6 max-w-md space-y-4">
+            <div>
+              <label htmlFor="break-even-threshold" className="mb-1 block text-sm font-medium text-slate-700">
+                Break-even R threshold
+              </label>
+              <input
+                id="break-even-threshold"
+                type="number"
+                min="0"
+                max="5"
+                step="0.01"
+                value={breakEvenThresholdInput}
+                onChange={(event) => setBreakEvenThresholdInput(event.target.value)}
+                required
+                className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Example: at 0.01R, outcomes from -0.01R to +0.01R count as BE in stats and filters.
+              </p>
+            </div>
+
+            {preferencesError && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {preferencesError}
+              </p>
+            )}
+            {preferencesSuccess && (
+              <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                {preferencesSuccess}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={preferencesLoading}
+              className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {preferencesLoading ? 'Saving...' : 'Save trading preferences'}
+            </button>
+          </form>
         </div>
 
         {isAdmin && (

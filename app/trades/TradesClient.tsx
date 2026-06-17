@@ -6,6 +6,14 @@ import { useRouter } from 'next/navigation'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
 import { useTheme } from '@/lib/ThemeContext'
+import { useUserPreferences } from '@/lib/UserPreferencesContext'
+import {
+  classifyOutcomeR,
+  getOutcomeColorClass,
+  isBreakEvenOutcome,
+  isLossOutcome,
+  isWinOutcome,
+} from '@/lib/trade-outcome'
 import { getTrades, deleteTrade, deleteTradesBulk, updateTrade, updateTradesBulk } from '@/services/trade'
 import { getSystems, getSubSystems } from '@/services/system'
 import type { Trade, TradeUpdate } from '@/services/trade'
@@ -102,6 +110,7 @@ export default function TradesClient({
   const router = useRouter()
   const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
   const { isDark } = useTheme()
+  const { breakEvenRThreshold } = useUserPreferences()
 
   const [userId] = useState(initialUserId)
   const [trades, setTrades] = useState<Trade[]>(initialTrades)
@@ -112,7 +121,7 @@ export default function TradesClient({
 
   const [selectedSystemIds, setSelectedSystemIds] = useState<string[]>([])
   const [selectedSubSystemId, setSelectedSubSystemId] = useState<string>('')
-  const [selectedOutcomeFilter, setSelectedOutcomeFilter] = useState<'all' | 'won' | 'lost'>('all')
+  const [selectedOutcomeFilter, setSelectedOutcomeFilter] = useState<'all' | 'won' | 'lost' | 'be'>('all')
   const [selectedDirectionFilter, setSelectedDirectionFilter] = useState<'all' | 'long' | 'short'>('all')
   const [selectedDateRangePreset, setSelectedDateRangePreset] = useState<DateRangePreset>('all')
   const [customStartDate, setCustomStartDate] = useState('')
@@ -260,8 +269,9 @@ export default function TradesClient({
       const matchesSubSystem = !effectiveSelectedSubSystemId || trade.sub_system_id === effectiveSelectedSubSystemId
 
       const matchesOutcome = selectedOutcomeFilter === 'all'
-        || (selectedOutcomeFilter === 'won' && (trade.realised_win ?? 0) > 0)
-        || (selectedOutcomeFilter === 'lost' && (trade.realised_loss ?? 0) > 0)
+        || (selectedOutcomeFilter === 'won' && isWinOutcome(trade.r_multiple, breakEvenRThreshold, trade.avg_exit !== null))
+        || (selectedOutcomeFilter === 'lost' && isLossOutcome(trade.r_multiple, breakEvenRThreshold, trade.avg_exit !== null))
+        || (selectedOutcomeFilter === 'be' && isBreakEvenOutcome(trade.r_multiple, breakEvenRThreshold, trade.avg_exit !== null))
 
       const matchesDirection = selectedDirectionFilter === 'all'
         || (selectedDirectionFilter === 'long' && trade.direction === 'long')
@@ -271,7 +281,7 @@ export default function TradesClient({
 
       return matchesSystem && matchesSubSystem && matchesOutcome && matchesDirection && matchesDateRange
     })
-  }, [activeDateRange.end, activeDateRange.start, effectiveSelectedSubSystemId, selectedDirectionFilter, selectedOutcomeFilter, selectedSystemIds, trades])
+  }, [activeDateRange.end, activeDateRange.start, breakEvenRThreshold, effectiveSelectedSubSystemId, selectedDirectionFilter, selectedOutcomeFilter, selectedSystemIds, trades])
 
   const dateSortedTrades = useMemo(() => {
     if (dateSortDirection === 'none') return filteredTrades
@@ -326,14 +336,16 @@ export default function TradesClient({
       }
     }
 
-    const winners = statsTrades.filter((trade) => (trade.r_multiple ?? 0) > 0)
-    const losers = statsTrades.filter((trade) => (trade.r_multiple ?? 0) < 0)
+    const closedTrades = statsTrades.filter((trade) => trade.avg_exit !== null)
+    const winners = closedTrades.filter((trade) => isWinOutcome(trade.r_multiple, breakEvenRThreshold, true))
+    const losers = closedTrades.filter((trade) => isLossOutcome(trade.r_multiple, breakEvenRThreshold, true))
     const totalProfit = statsTrades.reduce((sum, trade) => sum + (trade.realised_win ?? 0), 0)
     const totalLoss = statsTrades.reduce((sum, trade) => sum + (trade.realised_loss ?? 0), 0)
 
     const totalR = statsTrades.reduce((sum, trade) => sum + (trade.r_multiple ?? 0), 0)
-    const winRate = winners.length / totalTrades
-    const lossRate = losers.length / totalTrades
+    const decisiveTrades = winners.length + losers.length
+    const winRate = decisiveTrades > 0 ? winners.length / decisiveTrades : 0
+    const lossRate = decisiveTrades > 0 ? losers.length / decisiveTrades : 0
     const averageWinR = winners.length > 0
       ? winners.reduce((sum, trade) => sum + (trade.r_multiple ?? 0), 0) / winners.length
       : 0
@@ -352,7 +364,7 @@ export default function TradesClient({
       expectedValue,
       mev,
     }
-  }, [statsTrades])
+  }, [breakEvenRThreshold, statsTrades])
 
   const periodRStats = useMemo<PeriodRStats>(() => {
     const todayRange = getUtcPresetRange('today')
@@ -929,6 +941,10 @@ export default function TradesClient({
   }
 
   function renderTradeRow(trade: Trade, selectable: boolean) {
+    const outcomeCategory = classifyOutcomeR(trade.r_multiple, breakEvenRThreshold, trade.avg_exit !== null)
+    const rColorClass = getOutcomeColorClass(outcomeCategory, 'r')
+    const pnlColorClass = getOutcomeColorClass(outcomeCategory, 'pnl')
+
     return (
       <tr key={trade.id} className="border-t hover:bg-gray-50">
         {selectable && (
@@ -952,16 +968,8 @@ export default function TradesClient({
         <td className="px-4 py-3 text-right">{trade.avg_entry}</td>
         <td className="px-4 py-3 text-right">{trade.stop_loss ?? '-'}</td>
         <td className="px-4 py-3 text-right">{trade.avg_exit ?? '-'}</td>
-        <td className="px-4 py-3 text-right">{trade.r_multiple?.toFixed(2) ?? '-'}</td>
-        <td
-          className={`px-4 py-3 text-right ${
-            (trade.realised_win ?? 0) > 0
-              ? 'text-green-600'
-              : (trade.realised_loss ?? 0) > 0
-                ? 'text-red-600'
-                : ''
-          }`}
-        >
+        <td className={`px-4 py-3 text-right ${rColorClass}`}>{trade.r_multiple?.toFixed(2) ?? '-'}</td>
+        <td className={`px-4 py-3 text-right ${pnlColorClass}`}>
           {trade.realised_win ? `+$${trade.realised_win}` : trade.realised_loss ? `-$${trade.realised_loss}` : '-'}
         </td>
         {showNotesColumn && (
@@ -1134,12 +1142,13 @@ export default function TradesClient({
                 <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Outcome</label>
                 <select
                   value={selectedOutcomeFilter}
-                  onChange={(e) => setSelectedOutcomeFilter(e.target.value as 'all' | 'won' | 'lost')}
+                  onChange={(e) => setSelectedOutcomeFilter(e.target.value as 'all' | 'won' | 'lost' | 'be')}
                   className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100' : 'border-gray-300 bg-white text-gray-900'}`}
                 >
                   <option value="all">All Trades</option>
                   <option value="won">Won Trades</option>
                   <option value="lost">Lost Trades</option>
+                  <option value="be">BE Trades</option>
                 </select>
               </div>
 

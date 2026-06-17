@@ -5,6 +5,13 @@ import * as XLSX from 'xlsx'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
 import { useTheme } from '@/lib/ThemeContext'
+import { useUserPreferences } from '@/lib/UserPreferencesContext'
+import {
+  classifyOutcomeR,
+  getOutcomeColorClass,
+  isLossOutcome,
+  isWinOutcome,
+} from '@/lib/trade-outcome'
 import {
   createBacktestingSession,
   createBacktestingTrade,
@@ -136,6 +143,7 @@ export default function BacktestingClient({
 }: BacktestingClientProps) {
   const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
   const { isDark } = useTheme()
+  const { breakEvenRThreshold } = useUserPreferences()
 
   const [userId] = useState(initialUserId)
   const [systems, setSystems] = useState<System[]>(initialSystems)
@@ -260,7 +268,10 @@ export default function BacktestingClient({
     return 'Date'
   }
 
-  const sessionStats = useMemo(() => calculateBacktestingSessionStats(statsTrades), [statsTrades])
+  const sessionStats = useMemo(
+    () => calculateBacktestingSessionStats(statsTrades, breakEvenRThreshold),
+    [breakEvenRThreshold, statsTrades],
+  )
   const performanceStats = useMemo(() => calculateBacktestingPerformanceStats(statsTrades), [statsTrades])
 
   const sessionDurationLabel = useMemo(() => {
@@ -924,7 +935,11 @@ export default function BacktestingClient({
                     </tr>
                     </thead>
                     <tbody>
-                      {sortedTrades.map((trade) => (
+                      {sortedTrades.map((trade) => {
+                      const outcomeCategory = classifyOutcomeR(trade.outcome_r, breakEvenRThreshold, true)
+                      const outcomeColorClass = getOutcomeColorClass(outcomeCategory, 'r')
+
+                      return (
                       <tr key={trade.id} className="border-t">
                         <td className="px-3 py-2">
                           <input
@@ -939,7 +954,7 @@ export default function BacktestingClient({
                         <td className="px-3 py-2 text-right">{trade.entry_price ?? '-'}</td>
                         <td className="px-3 py-2 text-right">{trade.stop_loss ?? '-'}</td>
                         <td className="px-3 py-2 text-right">{trade.target_price ?? '-'}</td>
-                        <td className={`px-3 py-2 text-right font-medium ${trade.outcome_r >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <td className={`px-3 py-2 text-right font-medium ${outcomeColorClass}`}>
                           {`${trade.outcome_r >= 0 ? '+' : ''}${trade.outcome_r.toFixed(2)}R`}
                         </td>
                         {showNotesColumn && (
@@ -992,7 +1007,8 @@ export default function BacktestingClient({
                           </div>
                         </td>
                       </tr>
-                      ))}
+                      )
+                    })}
                       {sortedTrades.length === 0 && (
                         <tr>
                           <td colSpan={showNotesColumn ? 10 : 9} className="px-3 py-6 text-center text-gray-500">
@@ -1572,11 +1588,14 @@ function getMonthWeekKeyFromTradeDate(tradeDate: string): string | null {
   return `${year}-${month}-W${weekInMonth}`
 }
 
-function calculateBacktestingSessionStats(trades: BacktestingTrade[]): SessionStats {
+function calculateBacktestingSessionStats(
+  trades: BacktestingTrade[],
+  breakEvenRThreshold: number,
+): SessionStats {
   const totalTrades = trades.length
   const totalR = trades.reduce((sum, trade) => sum + trade.outcome_r, 0)
-  const winningTrades = trades.filter((trade) => trade.outcome_r > 0)
-  const losingTrades = trades.filter((trade) => trade.outcome_r < 0)
+  const winningTrades = trades.filter((trade) => isWinOutcome(trade.outcome_r, breakEvenRThreshold, true))
+  const losingTrades = trades.filter((trade) => isLossOutcome(trade.outcome_r, breakEvenRThreshold, true))
   const monthWeekBuckets = new Set<string>()
 
   trades.forEach((trade) => {
@@ -1587,12 +1606,13 @@ function calculateBacktestingSessionStats(trades: BacktestingTrade[]): SessionSt
   })
 
   const wins = winningTrades.length
-  const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0
+  const decisiveTrades = winningTrades.length + losingTrades.length
+  const winRate = decisiveTrades > 0 ? (wins / decisiveTrades) * 100 : 0
   const totalPositiveR = winningTrades.reduce((sum, trade) => sum + trade.outcome_r, 0)
   const totalNegativeR = losingTrades.reduce((sum, trade) => sum + trade.outcome_r, 0)
 
-  const winRateRatio = totalTrades > 0 ? wins / totalTrades : 0
-  const lossRateRatio = totalTrades > 0 ? losingTrades.length / totalTrades : 0
+  const winRateRatio = decisiveTrades > 0 ? wins / decisiveTrades : 0
+  const lossRateRatio = decisiveTrades > 0 ? losingTrades.length / decisiveTrades : 0
   const averageWinR = winningTrades.length > 0 ? totalPositiveR / winningTrades.length : 0
   const averageLossRAbs = losingTrades.length > 0 ? Math.abs(totalNegativeR / losingTrades.length) : 0
   const expectedValueR = (winRateRatio * averageWinR) - (lossRateRatio * averageLossRAbs)
