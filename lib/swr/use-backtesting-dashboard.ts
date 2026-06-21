@@ -4,6 +4,11 @@ import { getSystems } from '@/services/system'
 import { cacheKeys } from '@/lib/swr/cache-keys'
 import type { BacktestingSession, BacktestingTrade } from '@/services/backtesting'
 import type { System } from '@/services/system'
+import {
+  EMPTY_BACKTESTING_SESSIONS,
+  EMPTY_BACKTESTING_TRADES,
+  EMPTY_SYSTEMS,
+} from '@/lib/swr/empty-collections'
 
 export type BacktestingDashboardFallback = {
   systems?: System[]
@@ -76,9 +81,9 @@ export function useBacktestingDashboard(
   }
 
   return {
-    systems: systemsQuery.data ?? [],
-    sessions: sessionsQuery.data ?? [],
-    trades: tradesQuery.data ?? [],
+    systems: systemsQuery.data ?? EMPTY_SYSTEMS,
+    sessions: sessionsQuery.data ?? EMPTY_BACKTESTING_SESSIONS,
+    trades: tradesQuery.data ?? EMPTY_BACKTESTING_TRADES,
     isLoading,
     isValidating: systemsQuery.isValidating || sessionsQuery.isValidating || tradesQuery.isValidating,
     error: error instanceof Error ? error.message : error ? String(error) : null,

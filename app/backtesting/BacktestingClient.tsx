@@ -253,7 +253,14 @@ export default function BacktestingClient({
   }, [selectedDirectionFilter, trades])
 
   useEffect(() => {
-    setSelectedTradeIds((prev) => prev.filter((id) => filteredTrades.some((trade) => trade.id === id)))
+    const visibleTradeIds = new Set(filteredTrades.map((trade) => trade.id))
+    setSelectedTradeIds((prev) => {
+      const next = prev.filter((id) => visibleTradeIds.has(id))
+      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+        return prev
+      }
+      return next
+    })
   }, [filteredTrades])
 
   const selectedTrades = useMemo(() => {

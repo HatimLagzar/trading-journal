@@ -2,6 +2,7 @@ import useSWR from 'swr'
 import { getTrades } from '@/services/trade'
 import { getSystems, getSubSystems } from '@/services/system'
 import { cacheKeys } from '@/lib/swr/cache-keys'
+import { EMPTY_SUB_SYSTEMS, EMPTY_SYSTEMS, EMPTY_TRADES } from '@/lib/swr/empty-collections'
 import type { Trade } from '@/services/trade'
 import type { SubSystem, System } from '@/services/system'
 
@@ -49,9 +50,9 @@ export function useTradesDashboard(userId: string, fallback?: TradesDashboardFal
   }
 
   return {
-    trades: tradesQuery.data ?? [],
-    systems: systemsQuery.data ?? [],
-    subSystems: subSystemsQuery.data ?? [],
+    trades: tradesQuery.data ?? EMPTY_TRADES,
+    systems: systemsQuery.data ?? EMPTY_SYSTEMS,
+    subSystems: subSystemsQuery.data ?? EMPTY_SUB_SYSTEMS,
     isLoading,
     isValidating: tradesQuery.isValidating || systemsQuery.isValidating || subSystemsQuery.isValidating,
     error: error instanceof Error ? error.message : error ? String(error) : null,

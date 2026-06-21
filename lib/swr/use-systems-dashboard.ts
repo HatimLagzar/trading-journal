@@ -1,6 +1,7 @@
 import useSWR from 'swr'
 import { getSystems, getSubSystems } from '@/services/system'
 import { cacheKeys } from '@/lib/swr/cache-keys'
+import { EMPTY_SUB_SYSTEMS, EMPTY_SYSTEMS } from '@/lib/swr/empty-collections'
 import type { SubSystem, System } from '@/services/system'
 
 export type SystemsDashboardFallback = {
@@ -38,8 +39,8 @@ export function useSystemsDashboard(userId: string | null, fallback?: SystemsDas
   }
 
   return {
-    systems: systemsQuery.data ?? [],
-    subSystems: subSystemsQuery.data ?? [],
+    systems: systemsQuery.data ?? EMPTY_SYSTEMS,
+    subSystems: subSystemsQuery.data ?? EMPTY_SUB_SYSTEMS,
     isLoading,
     isValidating: systemsQuery.isValidating || subSystemsQuery.isValidating,
     error: error instanceof Error ? error.message : error ? String(error) : null,
