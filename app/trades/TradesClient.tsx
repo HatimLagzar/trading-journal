@@ -18,6 +18,15 @@ import { getTrades, deleteTrade, deleteTradesBulk, updateTrade, updateTradesBulk
 import { getSystems, getSubSystems } from '@/services/system'
 import type { Trade, TradeUpdate } from '@/services/trade'
 import type { SubSystem, System } from '@/services/system'
+import {
+  aggregateTimingBuckets,
+  buildTimingTotals,
+  pickBestTimingEntry,
+  pickSecondBestTimingEntry,
+  pickSecondWorstTimingEntry,
+  pickWorstTimingEntry,
+} from '@/lib/performance-timing'
+import TimingBreakdownModal from '@/app/components/TimingBreakdownModal'
 import Modal from './Modal'
 import CloseTradeForm from './CloseTradeForm'
 import ImportTradesForm from './ImportTradesForm'
@@ -142,6 +151,7 @@ export default function TradesClient({
   const [topChartWidgetZIndex, setTopChartWidgetZIndex] = useState(1)
   const [openDeleteMenuTradeId, setOpenDeleteMenuTradeId] = useState<string | null>(null)
   const [decisionsTrade, setDecisionsTrade] = useState<Trade | null>(null)
+  const [isTimingBreakdownOpen, setIsTimingBreakdownOpen] = useState(false)
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false)
   const [bulkEditTradeIds, setBulkEditTradeIds] = useState<string[]>([])
   const [bulkEditSystemMode, setBulkEditSystemMode] = useState<BulkEditSystemMode>('unchanged')
@@ -439,8 +449,6 @@ export default function TradesClient({
   const performanceStats = useMemo<PerformanceStats>(() => {
     const systemTotals = new Map<string, number>()
     const assetTotals = new Map<string, number>()
-    const weekdayTotals = new Map<string, number>()
-    const hourTotals = new Map<string, number>()
 
     statsTrades.forEach((trade) => {
       const tradePnL = (trade.realised_win ?? 0) - (trade.realised_loss ?? 0)
@@ -450,17 +458,14 @@ export default function TradesClient({
 
       const assetKey = trade.coin?.trim() || 'Unknown'
       assetTotals.set(assetKey, (assetTotals.get(assetKey) ?? 0) + tradePnL)
-
-      const weekdayKey = getWeekdayLabelFromTradeDate(trade.trade_date)
-      if (weekdayKey) {
-        weekdayTotals.set(weekdayKey, (weekdayTotals.get(weekdayKey) ?? 0) + tradePnL)
-      }
-
-      const hourKey = getHourLabelFromTradeTime(trade.trade_time)
-      if (hourKey) {
-        hourTotals.set(hourKey, (hourTotals.get(hourKey) ?? 0) + tradePnL)
-      }
     })
+
+    const { weekdayTotals, hourTotals } = buildTimingTotals(
+      statsTrades,
+      (trade) => (trade.realised_win ?? 0) - (trade.realised_loss ?? 0),
+      (trade) => trade.trade_date,
+      (trade) => trade.trade_time,
+    )
 
     function resolveSystemLabel(systemId: string): string {
       if (systemId === '__unassigned__') return 'Unassigned'
@@ -468,63 +473,43 @@ export default function TradesClient({
       return system?.name || '-'
     }
 
-    function pickBest(map: Map<string, number>, labelResolver?: (key: string) => string): PerformanceEntry | null {
-      const entries = Array.from(map.entries())
-      if (entries.length === 0) return null
+    const bestDay = pickBestTimingEntry(weekdayTotals)
+    const worstDay = pickWorstTimingEntry(weekdayTotals)
+    const bestHour = pickBestTimingEntry(hourTotals)
+    const secondBestHour = pickSecondBestTimingEntry(hourTotals)
+    const worstHour = pickWorstTimingEntry(hourTotals)
+    const secondWorstHour = pickSecondWorstTimingEntry(hourTotals)
 
-      const [key, value] = entries.reduce((best, current) => (current[1] > best[1] ? current : best))
-      return {
-        label: labelResolver ? labelResolver(key) : key,
-        netPnL: value,
-      }
-    }
-
-    function pickWorst(map: Map<string, number>, labelResolver?: (key: string) => string): PerformanceEntry | null {
-      const entries = Array.from(map.entries())
-      if (entries.length === 0) return null
-
-      const [key, value] = entries.reduce((worst, current) => (current[1] < worst[1] ? current : worst))
-      return {
-        label: labelResolver ? labelResolver(key) : key,
-        netPnL: value,
-      }
-    }
-
-    function pickSecondBest(map: Map<string, number>, labelResolver?: (key: string) => string): PerformanceEntry | null {
-      const entries = Array.from(map.entries()).sort((a, b) => b[1] - a[1])
-      if (entries.length < 2) return null
-
-      const [key, value] = entries[1]
-      return {
-        label: labelResolver ? labelResolver(key) : key,
-        netPnL: value,
-      }
-    }
-
-    function pickSecondWorst(map: Map<string, number>, labelResolver?: (key: string) => string): PerformanceEntry | null {
-      const entries = Array.from(map.entries()).sort((a, b) => a[1] - b[1])
-      if (entries.length < 2) return null
-
-      const [key, value] = entries[1]
-      return {
-        label: labelResolver ? labelResolver(key) : key,
-        netPnL: value,
-      }
+    function toPerformanceEntry(entry: { label: string; total: number } | null): PerformanceEntry | null {
+      if (!entry) return null
+      return { label: entry.label, netPnL: entry.total }
     }
 
     return {
-      bestSystem: pickBest(systemTotals, resolveSystemLabel),
-      worstSystem: pickWorst(systemTotals, resolveSystemLabel),
-      bestAsset: pickBest(assetTotals),
-      worstAsset: pickWorst(assetTotals),
-      bestDay: pickBest(weekdayTotals),
-      worstDay: pickWorst(weekdayTotals),
-      bestHour: pickBest(hourTotals),
-      secondBestHour: pickSecondBest(hourTotals),
-      worstHour: pickWorst(hourTotals),
-      secondWorstHour: pickSecondWorst(hourTotals),
+      bestSystem: toPerformanceEntry(pickBestTimingEntry(systemTotals, resolveSystemLabel)),
+      worstSystem: toPerformanceEntry(pickWorstTimingEntry(systemTotals, resolveSystemLabel)),
+      bestAsset: toPerformanceEntry(pickBestTimingEntry(assetTotals)),
+      worstAsset: toPerformanceEntry(pickWorstTimingEntry(assetTotals)),
+      bestDay: toPerformanceEntry(bestDay),
+      worstDay: toPerformanceEntry(worstDay),
+      bestHour: toPerformanceEntry(bestHour),
+      secondBestHour: toPerformanceEntry(secondBestHour),
+      worstHour: toPerformanceEntry(worstHour),
+      secondWorstHour: toPerformanceEntry(secondWorstHour),
     }
   }, [statsTrades, systems])
+
+  const timingBuckets = useMemo(
+    () => aggregateTimingBuckets(
+      statsTrades,
+      (trade) => (trade.realised_win ?? 0) - (trade.realised_loss ?? 0),
+      (trade) => trade.trade_date,
+      (trade) => trade.trade_time,
+    ),
+    [statsTrades],
+  )
+
+  const timingBreakdownFiltersActive = statsTrades.length !== trades.length
 
   if (loading) return <div className="p-8">Loading trades...</div>
   if (error) return <div className="p-8 text-red-500">Error: {error}</div>
@@ -1242,8 +1227,16 @@ export default function TradesClient({
           activeDateRangeLabel={activeDateRange.label}
           onClearDateRange={clearDateRange}
         />
-        <BestPerformersCard stats={performanceStats} />
-        <WorstPerformersCard stats={performanceStats} />
+        <BestPerformersCard
+          stats={performanceStats}
+          isDark={isDark}
+          onViewTimingBreakdown={() => setIsTimingBreakdownOpen(true)}
+        />
+        <WorstPerformersCard
+          stats={performanceStats}
+          isDark={isDark}
+          onViewTimingBreakdown={() => setIsTimingBreakdownOpen(true)}
+        />
       </div>
 
       {/* Ongoing Trades Table */}
@@ -1447,6 +1440,17 @@ export default function TradesClient({
           />
         </Modal>
       )}
+
+      <TimingBreakdownModal
+        isOpen={isTimingBreakdownOpen}
+        onClose={() => setIsTimingBreakdownOpen(false)}
+        weekdayBuckets={timingBuckets.weekdays}
+        hourBuckets={timingBuckets.hours}
+        tradeCount={statsTrades.length}
+        metricLabel="$ P&L"
+        valueFormatter={formatTimingDollarValue}
+        filtersActive={timingBreakdownFiltersActive}
+      />
 
       {userId && (
         <Modal isOpen={isImportModalOpen} onClose={handleCloseImportModal}>
@@ -1844,31 +1848,6 @@ function calculateMonthsTraded(normalizedTradeDates: Array<string | null>): numb
   return Math.max(1, months)
 }
 
-function getWeekdayLabelFromTradeDate(tradeDate: string): string | null {
-  const normalizedDate = normalizeTradeDate(tradeDate)
-  if (!normalizedDate) return null
-
-  const date = new Date(`${normalizedDate}T00:00:00Z`)
-  if (Number.isNaN(date.getTime())) return null
-
-  return date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
-}
-
-function getHourLabelFromTradeTime(tradeTime: string | null): string | null {
-  if (!tradeTime) return null
-
-  const trimmed = tradeTime.trim()
-  if (!trimmed) return null
-
-  const match = trimmed.match(/^(\d{1,2})/)
-  if (!match) return null
-
-  const hour = Number(match[1])
-  if (!Number.isInteger(hour) || hour < 0 || hour > 23) return null
-
-  return `${String(hour).padStart(2, '0')}:00`
-}
-
 function normalizeDisplayTime(tradeTime: string | null): string {
   if (!tradeTime) return '00:00:00'
 
@@ -1990,7 +1969,15 @@ function PeriodRCard({
   )
 }
 
-function BestPerformersCard({ stats }: { stats: PerformanceStats }) {
+function BestPerformersCard({
+  stats,
+  isDark,
+  onViewTimingBreakdown,
+}: {
+  stats: PerformanceStats
+  isDark: boolean
+  onViewTimingBreakdown: () => void
+}) {
   const rows = [
     { label: 'System', data: stats.bestSystem },
     { label: 'Asset', data: stats.bestAsset },
@@ -2000,27 +1987,42 @@ function BestPerformersCard({ stats }: { stats: PerformanceStats }) {
   ]
 
   return (
-    <div className="bg-white border rounded-lg p-4 col-span-full lg:col-span-3">
-      <div className="text-sm text-gray-500 mb-2">Best Performers</div>
+    <div className={`border rounded-lg p-4 col-span-full lg:col-span-3 ${isDark ? 'border-white/10 bg-white/5' : 'bg-white'}`}>
+      <div className={`text-sm mb-2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Best Performers</div>
       <div className="space-y-1 text-sm">
         {rows.map((row) => (
           <div key={row.label} className="flex justify-between items-center gap-3">
-            <span className="text-gray-600 truncate">{row.label}</span>
+            <span className={`truncate ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{row.label}</span>
             {row.data ? (
               <span className="text-green-600 font-medium text-right">
                 {`${row.data.label} (${row.data.netPnL >= 0 ? '+' : ''}$${row.data.netPnL.toFixed(2)})`}
               </span>
             ) : (
-              <span className="text-gray-400">-</span>
+              <span className={isDark ? 'text-slate-500' : 'text-gray-400'}>-</span>
             )}
           </div>
         ))}
       </div>
+      <button
+        type="button"
+        onClick={onViewTimingBreakdown}
+        className={`mt-3 text-xs font-medium hover:underline ${isDark ? 'text-sky-300 hover:text-sky-200' : 'text-sky-700 hover:text-sky-900'}`}
+      >
+        View timing breakdown →
+      </button>
     </div>
   )
 }
 
-function WorstPerformersCard({ stats }: { stats: PerformanceStats }) {
+function WorstPerformersCard({
+  stats,
+  isDark,
+  onViewTimingBreakdown,
+}: {
+  stats: PerformanceStats
+  isDark: boolean
+  onViewTimingBreakdown: () => void
+}) {
   const rows = [
     { label: 'System', data: stats.worstSystem },
     { label: 'Asset', data: stats.worstAsset },
@@ -2030,22 +2032,33 @@ function WorstPerformersCard({ stats }: { stats: PerformanceStats }) {
   ]
 
   return (
-    <div className="bg-white border rounded-lg p-4 col-span-full lg:col-span-3">
-      <div className="text-sm text-gray-500 mb-2">Worst Performers</div>
+    <div className={`border rounded-lg p-4 col-span-full lg:col-span-3 ${isDark ? 'border-white/10 bg-white/5' : 'bg-white'}`}>
+      <div className={`text-sm mb-2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Worst Performers</div>
       <div className="space-y-1 text-sm">
         {rows.map((row) => (
           <div key={row.label} className="flex justify-between items-center gap-3">
-            <span className="text-gray-600 truncate">{row.label}</span>
+            <span className={`truncate ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{row.label}</span>
             {row.data ? (
               <span className="text-red-600 font-medium text-right">
                 {`${row.data.label} (${row.data.netPnL >= 0 ? '+' : ''}$${row.data.netPnL.toFixed(2)})`}
               </span>
             ) : (
-              <span className="text-gray-400">-</span>
+              <span className={isDark ? 'text-slate-500' : 'text-gray-400'}>-</span>
             )}
           </div>
         ))}
       </div>
+      <button
+        type="button"
+        onClick={onViewTimingBreakdown}
+        className={`mt-3 text-xs font-medium hover:underline ${isDark ? 'text-sky-300 hover:text-sky-200' : 'text-sky-700 hover:text-sky-900'}`}
+      >
+        View timing breakdown →
+      </button>
     </div>
   )
+}
+
+function formatTimingDollarValue(value: number): string {
+  return `${value >= 0 ? '+' : ''}$${value.toFixed(2)}`
 }

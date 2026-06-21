@@ -23,6 +23,13 @@ import {
   updateBacktestingTrade,
 } from '@/services/backtesting'
 import { createSystem, getSystems } from '@/services/system'
+import {
+  aggregateTimingBuckets,
+  buildTimingTotals,
+  pickBottomTwoTimingEntries,
+  pickTopTwoTimingEntries,
+} from '@/lib/performance-timing'
+import TimingBreakdownModal from '@/app/components/TimingBreakdownModal'
 import Modal from '@/app/trades/Modal'
 import ImportBacktestingTradesForm from './ImportBacktestingTradesForm'
 import BacktestingTradeChartView from './BacktestingTradeChartView'
@@ -175,6 +182,7 @@ export default function BacktestingClient({
   const [openTradeMenuId, setOpenTradeMenuId] = useState<string | null>(null)
   const [chartTrade, setChartTrade] = useState<BacktestingTrade | null>(null)
   const [isChartModalOpen, setIsChartModalOpen] = useState(false)
+  const [isTimingBreakdownOpen, setIsTimingBreakdownOpen] = useState(false)
 
   useEffect(() => {
     const entry = toNullableNumber(tradeForm.entry_price)
@@ -273,6 +281,18 @@ export default function BacktestingClient({
     [breakEvenRThreshold, statsTrades],
   )
   const performanceStats = useMemo(() => calculateBacktestingPerformanceStats(statsTrades), [statsTrades])
+
+  const timingBuckets = useMemo(
+    () => aggregateTimingBuckets(
+      statsTrades,
+      (trade) => trade.outcome_r,
+      (trade) => trade.trade_date,
+      (trade) => trade.trade_time,
+    ),
+    [statsTrades],
+  )
+
+  const timingBreakdownFiltersActive = statsTrades.length !== trades.length
 
   const sessionDurationLabel = useMemo(() => {
     if (trades.length === 0) return 'Time spent backtesting: -'
@@ -873,8 +893,16 @@ export default function BacktestingClient({
                 </div>
 
                 <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-                  <BestPerformanceCard stats={performanceStats} />
-                  <WorstPerformanceCard stats={performanceStats} />
+                  <BestPerformanceCard
+                    stats={performanceStats}
+                    isDark={isDark}
+                    onViewTimingBreakdown={() => setIsTimingBreakdownOpen(true)}
+                  />
+                  <WorstPerformanceCard
+                    stats={performanceStats}
+                    isDark={isDark}
+                    onViewTimingBreakdown={() => setIsTimingBreakdownOpen(true)}
+                  />
                 </div>
               </div>
 
@@ -1356,6 +1384,17 @@ export default function BacktestingClient({
           />
         </Modal>
       )}
+
+      <TimingBreakdownModal
+        isOpen={isTimingBreakdownOpen}
+        onClose={() => setIsTimingBreakdownOpen(false)}
+        weekdayBuckets={timingBuckets.weekdays}
+        hourBuckets={timingBuckets.hours}
+        tradeCount={statsTrades.length}
+        metricLabel="R"
+        valueFormatter={formatTimingRValue}
+        filtersActive={timingBreakdownFiltersActive}
+      />
       </div>
     </div>
   )
@@ -1448,7 +1487,15 @@ function MiniStat({
   )
 }
 
-function BestPerformanceCard({ stats }: { stats: PerformanceStats }) {
+function BestPerformanceCard({
+  stats,
+  isDark,
+  onViewTimingBreakdown,
+}: {
+  stats: PerformanceStats
+  isDark: boolean
+  onViewTimingBreakdown: () => void
+}) {
   const rows = [
     { label: 'Asset', data: stats.bestAsset },
     { label: 'Day #1', data: stats.bestDay },
@@ -1458,27 +1505,42 @@ function BestPerformanceCard({ stats }: { stats: PerformanceStats }) {
   ]
 
   return (
-    <div className="border rounded p-3">
-      <p className="text-xs text-gray-500 mb-2">Best Performers (R)</p>
+    <div className={`border rounded p-3 ${isDark ? 'border-white/10 bg-white/5' : ''}`}>
+      <p className={`text-xs mb-2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Best Performers (R)</p>
       <div className="space-y-1 text-sm">
         {rows.map((row) => (
           <div key={row.label} className="flex items-center justify-between gap-3">
-            <span className="text-gray-600">{row.label}</span>
+            <span className={isDark ? 'text-slate-400' : 'text-gray-600'}>{row.label}</span>
             {row.data ? (
               <span className="text-green-600 font-medium text-right">
                 {`${row.data.label} (${formatSignedR(row.data.totalR)})`}
               </span>
             ) : (
-              <span className="text-gray-400">-</span>
+              <span className={isDark ? 'text-slate-500' : 'text-gray-400'}>-</span>
             )}
           </div>
         ))}
       </div>
+      <button
+        type="button"
+        onClick={onViewTimingBreakdown}
+        className={`mt-3 text-xs font-medium hover:underline ${isDark ? 'text-sky-300 hover:text-sky-200' : 'text-sky-700 hover:text-sky-900'}`}
+      >
+        View timing breakdown →
+      </button>
     </div>
   )
 }
 
-function WorstPerformanceCard({ stats }: { stats: PerformanceStats }) {
+function WorstPerformanceCard({
+  stats,
+  isDark,
+  onViewTimingBreakdown,
+}: {
+  stats: PerformanceStats
+  isDark: boolean
+  onViewTimingBreakdown: () => void
+}) {
   const rows = [
     { label: 'Asset', data: stats.worstAsset },
     { label: 'Day #1', data: stats.worstDay },
@@ -1488,24 +1550,35 @@ function WorstPerformanceCard({ stats }: { stats: PerformanceStats }) {
   ]
 
   return (
-    <div className="border rounded p-3">
-      <p className="text-xs text-gray-500 mb-2">Worst Performers (R)</p>
+    <div className={`border rounded p-3 ${isDark ? 'border-white/10 bg-white/5' : ''}`}>
+      <p className={`text-xs mb-2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Worst Performers (R)</p>
       <div className="space-y-1 text-sm">
         {rows.map((row) => (
           <div key={row.label} className="flex items-center justify-between gap-3">
-            <span className="text-gray-600">{row.label}</span>
+            <span className={isDark ? 'text-slate-400' : 'text-gray-600'}>{row.label}</span>
             {row.data ? (
               <span className="text-red-600 font-medium text-right">
                 {`${row.data.label} (${formatSignedR(row.data.totalR)})`}
               </span>
             ) : (
-              <span className="text-gray-400">-</span>
+              <span className={isDark ? 'text-slate-500' : 'text-gray-400'}>-</span>
             )}
           </div>
         ))}
       </div>
+      <button
+        type="button"
+        onClick={onViewTimingBreakdown}
+        className={`mt-3 text-xs font-medium hover:underline ${isDark ? 'text-sky-300 hover:text-sky-200' : 'text-sky-700 hover:text-sky-900'}`}
+      >
+        View timing breakdown →
+      </button>
     </div>
   )
+}
+
+function formatTimingRValue(value: number): string {
+  return formatSignedR(value)
 }
 
 function formatSignedR(value: number): string {
@@ -1546,31 +1619,6 @@ function normalizeTradeDate(tradeDate: string): string | null {
   const fallback = new Date(trimmed)
   if (Number.isNaN(fallback.getTime())) return null
   return toLocalDateString(fallback)
-}
-
-function getWeekdayLabelFromTradeDate(tradeDate: string): string | null {
-  const normalizedDate = normalizeTradeDate(tradeDate)
-  if (!normalizedDate) return null
-
-  const date = new Date(`${normalizedDate}T00:00:00Z`)
-  if (Number.isNaN(date.getTime())) return null
-
-  return date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
-}
-
-function getHourLabelFromTradeTime(tradeTime: string | null): string | null {
-  if (!tradeTime) return null
-
-  const trimmed = tradeTime.trim()
-  if (!trimmed) return null
-
-  const match = trimmed.match(/^(\d{1,2})/)
-  if (!match) return null
-
-  const hour = Number(match[1])
-  if (!Number.isInteger(hour) || hour < 0 || hour > 23) return null
-
-  return `${String(hour).padStart(2, '0')}:00`
 }
 
 function getMonthWeekKeyFromTradeDate(tradeDate: string): string | null {
@@ -1654,68 +1702,42 @@ function calculateMaxDrawdownR(trades: BacktestingTrade[]): number {
 
 function calculateBacktestingPerformanceStats(trades: BacktestingTrade[]): PerformanceStats {
   const assetTotals = new Map<string, number>()
-  const weekdayTotals = new Map<string, number>()
-  const hourTotals = new Map<string, number>()
 
   trades.forEach((trade) => {
     const assetKey = trade.asset?.trim() || 'Unknown'
     assetTotals.set(assetKey, (assetTotals.get(assetKey) ?? 0) + trade.outcome_r)
-
-    const weekdayKey = getWeekdayLabelFromTradeDate(trade.trade_date)
-    if (weekdayKey) {
-      weekdayTotals.set(weekdayKey, (weekdayTotals.get(weekdayKey) ?? 0) + trade.outcome_r)
-    }
-
-    const hourKey = getHourLabelFromTradeTime(trade.trade_time)
-    if (hourKey) {
-      hourTotals.set(hourKey, (hourTotals.get(hourKey) ?? 0) + trade.outcome_r)
-    }
   })
 
-  function pickTopTwo(
-    map: Map<string, number>,
-  ): { first: PerformanceEntry | null; second: PerformanceEntry | null } {
-    const entries = Array.from(map.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 2)
+  const { weekdayTotals, hourTotals } = buildTimingTotals(
+    trades,
+    (trade) => trade.outcome_r,
+    (trade) => trade.trade_date,
+    (trade) => trade.trade_time,
+  )
 
-    return {
-      first: entries[0] ? { label: entries[0][0], totalR: entries[0][1] } : null,
-      second: entries[1] ? { label: entries[1][0], totalR: entries[1][1] } : null,
-    }
+  const bestAssets = pickTopTwoTimingEntries(assetTotals)
+  const worstAssets = pickBottomTwoTimingEntries(assetTotals)
+  const bestDays = pickTopTwoTimingEntries(weekdayTotals)
+  const worstDays = pickBottomTwoTimingEntries(weekdayTotals)
+  const bestHours = pickTopTwoTimingEntries(hourTotals)
+  const worstHours = pickBottomTwoTimingEntries(hourTotals)
+
+  function toPerformanceEntry(entry: { label: string; total: number } | null): PerformanceEntry | null {
+    if (!entry) return null
+    return { label: entry.label, totalR: entry.total }
   }
-
-  function pickBottomTwo(
-    map: Map<string, number>,
-  ): { first: PerformanceEntry | null; second: PerformanceEntry | null } {
-    const entries = Array.from(map.entries())
-      .sort((a, b) => a[1] - b[1])
-      .slice(0, 2)
-
-    return {
-      first: entries[0] ? { label: entries[0][0], totalR: entries[0][1] } : null,
-      second: entries[1] ? { label: entries[1][0], totalR: entries[1][1] } : null,
-    }
-  }
-
-  const bestAssets = pickTopTwo(assetTotals)
-  const worstAssets = pickBottomTwo(assetTotals)
-  const bestDays = pickTopTwo(weekdayTotals)
-  const worstDays = pickBottomTwo(weekdayTotals)
-  const bestHours = pickTopTwo(hourTotals)
-  const worstHours = pickBottomTwo(hourTotals)
 
   return {
-    bestAsset: bestAssets.first,
-    worstAsset: worstAssets.first,
-    bestDay: bestDays.first,
-    secondBestDay: bestDays.second,
-    worstDay: worstDays.first,
-    secondWorstDay: worstDays.second,
-    bestHour: bestHours.first,
-    secondBestHour: bestHours.second,
-    worstHour: worstHours.first,
-    secondWorstHour: worstHours.second,
+    bestAsset: toPerformanceEntry(bestAssets.first),
+    worstAsset: toPerformanceEntry(worstAssets.first),
+    bestDay: toPerformanceEntry(bestDays.first),
+    secondBestDay: toPerformanceEntry(bestDays.second),
+    worstDay: toPerformanceEntry(worstDays.first),
+    secondWorstDay: toPerformanceEntry(worstDays.second),
+    bestHour: toPerformanceEntry(bestHours.first),
+    secondBestHour: toPerformanceEntry(bestHours.second),
+    worstHour: toPerformanceEntry(worstHours.first),
+    secondWorstHour: toPerformanceEntry(worstHours.second),
   }
 }
 

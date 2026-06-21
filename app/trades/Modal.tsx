@@ -107,7 +107,7 @@ export default function Modal({
     >
       <div
         ref={modalRef}
-        className={`max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl shadow-xl ${isDark ? 'border border-white/10 bg-[#0a1726] text-slate-100' : 'bg-white'} ${contentClassName}`}
+        className={`max-h-[90vh] w-full overflow-y-auto rounded-2xl shadow-xl ${isDark ? 'border border-white/10 bg-[#0a1726] text-slate-100' : 'bg-white'} ${contentClassName || 'max-w-2xl'}`}
         onMouseDown={handleMouseDown}
         onClick={(e) => e.stopPropagation()}
       >
