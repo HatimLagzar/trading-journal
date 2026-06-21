@@ -9,6 +9,7 @@ interface ModalProps {
   children: React.ReactNode
   closeOnOverlayClick?: boolean
   contentClassName?: string
+  innerClassName?: string
   draggable?: boolean
   dragHandleSelector?: string
 }
@@ -19,6 +20,7 @@ export default function Modal({
   children,
   closeOnOverlayClick = true,
   contentClassName = '',
+  innerClassName = 'p-6',
   draggable = false,
   dragHandleSelector = '[data-modal-drag-handle="true"]',
 }: ModalProps) {
@@ -109,7 +111,7 @@ export default function Modal({
         onMouseDown={handleMouseDown}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6">
+        <div className={innerClassName}>
           {children}
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
 import { useTheme } from '@/lib/ThemeContext'
@@ -22,6 +22,7 @@ import Modal from './Modal'
 import CloseTradeForm from './CloseTradeForm'
 import ImportTradesForm from './ImportTradesForm'
 import TradeForm from './TradeForm'
+import TradeDecisionsModal from './TradeDecisionsModal'
 import TradeChartView from './TradeChartView'
 import DateRangePicker from './DateRangePicker'
 import type { DateRangePreset } from './DateRangePicker'
@@ -108,6 +109,7 @@ export default function TradesClient({
   initialError,
 }: TradesClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
   const { isDark } = useTheme()
   const { breakEvenRThreshold } = useUserPreferences()
@@ -139,6 +141,7 @@ export default function TradesClient({
   const [floatingChartWidgets, setFloatingChartWidgets] = useState<FloatingChartWidgetState[]>([])
   const [topChartWidgetZIndex, setTopChartWidgetZIndex] = useState(1)
   const [openDeleteMenuTradeId, setOpenDeleteMenuTradeId] = useState<string | null>(null)
+  const [decisionsTrade, setDecisionsTrade] = useState<Trade | null>(null)
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false)
   const [bulkEditTradeIds, setBulkEditTradeIds] = useState<string[]>([])
   const [bulkEditSystemMode, setBulkEditSystemMode] = useState<BulkEditSystemMode>('unchanged')
@@ -212,6 +215,18 @@ export default function TradesClient({
     if (selectedRealSystemIds.length === 1) return
     setSelectedSubSystemId('')
   }, [selectedRealSystemIds.length])
+
+  useEffect(() => {
+    const decisionsTradeId = searchParams.get('decisions')
+    if (!decisionsTradeId) return
+
+    const trade = trades.find((item) => item.id === decisionsTradeId)
+    if (trade) {
+      setDecisionsTrade(trade)
+    }
+
+    router.replace('/trades', { scroll: false })
+  }, [router, searchParams, trades])
 
   const dateRangeError = useMemo(() => {
     if (selectedDateRangePreset !== 'custom') return null
@@ -935,9 +950,13 @@ export default function TradesClient({
     return `${selectedCount} systems selected`
   }
 
-  function handleOpenFocus(trade: Trade) {
+  function handleOpenDecisions(trade: Trade) {
     setOpenDeleteMenuTradeId(null)
-    router.push(`/trades/${trade.id}`)
+    setDecisionsTrade(trade)
+  }
+
+  function handleCloseDecisionsModal() {
+    setDecisionsTrade(null)
   }
 
   function renderTradeRow(trade: Trade, selectable: boolean) {
@@ -991,7 +1010,7 @@ export default function TradesClient({
               </button>
             )}
             <button
-              onClick={() => handleOpenFocus(trade)}
+              onClick={() => handleOpenDecisions(trade)}
               className="px-2 py-1 text-xs text-sky-700 hover:text-sky-900 hover:underline"
             >
               Decisions
@@ -1409,6 +1428,22 @@ export default function TradesClient({
             userId={userId}
             onClose={handleCloseTradeModal}
             onSuccess={handleFormSuccess}
+          />
+        </Modal>
+      )}
+
+      {userId && decisionsTrade && (
+        <Modal
+          isOpen={Boolean(decisionsTrade)}
+          onClose={handleCloseDecisionsModal}
+          contentClassName="max-w-xl overflow-hidden"
+          innerClassName="p-0"
+        >
+          <TradeDecisionsModal
+            trade={decisionsTrade}
+            systems={systems}
+            userId={userId}
+            onClose={handleCloseDecisionsModal}
           />
         </Modal>
       )}

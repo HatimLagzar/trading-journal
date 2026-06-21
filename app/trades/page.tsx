@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import TradesClient from './TradesClient'
 import { createClient } from '@/lib/supabase/server'
@@ -23,12 +24,14 @@ export default async function TradesPage() {
   const initialError = tradesError?.message ?? systemsError?.message ?? subSystemsError?.message ?? null
 
   return (
-    <TradesClient
-      initialUserId={user.id}
-      initialTrades={(trades ?? []) as Trade[]}
-      initialSystems={(systems ?? []) as System[]}
-      initialSubSystems={(subSystems ?? []) as SubSystem[]}
-      initialError={initialError}
-    />
+    <Suspense fallback={<div className="app-theme min-h-screen p-8 text-slate-500">Loading trades...</div>}>
+      <TradesClient
+        initialUserId={user.id}
+        initialTrades={(trades ?? []) as Trade[]}
+        initialSystems={(systems ?? []) as System[]}
+        initialSubSystems={(subSystems ?? []) as SubSystem[]}
+        initialError={initialError}
+      />
+    </Suspense>
   )
 }
