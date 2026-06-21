@@ -1,9 +1,8 @@
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
+import DashboardRouteLoading from '@/app/components/DashboardRouteLoading'
 import TradesClient from './TradesClient'
 import { createClient } from '@/lib/supabase/server'
-import type { Trade } from '@/services/trade'
-import type { SubSystem, System } from '@/services/system'
 
 export default async function TradesPage() {
   const supabase = await createClient()
@@ -15,23 +14,9 @@ export default async function TradesPage() {
     redirect('/login')
   }
 
-  const [{ data: trades, error: tradesError }, { data: systems, error: systemsError }, { data: subSystems, error: subSystemsError }] = await Promise.all([
-    supabase.from('trades').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-    supabase.from('systems').select('*').eq('user_id', user.id).order('name', { ascending: true }),
-    supabase.from('sub_systems').select('*').eq('user_id', user.id).order('name', { ascending: true }),
-  ])
-
-  const initialError = tradesError?.message ?? systemsError?.message ?? subSystemsError?.message ?? null
-
   return (
-    <Suspense fallback={<div className="app-theme min-h-screen p-8 text-slate-500">Loading trades...</div>}>
-      <TradesClient
-        initialUserId={user.id}
-        initialTrades={(trades ?? []) as Trade[]}
-        initialSystems={(systems ?? []) as System[]}
-        initialSubSystems={(subSystems ?? []) as SubSystem[]}
-        initialError={initialError}
-      />
+    <Suspense fallback={<DashboardRouteLoading variant="trades" />}>
+      <TradesClient initialUserId={user.id} />
     </Suspense>
   )
 }

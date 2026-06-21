@@ -18,11 +18,9 @@ import {
   deleteBacktestingSession,
   deleteBacktestingTrade,
   deleteBacktestingTradesBulk,
-  getBacktestingSessions,
-  getBacktestingTrades,
   updateBacktestingTrade,
 } from '@/services/backtesting'
-import { createSystem, getSystems } from '@/services/system'
+import { createSystem } from '@/services/system'
 import {
   aggregateTimingBuckets,
   buildTimingTotals,
@@ -30,6 +28,8 @@ import {
   pickTopTwoTimingEntries,
 } from '@/lib/performance-timing'
 import TimingBreakdownModal from '@/app/components/TimingBreakdownModal'
+import DashboardRouteLoading from '@/app/components/DashboardRouteLoading'
+import { useBacktestingDashboard } from '@/lib/swr/use-backtesting-dashboard'
 import Modal from '@/app/trades/Modal'
 import ImportBacktestingTradesForm from './ImportBacktestingTradesForm'
 import BacktestingTradeChartView from './BacktestingTradeChartView'
@@ -43,11 +43,6 @@ import type { System } from '@/services/system'
 
 interface BacktestingClientProps {
   initialUserId: string
-  initialSystems: System[]
-  initialSessions: BacktestingSession[]
-  initialSelectedSessionId: string | null
-  initialTrades: BacktestingTrade[]
-  initialError: string | null
 }
 
 type SessionFormState = {
@@ -142,28 +137,44 @@ const emptyTradeFormState: TradeFormState = {
 
 export default function BacktestingClient({
   initialUserId,
-  initialSystems,
-  initialSessions,
-  initialSelectedSessionId,
-  initialTrades,
-  initialError,
 }: BacktestingClientProps) {
   const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
   const { isDark } = useTheme()
   const { breakEvenRThreshold } = useUserPreferences()
 
   const [userId] = useState(initialUserId)
-  const [systems, setSystems] = useState<System[]>(initialSystems)
-  const [sessions, setSessions] = useState<BacktestingSession[]>(initialSessions)
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(initialSelectedSessionId)
-  const [trades, setTrades] = useState<BacktestingTrade[]>(initialTrades)
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
+  const {
+    systems,
+    sessions,
+    trades,
+    isLoading,
+    error: dashboardError,
+    refreshSessions,
+    refreshTrades,
+    refreshAll,
+  } = useBacktestingDashboard(userId, selectedSessionId)
+  const [error, setError] = useState<string | null>(null)
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
   const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('none')
   const [selectedDirectionFilter, setSelectedDirectionFilter] = useState<DirectionFilter>('all')
   const [showNotesColumn, setShowNotesColumn] = useState(false)
 
-  const [loading] = useState(false)
-  const [error, setError] = useState<string | null>(initialError)
+  useEffect(() => {
+    setError(dashboardError)
+  }, [dashboardError])
+
+  useEffect(() => {
+    if (selectedSessionId) return
+    if (sessions.length === 0) return
+    setSelectedSessionId(sessions[0].id)
+  }, [selectedSessionId, sessions])
+
+  useEffect(() => {
+    if (!selectedSessionId) return
+    if (sessions.some((session) => session.id === selectedSessionId)) return
+    setSelectedSessionId(sessions[0]?.id ?? null)
+  }, [selectedSessionId, sessions])
 
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false)
   const [sessionForm, setSessionForm] = useState<SessionFormState>(initialSessionFormState)
@@ -310,45 +321,6 @@ export default function BacktestingClient({
     return `Time spent backtesting: ${formatDuration(diffMs)}`
   }, [trades])
 
-  useEffect(() => {
-    async function loadSessionTrades() {
-      if (!userId || !selectedSessionId) {
-        setTrades([])
-        return
-      }
-
-      try {
-        const tradesData = await getBacktestingTrades(userId, selectedSessionId)
-        setTrades(tradesData)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load backtesting trades')
-      }
-    }
-
-    loadSessionTrades()
-  }, [userId, selectedSessionId])
-
-  async function refreshSessions() {
-    if (!userId) return
-
-    const sessionsData = await getBacktestingSessions(userId)
-    setSessions(sessionsData)
-
-    if (!selectedSessionId && sessionsData[0]) {
-      setSelectedSessionId(sessionsData[0].id)
-    }
-
-    if (selectedSessionId && !sessionsData.some((session) => session.id === selectedSessionId)) {
-      setSelectedSessionId(sessionsData[0]?.id ?? null)
-    }
-  }
-
-  async function refreshTrades() {
-    if (!userId || !selectedSessionId) return
-    const tradesData = await getBacktestingTrades(userId, selectedSessionId)
-    setTrades(tradesData)
-  }
-
   function openSessionModal() {
     setSessionForm(initialSessionFormState)
     setIsSessionModalOpen(true)
@@ -399,11 +371,10 @@ export default function BacktestingClient({
       const created = await createBacktestingSession(payload)
 
       if (newSystemName) {
-        const systemsData = await getSystems(userId)
-        setSystems(systemsData)
+        await refreshAll()
+      } else {
+        await refreshSessions()
       }
-
-      await refreshSessions()
       setSelectedSessionId(created.id)
       closeSessionModal()
     } catch (err) {
@@ -738,7 +709,9 @@ export default function BacktestingClient({
     })
   }
 
-  if (loading) return <div className="p-8">Loading backtesting...</div>
+  if (isLoading) {
+    return <DashboardRouteLoading variant="backtesting" />
+  }
 
   return (
     <div className={`app-theme min-h-screen px-4 py-8 sm:px-6 lg:px-8 ${isDark ? 'app-dark bg-[#07111f] text-slate-100' : 'bg-[#f4f7f9]'}`}>

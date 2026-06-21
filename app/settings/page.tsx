@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AuthNavbar from '@/app/components/AuthNavbar'
+import DashboardRouteLoading from '@/app/components/DashboardRouteLoading'
 import { supabase } from '@/lib/supabase/client'
 import { useTheme } from '@/lib/ThemeContext'
 import { useUserPreferences } from '@/lib/UserPreferencesContext'
@@ -209,7 +210,7 @@ export default function SettingsPage() {
   }
 
   if (loadingUser) {
-    return <div className={`app-theme min-h-screen p-8 ${isDark ? 'app-dark bg-[#07111f] text-slate-100' : ''}`}>Loading settings...</div>
+    return <DashboardRouteLoading variant="settings" />
   }
 
   return (

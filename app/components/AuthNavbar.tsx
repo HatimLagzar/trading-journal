@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
+import {
+  prefetchBacktestingDashboard,
+  prefetchSystemsDashboard,
+  prefetchTradesDashboard,
+} from '@/lib/swr/prefetch-dashboard'
 import { useTheme } from '@/lib/ThemeContext'
 
 type NavSection = 'trades' | 'systems' | 'backtesting' | 'premium' | 'settings'
@@ -42,6 +47,24 @@ export default function AuthNavbar({ current, variant = 'light' }: AuthNavbarPro
   }
 
   const isDark = variant === 'dark' || themeIsDark
+
+  function handleNavPrefetch(section: NavSection) {
+    if (!user?.id) return
+
+    if (section === 'trades') {
+      prefetchTradesDashboard(user.id)
+      return
+    }
+
+    if (section === 'systems') {
+      prefetchSystemsDashboard(user.id)
+      return
+    }
+
+    if (section === 'backtesting') {
+      prefetchBacktestingDashboard(user.id)
+    }
+  }
 
   return (
     <header
@@ -84,6 +107,8 @@ export default function AuthNavbar({ current, variant = 'light' }: AuthNavbarPro
               <Link
                 key={item.key}
                 href={item.href}
+                onMouseEnter={() => handleNavPrefetch(item.key)}
+                onFocus={() => handleNavPrefetch(item.key)}
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                   isActive
                     ? 'bg-blue-600 text-white'

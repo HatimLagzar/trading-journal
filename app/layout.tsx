@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/lib/AuthContext'
 import { PremiumProvider } from '@/lib/PremiumContext'
+import { SwrProvider } from '@/lib/swr/SwrProvider'
 import { ThemeProvider } from '@/lib/ThemeContext'
 import { UserPreferencesProvider } from '@/lib/UserPreferencesContext'
 
@@ -66,11 +67,13 @@ export default function RootLayout({
         />
         <ThemeProvider>
           <AuthProvider>
-            <UserPreferencesProvider>
-              <PremiumProvider>
-                {children}
-              </PremiumProvider>
-            </UserPreferencesProvider>
+            <SwrProvider>
+              <UserPreferencesProvider>
+                <PremiumProvider>
+                  {children}
+                </PremiumProvider>
+              </UserPreferencesProvider>
+            </SwrProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

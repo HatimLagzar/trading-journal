@@ -14,8 +14,7 @@ import {
   isLossOutcome,
   isWinOutcome,
 } from '@/lib/trade-outcome'
-import { getTrades, deleteTrade, deleteTradesBulk, updateTrade, updateTradesBulk } from '@/services/trade'
-import { getSystems, getSubSystems } from '@/services/system'
+import { deleteTrade, deleteTradesBulk, updateTrade, updateTradesBulk } from '@/services/trade'
 import type { Trade, TradeUpdate } from '@/services/trade'
 import type { SubSystem, System } from '@/services/system'
 import {
@@ -35,13 +34,11 @@ import TradeDecisionsModal from './TradeDecisionsModal'
 import TradeChartView from './TradeChartView'
 import DateRangePicker from './DateRangePicker'
 import type { DateRangePreset } from './DateRangePicker'
+import DashboardRouteLoading from '@/app/components/DashboardRouteLoading'
+import { useTradesDashboard } from '@/lib/swr/use-trades-dashboard'
 
 interface TradesClientProps {
   initialUserId: string
-  initialTrades: Trade[]
-  initialSystems: System[]
-  initialSubSystems: SubSystem[]
-  initialError: string | null
 }
 
 type DashboardStats = {
@@ -112,10 +109,6 @@ const UNASSIGNED_SYSTEM_FILTER = '__no_system__'
 
 export default function TradesClient({
   initialUserId,
-  initialTrades,
-  initialSystems,
-  initialSubSystems,
-  initialError,
 }: TradesClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -124,11 +117,19 @@ export default function TradesClient({
   const { breakEvenRThreshold } = useUserPreferences()
 
   const [userId] = useState(initialUserId)
-  const [trades, setTrades] = useState<Trade[]>(initialTrades)
-  const [systems, setSystems] = useState<System[]>(initialSystems)
-  const [subSystems, setSubSystems] = useState<SubSystem[]>(initialSubSystems)
-  const [loading] = useState(false)
-  const [error, setError] = useState<string | null>(initialError)
+  const {
+    trades,
+    systems,
+    subSystems,
+    isLoading,
+    error: dashboardError,
+    refresh: refreshData,
+  } = useTradesDashboard(userId)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setError(dashboardError)
+  }, [dashboardError])
 
   const [selectedSystemIds, setSelectedSystemIds] = useState<string[]>([])
   const [selectedSubSystemId, setSelectedSubSystemId] = useState<string>('')
@@ -162,24 +163,6 @@ export default function TradesClient({
   const [bulkEditError, setBulkEditError] = useState<string | null>(null)
   const [isSystemFilterMenuOpen, setIsSystemFilterMenuOpen] = useState(false)
   const systemFilterMenuRef = useRef<HTMLDivElement | null>(null)
-
-  // Function to refresh trades and filter data
-  async function refreshData() {
-    if (!userId) return
-
-    try {
-      const [tradesData, systemsData, subSystemsData] = await Promise.all([
-        getTrades(userId),
-        getSystems(userId),
-        getSubSystems(userId),
-      ])
-      setTrades(tradesData)
-      setSystems(systemsData)
-      setSubSystems(subSystemsData)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load trades')
-    }
-  }
 
   const selectedRealSystemIds = useMemo(
     () => selectedSystemIds.filter((id) => id !== UNASSIGNED_SYSTEM_FILTER),
@@ -511,8 +494,13 @@ export default function TradesClient({
 
   const timingBreakdownFiltersActive = statsTrades.length !== trades.length
 
-  if (loading) return <div className="p-8">Loading trades...</div>
-  if (error) return <div className="p-8 text-red-500">Error: {error}</div>
+  if (isLoading) {
+    return <DashboardRouteLoading variant="trades" />
+  }
+
+  if (error && trades.length === 0 && systems.length === 0) {
+    return <div className="p-8 text-red-500">Error: {error}</div>
+  }
 
   // Open modal for creating a new trade
   function handleAddTrade() {

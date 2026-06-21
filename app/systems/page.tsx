@@ -2,23 +2,27 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/AuthContext'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
+import DashboardRouteLoading from '@/app/components/DashboardRouteLoading'
+import { useSystemsDashboard } from '@/lib/swr/use-systems-dashboard'
 import { useTheme } from '@/lib/ThemeContext'
-import { getSystems, createSystem, updateSystem, deleteSystem, getSubSystems, createSubSystem, updateSubSystem, deleteSubSystem, mergeSystems } from '@/services/system'
+import { createSystem, updateSystem, deleteSystem, createSubSystem, updateSubSystem, deleteSubSystem, mergeSystems } from '@/services/system'
 import type { System, SystemInsert, SubSystem, SubSystemInsert } from '@/services/system'
-import type { User } from '@supabase/supabase-js'
 
 export default function SystemsPage() {
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const { isPremium, loading: premiumLoading, redirectToPremium } = usePremiumAccess()
   const { isDark } = useTheme()
-
-  const [user, setUser] = useState<User | null>(null)
-  const [systems, setSystems] = useState<System[]>([])
-  const [subSystems, setSubSystems] = useState<SubSystem[]>([])
-  const [loading, setLoading] = useState(true)
+  const {
+    systems,
+    subSystems,
+    isLoading,
+    error: dashboardError,
+    refresh: refreshData,
+  } = useSystemsDashboard(user?.id ?? null)
   const [error, setError] = useState<string | null>(null)
   
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -53,45 +57,15 @@ export default function SystemsPage() {
     description: null,
   })
 
-  async function refreshData() {
-    if (!user) return
-    try {
-      const [systemsData, subSystemsData] = await Promise.all([
-        getSystems(user.id),
-        getSubSystems(user.id),
-      ])
-      setSystems(systemsData)
-      setSubSystems(subSystemsData)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load systems')
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login')
     }
-  }
+  }, [authLoading, router, user])
 
   useEffect(() => {
-    async function loadData() {
-      const { data: { user } } = await supabase.auth.getUser()
-
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      setUser(user)
-      try {
-        const [systemsData, subSystemsData] = await Promise.all([
-          getSystems(user.id),
-          getSubSystems(user.id),
-        ])
-        setSystems(systemsData)
-        setSubSystems(subSystemsData)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load systems')
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
-  }, [router])
+    setError(dashboardError)
+  }, [dashboardError])
 
   function openCreateModal() {
     if (!premiumLoading && !isPremium && systems.length >= 2) {
@@ -301,7 +275,7 @@ export default function SystemsPage() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  if (loading) return <div className="p-8">Loading...</div>
+  if (authLoading || isLoading) return <DashboardRouteLoading variant="systems" />
 
   return (
     <div className={`app-theme min-h-screen px-4 py-8 sm:px-6 lg:px-8 ${isDark ? 'app-dark bg-[#07111f] text-slate-100' : 'bg-[#f4f7f9]'}`}>

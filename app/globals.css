@@ -154,3 +154,31 @@ input[type='reset']:disabled,
 .app-theme.app-dark .shadow-2xl {
   box-shadow: 0 18px 60px rgba(2, 6, 23, 0.38) !important;
 }
+
+.route-loading-shell {
+  background-color: #f4f7f9;
+  color: #0f172a;
+}
+
+html.app-dark-mode .route-loading-shell {
+  background-color: #07111f;
+  color: #e2e8f0;
+}
+
+.route-loading-panel {
+  border-color: #e2e8f0;
+  background-color: #ffffff;
+}
+
+html.app-dark-mode .route-loading-panel {
+  border-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.route-loading-bar {
+  background-color: #e2e8f0;
+}
+
+html.app-dark-mode .route-loading-bar {
+  background-color: rgba(255, 255, 255, 0.1);
+}
