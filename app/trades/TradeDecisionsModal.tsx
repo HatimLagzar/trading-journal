@@ -334,6 +334,12 @@ export default function TradeDecisionsModal({
             <textarea
               value={draftQuote}
               onChange={(e) => setDraftQuote(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !savingQuote) {
+                  e.preventDefault()
+                  e.currentTarget.form?.requestSubmit()
+                }
+              }}
               rows={3}
               placeholder="What are you seeing right now? What matters most for your next decision?"
               className={`${thinkingFont.className} w-full resize-none rounded-lg border px-3 py-2 text-base font-semibold leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 ${inputBgClass}`}
@@ -377,7 +383,7 @@ export default function TradeDecisionsModal({
               </button>
             </div>
             <p className={`text-xs ${mutedTextClass}`}>
-              Tip: paste an image with Cmd+V / Ctrl+V.
+              Tip: Cmd+Enter / Ctrl+Enter to post · paste an image with Cmd+V / Ctrl+V.
             </p>
           </form>
         ) : (
