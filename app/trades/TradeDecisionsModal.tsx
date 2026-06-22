@@ -38,15 +38,40 @@ export default function TradeDecisionsModal({
   const [quotes, setQuotes] = useState<TradeThinkingQuote[]>([])
   const [quoteImageUrls, setQuoteImageUrls] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
-  const [savingQuote, setSavingQuote] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [draftQuote, setDraftQuote] = useState('')
   const [draftImageFile, setDraftImageFile] = useState<File | null>(null)
   const [draftImagePreview, setDraftImagePreview] = useState<string | null>(null)
   const imageInputRef = useRef<HTMLInputElement | null>(null)
+  const quotesScrollRef = useRef<HTMLDivElement | null>(null)
+  const shouldScrollToBottomRef = useRef(false)
 
   const isTradeOngoing = trade.avg_exit === null
+
+  useEffect(() => {
+    if (!shouldScrollToBottomRef.current || loading) return
+
+    const frame = requestAnimationFrame(() => {
+      const container = quotesScrollRef.current
+      if (!container) return
+
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })
+
+      const latestQuote = quotes.at(-1)
+      const waitingForLatestImage = Boolean(
+        latestQuote?.image_storage_path
+          && !isOptimisticImagePath(latestQuote.image_storage_path)
+          && !quoteImageUrls[latestQuote.id],
+      )
+
+      if (!waitingForLatestImage) {
+        shouldScrollToBottomRef.current = false
+      }
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [quotes, quoteImageUrls, loading])
 
   useEffect(() => {
     let isCancelled = false
@@ -82,9 +107,20 @@ export default function TradeDecisionsModal({
     let isCancelled = false
 
     async function loadQuoteImages() {
-      const quotesWithImages = quotes.filter((quote) => quote.image_storage_path)
+      const quotesWithImages = quotes.filter(
+        (quote) => quote.image_storage_path && !isOptimisticImagePath(quote.image_storage_path),
+      )
       if (quotesWithImages.length === 0) {
-        setQuoteImageUrls({})
+        setQuoteImageUrls((prev) => {
+          const quoteIds = new Set(quotes.map((quote) => quote.id))
+          const next: Record<string, string> = {}
+          for (const [id, url] of Object.entries(prev)) {
+            if (quoteIds.has(id)) {
+              next[id] = url
+            }
+          }
+          return next
+        })
         return
       }
 
@@ -97,10 +133,31 @@ export default function TradeDecisionsModal({
         )
 
         if (isCancelled) return
-        setQuoteImageUrls(Object.fromEntries(pairs))
+        setQuoteImageUrls((prev) => {
+          const quoteIds = new Set(quotes.map((quote) => quote.id))
+          const next: Record<string, string> = {}
+          for (const [id, url] of Object.entries(prev)) {
+            if (quoteIds.has(id)) {
+              next[id] = url
+            }
+          }
+          for (const [id, url] of pairs) {
+            next[id] = url
+          }
+          return next
+        })
       } catch {
         if (!isCancelled) {
-          setQuoteImageUrls({})
+          setQuoteImageUrls((prev) => {
+            const quoteIds = new Set(quotes.map((quote) => quote.id))
+            const next: Record<string, string> = {}
+            for (const [id, url] of Object.entries(prev)) {
+              if (quoteIds.has(id)) {
+                next[id] = url
+              }
+            }
+            return next
+          })
         }
       }
     }
@@ -154,17 +211,12 @@ export default function TradeDecisionsModal({
     return system?.name || '-'
   }, [systems, trade.system_id])
 
-  async function refreshQuotes() {
-    const quotesData = await getTradeThinkingQuotes(trade.id)
-    setQuotes(quotesData)
-  }
-
-  function resetQuoteDraft() {
+  function resetQuoteDraft(options?: { revokeImagePreview?: boolean }) {
     setDraftQuote('')
-    if (draftImagePreview) {
+    setDraftImageFile(null)
+    if (draftImagePreview && options?.revokeImagePreview !== false) {
       URL.revokeObjectURL(draftImagePreview)
     }
-    setDraftImageFile(null)
     setDraftImagePreview(null)
     if (imageInputRef.current) {
       imageInputRef.current.value = ''
@@ -195,42 +247,49 @@ export default function TradeDecisionsModal({
     setDraftImage(nextFile)
   }
 
-  async function handleAddQuote(e: FormEvent) {
-    e.preventDefault()
-
-    if (!isTradeOngoing) return
-
-    const trimmedQuote = draftQuote.trim()
-    if (!trimmedQuote && !draftImageFile) {
-      setError('Add text or image to post a thought.')
-      return
-    }
-
-    setSavingQuote(true)
-    setError(null)
-
+  async function persistOptimisticQuote({
+    optimisticId,
+    trimmedQuote,
+    imageFile,
+    imagePreview,
+    imageFilename,
+  }: {
+    optimisticId: string
+    trimmedQuote: string
+    imageFile: File | null
+    imagePreview: string | null
+    imageFilename: string | null
+  }) {
     let uploadedImage: { storagePath: string; originalFilename: string } | null = null
 
     try {
-      if (draftImageFile) {
-        if (!premiumLoading && !isPremium) {
-          redirectToPremium('screenshots')
-          return
-        }
-
-        uploadedImage = await uploadTradeThinkingQuoteImage(userId, trade.id, draftImageFile)
+      if (imageFile) {
+        uploadedImage = await uploadTradeThinkingQuoteImage(userId, trade.id, imageFile)
       }
 
-      await createTradeThinkingQuote({
+      const savedQuote = await createTradeThinkingQuote({
         trade_id: trade.id,
         user_id: userId,
         quote_text: trimmedQuote || null,
         image_storage_path: uploadedImage?.storagePath || null,
-        image_filename: uploadedImage?.originalFilename || null,
+        image_filename: uploadedImage?.originalFilename || imageFilename,
       })
 
-      await refreshQuotes()
-      resetQuoteDraft()
+      setQuotes((prev) => prev.map((quote) => (quote.id === optimisticId ? savedQuote : quote)))
+
+      if (imagePreview) {
+        setQuoteImageUrls((prev) => {
+          const next = { ...prev }
+          delete next[optimisticId]
+          return next
+        })
+        URL.revokeObjectURL(imagePreview)
+      }
+
+      if (savedQuote.image_storage_path) {
+        const signedUrl = await getScreenshotUrl(savedQuote.image_storage_path)
+        setQuoteImageUrls((prev) => ({ ...prev, [savedQuote.id]: signedUrl }))
+      }
     } catch (err) {
       if (uploadedImage) {
         try {
@@ -240,10 +299,76 @@ export default function TradeDecisionsModal({
         }
       }
 
+      setQuotes((prev) => prev.filter((quote) => quote.id !== optimisticId))
+
+      if (imagePreview) {
+        setQuoteImageUrls((prev) => {
+          const next = { ...prev }
+          delete next[optimisticId]
+          return next
+        })
+      }
+
+      setDraftQuote(trimmedQuote)
+      if (imageFile && imagePreview) {
+        setDraftImageFile(imageFile)
+        setDraftImagePreview(imagePreview)
+      } else if (imagePreview) {
+        URL.revokeObjectURL(imagePreview)
+      }
+
       setError(err instanceof Error ? err.message : 'Failed to post your thought')
-    } finally {
-      setSavingQuote(false)
     }
+  }
+
+  async function handleAddQuote(e: FormEvent) {
+    e.preventDefault()
+
+    if (!isTradeOngoing) return
+
+    const trimmedQuote = draftQuote.trim()
+    const imageFile = draftImageFile
+    const imagePreview = draftImagePreview
+    const imageFilename = imageFile?.name ?? null
+
+    if (!trimmedQuote && !imageFile) {
+      setError('Add text or image to post a thought.')
+      return
+    }
+
+    if (imageFile && !premiumLoading && !isPremium) {
+      redirectToPremium('screenshots')
+      return
+    }
+
+    const optimisticId = createOptimisticQuoteId()
+    const optimisticQuote: TradeThinkingQuote = {
+      id: optimisticId,
+      created_at: new Date().toISOString(),
+      trade_id: trade.id,
+      user_id: userId,
+      quote_text: trimmedQuote || null,
+      image_storage_path: imageFile ? toOptimisticImagePath(optimisticId) : null,
+      image_filename: imageFilename,
+    }
+
+    setError(null)
+    setQuotes((prev) => [...prev, optimisticQuote])
+
+    if (imagePreview) {
+      setQuoteImageUrls((prev) => ({ ...prev, [optimisticId]: imagePreview }))
+    }
+
+    shouldScrollToBottomRef.current = true
+    resetQuoteDraft({ revokeImagePreview: false })
+
+    void persistOptimisticQuote({
+      optimisticId,
+      trimmedQuote,
+      imageFile,
+      imagePreview,
+      imageFilename,
+    })
   }
 
   const mutedTextClass = isDark ? 'text-slate-400' : 'text-slate-500'
@@ -294,7 +419,7 @@ export default function TradeDecisionsModal({
           </div>
         )}
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+        <div ref={quotesScrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
           {loading && (
             <p className={`text-sm ${mutedTextClass}`}>Loading decisions...</p>
           )}
@@ -305,9 +430,22 @@ export default function TradeDecisionsModal({
             </div>
           )}
 
-          {quotes.map((quote) => (
-            <article key={quote.id} className={`rounded-xl border p-3 ${cardBorderClass} ${cardBgClass}`}>
-              <p className={`mb-2 text-xs ${mutedTextClass}`}>{formatTimestamp(quote.created_at)}</p>
+          {quotes.map((quote) => {
+            const isOptimistic = isOptimisticQuoteId(quote.id)
+
+            return (
+            <article
+              key={quote.id}
+              className={`rounded-xl border p-3 ${cardBorderClass} ${cardBgClass} ${isOptimistic ? 'opacity-80' : ''}`}
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className={`text-xs ${mutedTextClass}`}>{formatTimestamp(quote.created_at)}</p>
+                {isOptimistic && (
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${mutedTextClass}`}>
+                    Sending...
+                  </span>
+                )}
+              </div>
               {quote.quote_text && (
                 <p className={`${thinkingFont.className} whitespace-pre-wrap text-[1.02rem] font-semibold leading-7 ${quoteTextClass}`}>
                   {quote.quote_text}
@@ -326,7 +464,8 @@ export default function TradeDecisionsModal({
                 </div>
               )}
             </article>
-          ))}
+            )
+          })}
         </div>
 
         {isTradeOngoing ? (
@@ -335,7 +474,7 @@ export default function TradeDecisionsModal({
               value={draftQuote}
               onChange={(e) => setDraftQuote(e.target.value)}
               onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !savingQuote) {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                   e.preventDefault()
                   e.currentTarget.form?.requestSubmit()
                 }
@@ -376,10 +515,9 @@ export default function TradeDecisionsModal({
               </button>
               <button
                 type="submit"
-                disabled={savingQuote}
-                className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
+                className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-700"
               >
-                {savingQuote ? 'Posting...' : 'Post thought'}
+                Post thought
               </button>
             </div>
             <p className={`text-xs ${mutedTextClass}`}>
@@ -394,6 +532,22 @@ export default function TradeDecisionsModal({
       </div>
     </div>
   )
+}
+
+function createOptimisticQuoteId(): string {
+  return `optimistic-${crypto.randomUUID()}`
+}
+
+function isOptimisticQuoteId(id: string): boolean {
+  return id.startsWith('optimistic-')
+}
+
+function toOptimisticImagePath(optimisticId: string): string {
+  return `optimistic:${optimisticId}`
+}
+
+function isOptimisticImagePath(path: string): boolean {
+  return path.startsWith('optimistic:')
 }
 
 function formatTimestamp(value: string): string {
