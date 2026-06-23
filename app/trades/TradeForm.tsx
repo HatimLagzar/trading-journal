@@ -9,6 +9,7 @@ import {
   updateBacktestingMirrorFromLiveTrade,
 } from '@/services/backtesting'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
+import PriceInput from '@/app/components/PriceInput'
 import { getSystems, getSubSystems } from '@/services/system'
 import {
   uploadScreenshot,
@@ -698,11 +699,10 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
           <label className="block text-sm font-medium mb-1">
             Avg Entry Price <span className="text-red-500">*</span>
           </label>
-          <input
-            type="number"
-            step="0.000001"
+          <PriceInput
             value={formData.avg_entry}
-            onChange={(e) => updateField('avg_entry', parseFloat(e.target.value) || 0)}
+            onValueChange={(value) => updateField('avg_entry', value ?? 0)}
+            fallbackValue={0}
             required
             disabled={aiExtracting}
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -711,11 +711,9 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
 
         <div>
           <label className="block text-sm font-medium mb-1">Stop Loss</label>
-          <input
-            type="number"
-            step="0.000001"
-            value={formData.stop_loss || ''}
-            onChange={(e) => updateField('stop_loss', e.target.value ? parseFloat(e.target.value) : null)}
+          <PriceInput
+            value={formData.stop_loss}
+            onValueChange={(value) => updateField('stop_loss', value)}
             disabled={aiExtracting}
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
@@ -726,22 +724,18 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Avg Exit Price</label>
-          <input
-            type="number"
-            step="0.000001"
-            value={formData.avg_exit || ''}
-            onChange={(e) => updateField('avg_exit', e.target.value ? parseFloat(e.target.value) : null)}
+          <PriceInput
+            value={formData.avg_exit}
+            onValueChange={(value) => updateField('avg_exit', value)}
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-1">Risk Amount</label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.risk || ''}
-            onChange={(e) => updateField('risk', e.target.value ? parseFloat(e.target.value) : null)}
+          <PriceInput
+            value={formData.risk}
+            onValueChange={(value) => updateField('risk', value)}
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -751,22 +745,18 @@ export default function TradeForm({ trade, onClose, onSuccess, userId }: TradeFo
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Realised Win</label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.realised_win || ''}
-            onChange={(e) => updateField('realised_win', e.target.value ? parseFloat(e.target.value) : null)}
+          <PriceInput
+            value={formData.realised_win}
+            onValueChange={(value) => updateField('realised_win', value)}
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-1">Realised Loss</label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.realised_loss || ''}
-            onChange={(e) => updateField('realised_loss', e.target.value ? parseFloat(e.target.value) : null)}
+          <PriceInput
+            value={formData.realised_loss}
+            onValueChange={(value) => updateField('realised_loss', value)}
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>

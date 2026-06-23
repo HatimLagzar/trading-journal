@@ -7,6 +7,7 @@ import {
   updateBacktestingMirrorFromLiveTrade,
 } from '@/services/backtesting'
 import { useTheme } from '@/lib/ThemeContext'
+import PriceInput from '@/app/components/PriceInput'
 import type { Trade } from '@/services/trade'
 
 interface CloseTradeFormProps {
@@ -103,11 +104,10 @@ export default function CloseTradeForm({ trade, userId, onClose, onSuccess }: Cl
         <label className="block text-sm font-medium mb-1">
           Exit Price <span className="text-red-500">*</span>
         </label>
-        <input
-          type="number"
-          step="0.000001"
-          value={avgExit || ''}
-          onChange={(e) => setAvgExit(parseFloat(e.target.value) || 0)}
+        <PriceInput
+          value={avgExit}
+          onValueChange={(value) => setAvgExit(value ?? 0)}
+          fallbackValue={0}
           required
           className={`w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'border-white/15 bg-slate-950 text-slate-100' : ''}`}
         />
@@ -117,11 +117,10 @@ export default function CloseTradeForm({ trade, userId, onClose, onSuccess }: Cl
         <label className="block text-sm font-medium mb-1">
           Realised P&L <span className="text-red-500">*</span>
         </label>
-        <input
-          type="number"
-          step="0.01"
-          value={realisedPnl || ''}
-          onChange={(e) => setRealisedPnl(parseFloat(e.target.value) || 0)}
+        <PriceInput
+          value={realisedPnl}
+          onValueChange={(value) => setRealisedPnl(value ?? 0)}
+          fallbackValue={0}
           required
           className={`w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'border-white/15 bg-slate-950 text-slate-100' : ''}`}
         />

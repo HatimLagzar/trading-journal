@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { usePremiumAccess } from '@/lib/usePremiumAccess'
 import AuthNavbar from '@/app/components/AuthNavbar'
+import PriceInput from '@/app/components/PriceInput'
+import { parsePriceInput } from '@/lib/parse-price-input'
 import { useTheme } from '@/lib/ThemeContext'
 import { useUserPreferences } from '@/lib/UserPreferencesContext'
 import {
@@ -1241,32 +1243,29 @@ export default function BacktestingClient({
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Entry</label>
-              <input
-                type="number"
-                step="0.000001"
+              <PriceInput
+                valueMode="string"
                 value={tradeForm.entry_price}
-                onChange={(e) => setTradeForm((prev) => ({ ...prev, entry_price: e.target.value }))}
+                onValueChange={(entry_price) => setTradeForm((prev) => ({ ...prev, entry_price }))}
                 className="w-full px-3 py-2 border rounded-lg"
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">SL</label>
-              <input
-                type="number"
-                step="0.000001"
+              <PriceInput
+                valueMode="string"
                 value={tradeForm.stop_loss}
-                onChange={(e) => setTradeForm((prev) => ({ ...prev, stop_loss: e.target.value }))}
+                onValueChange={(stop_loss) => setTradeForm((prev) => ({ ...prev, stop_loss }))}
                 className="w-full px-3 py-2 border rounded-lg"
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">TP</label>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  step="0.000001"
+                <PriceInput
+                  valueMode="string"
                   value={tradeForm.target_price}
-                  onChange={(e) => setTradeForm((prev) => ({ ...prev, target_price: e.target.value }))}
+                  onValueChange={(target_price) => setTradeForm((prev) => ({ ...prev, target_price }))}
                   className="w-full px-3 py-2 border rounded-lg"
                 />
                 <button
@@ -1283,11 +1282,10 @@ export default function BacktestingClient({
 
           <div>
             <label className="block text-sm font-medium mb-1">Profit (R)</label>
-            <input
-              type="number"
-              step="0.01"
+            <PriceInput
+              valueMode="string"
               value={tradeForm.outcome_r}
-              onChange={(e) => setTradeForm((prev) => ({ ...prev, outcome_r: e.target.value }))}
+              onValueChange={(outcome_r) => setTradeForm((prev) => ({ ...prev, outcome_r }))}
               className="w-full px-3 py-2 border rounded-lg"
               required
             />
@@ -1381,10 +1379,7 @@ export default function BacktestingClient({
 }
 
 function toNullableNumber(value: string): number | null {
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  const numberValue = Number(trimmed)
-  return Number.isFinite(numberValue) ? numberValue : null
+  return parsePriceInput(value)
 }
 
 function createInitialTradeFormState(): TradeFormState {
