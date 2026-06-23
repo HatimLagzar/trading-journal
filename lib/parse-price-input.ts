@@ -59,6 +59,15 @@ export function parsePriceInput(value: string): number | null {
   return negative ? -parsed : parsed
 }
 
+export function isPartialPriceInput(value: string): boolean {
+  const trimmed = value.trim().replace(/−/g, '-')
+  if (!trimmed) return false
+
+  if (trimmed === '-' || trimmed === '+') return true
+
+  return /[.,]$/.test(trimmed)
+}
+
 export function formatPriceInputValue(value: number | null): string {
   if (value === null || value === undefined) return ''
   return String(value)
