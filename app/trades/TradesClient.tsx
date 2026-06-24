@@ -135,6 +135,7 @@ export default function TradesClient({
   const [selectedSubSystemId, setSelectedSubSystemId] = useState<string>('')
   const [selectedOutcomeFilter, setSelectedOutcomeFilter] = useState<'all' | 'won' | 'lost' | 'be'>('all')
   const [selectedDirectionFilter, setSelectedDirectionFilter] = useState<'all' | 'long' | 'short'>('all')
+  const [selectedAssetFilter, setSelectedAssetFilter] = useState('')
   const [selectedDateRangePreset, setSelectedDateRangePreset] = useState<DateRangePreset>('all')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
@@ -186,6 +187,27 @@ export default function TradesClient({
       ? selectedSubSystemId
       : ''
   }, [availableSubSystems, selectedSubSystemId])
+
+  const availableAssets = useMemo(() => {
+    const assets = new Set<string>()
+
+    for (const trade of trades) {
+      const trimmed = trade.coin?.trim()
+      if (trimmed) assets.add(trimmed)
+    }
+
+    return [...assets].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+  }, [trades])
+
+  const effectiveSelectedAssetFilter = useMemo(() => {
+    if (!selectedAssetFilter) return ''
+
+    return availableAssets.some(
+      (asset) => asset.localeCompare(selectedAssetFilter, undefined, { sensitivity: 'base' }) === 0,
+    )
+      ? selectedAssetFilter
+      : ''
+  }, [availableAssets, selectedAssetFilter])
 
   useEffect(() => {
     if (!isSystemFilterMenuOpen) return
@@ -285,11 +307,18 @@ export default function TradesClient({
         || (selectedDirectionFilter === 'long' && trade.direction === 'long')
         || (selectedDirectionFilter === 'short' && trade.direction === 'short')
 
+      const matchesAsset = !effectiveSelectedAssetFilter
+        || (trade.coin?.trim() ?? '').localeCompare(
+          effectiveSelectedAssetFilter,
+          undefined,
+          { sensitivity: 'base' },
+        ) === 0
+
       const matchesDateRange = isDateWithinRange(normalizedTradeDate, activeDateRange.start, activeDateRange.end)
 
-      return matchesSystem && matchesSubSystem && matchesOutcome && matchesDirection && matchesDateRange
+      return matchesSystem && matchesSubSystem && matchesOutcome && matchesDirection && matchesAsset && matchesDateRange
     })
-  }, [activeDateRange.end, activeDateRange.start, breakEvenRThreshold, effectiveSelectedSubSystemId, selectedDirectionFilter, selectedOutcomeFilter, selectedSystemIds, trades])
+  }, [activeDateRange.end, activeDateRange.start, breakEvenRThreshold, effectiveSelectedAssetFilter, effectiveSelectedSubSystemId, selectedDirectionFilter, selectedOutcomeFilter, selectedSystemIds, trades])
 
   const dateSortedTrades = useMemo(() => {
     if (dateSortDirection === 'none') return filteredTrades
@@ -886,6 +915,7 @@ export default function TradesClient({
     setSelectedSubSystemId('')
     setSelectedOutcomeFilter('all')
     setSelectedDirectionFilter('all')
+    setSelectedAssetFilter('')
     clearDateRange()
   }
 
@@ -1061,7 +1091,7 @@ export default function TradesClient({
         {/* Filters */}
         <div className={`mb-6 rounded-lg border p-4 ${isDark ? 'border-slate-700 bg-slate-900/35' : 'border-gray-200 bg-gray-50'}`}>
           <div className="space-y-3">
-            <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-2 xl:grid-cols-5">
               <div>
                 <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>System</label>
                 <div className="relative" ref={systemFilterMenuRef}>
@@ -1154,6 +1184,20 @@ export default function TradesClient({
                   <option value="all">All Directions</option>
                   <option value="long">Long Trades</option>
                   <option value="short">Short Trades</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Asset</label>
+                <select
+                  value={effectiveSelectedAssetFilter}
+                  onChange={(e) => setSelectedAssetFilter(e.target.value)}
+                  className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                >
+                  <option value="">All Assets</option>
+                  {availableAssets.map((asset) => (
+                    <option key={asset} value={asset}>{asset}</option>
+                  ))}
                 </select>
               </div>
             </div>
