@@ -20,6 +20,7 @@ import type { SubSystem, System } from '@/services/system'
 import {
   aggregateTimingBuckets,
   buildTimingTotals,
+  pickBestCountEntry,
   pickBestTimingEntry,
   pickSecondBestTimingEntry,
   pickSecondWorstTimingEntry,
@@ -62,6 +63,7 @@ type PeriodRStats = {
 type PerformanceEntry = {
   label: string
   netPnL: number
+  winCount?: number
 }
 
 type PerformanceStats = {
@@ -461,6 +463,7 @@ export default function TradesClient({
   const performanceStats = useMemo<PerformanceStats>(() => {
     const systemTotals = new Map<string, number>()
     const assetTotals = new Map<string, number>()
+    const assetWinCounts = new Map<string, number>()
 
     statsTrades.forEach((trade) => {
       const tradePnL = (trade.realised_win ?? 0) - (trade.realised_loss ?? 0)
@@ -470,6 +473,9 @@ export default function TradesClient({
 
       const assetKey = trade.coin?.trim() || 'Unknown'
       assetTotals.set(assetKey, (assetTotals.get(assetKey) ?? 0) + tradePnL)
+      if (isWinOutcome(trade.r_multiple, breakEvenRThreshold, trade.avg_exit !== null)) {
+        assetWinCounts.set(assetKey, (assetWinCounts.get(assetKey) ?? 0) + 1)
+      }
     })
 
     const { weekdayTotals, hourTotals } = buildTimingTotals(
@@ -497,10 +503,18 @@ export default function TradesClient({
       return { label: entry.label, netPnL: entry.total }
     }
 
+    const bestAssetByWins = pickBestCountEntry(assetWinCounts, assetTotals)
+
     return {
       bestSystem: toPerformanceEntry(pickBestTimingEntry(systemTotals, resolveSystemLabel)),
       worstSystem: toPerformanceEntry(pickWorstTimingEntry(systemTotals, resolveSystemLabel)),
-      bestAsset: toPerformanceEntry(pickBestTimingEntry(assetTotals)),
+      bestAsset: bestAssetByWins
+        ? {
+            label: bestAssetByWins.label,
+            netPnL: assetTotals.get(bestAssetByWins.label) ?? 0,
+            winCount: bestAssetByWins.total,
+          }
+        : null,
       worstAsset: toPerformanceEntry(pickWorstTimingEntry(assetTotals)),
       bestDay: toPerformanceEntry(bestDay),
       worstDay: toPerformanceEntry(worstDay),
@@ -509,7 +523,7 @@ export default function TradesClient({
       worstHour: toPerformanceEntry(worstHour),
       secondWorstHour: toPerformanceEntry(secondWorstHour),
     }
-  }, [statsTrades, systems])
+  }, [breakEvenRThreshold, statsTrades, systems])
 
   const timingBuckets = useMemo(
     () => aggregateTimingBuckets(
@@ -2027,7 +2041,9 @@ function BestPerformersCard({
             <span className={`truncate ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{row.label}</span>
             {row.data ? (
               <span className="text-green-600 font-medium text-right">
-                {`${row.data.label} (${row.data.netPnL >= 0 ? '+' : ''}$${row.data.netPnL.toFixed(2)})`}
+                {row.label === 'Asset' && row.data.winCount !== undefined
+                  ? `${row.data.label} (${row.data.winCount} ${row.data.winCount === 1 ? 'win' : 'wins'})`
+                  : `${row.data.label} (${row.data.netPnL >= 0 ? '+' : ''}$${row.data.netPnL.toFixed(2)})`}
               </span>
             ) : (
               <span className={isDark ? 'text-slate-500' : 'text-gray-400'}>-</span>

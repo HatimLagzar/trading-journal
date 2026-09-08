@@ -26,6 +26,7 @@ import { createSystem } from '@/services/system'
 import {
   aggregateTimingBuckets,
   buildTimingTotals,
+  pickBestCountEntry,
   pickBottomTwoTimingEntries,
   pickTopTwoTimingEntries,
 } from '@/lib/performance-timing'
@@ -89,6 +90,7 @@ type AiExtractionResponse = {
 type PerformanceEntry = {
   label: string
   totalR: number
+  winCount?: number
 }
 
 type PerformanceStats = {
@@ -300,7 +302,10 @@ export default function BacktestingClient({
     () => calculateBacktestingSessionStats(statsTrades, breakEvenRThreshold),
     [breakEvenRThreshold, statsTrades],
   )
-  const performanceStats = useMemo(() => calculateBacktestingPerformanceStats(statsTrades), [statsTrades])
+  const performanceStats = useMemo(
+    () => calculateBacktestingPerformanceStats(statsTrades, breakEvenRThreshold),
+    [breakEvenRThreshold, statsTrades],
+  )
 
   const timingBuckets = useMemo(
     () => aggregateTimingBuckets(
@@ -1488,7 +1493,9 @@ function BestPerformanceCard({
             <span className={isDark ? 'text-slate-400' : 'text-gray-600'}>{row.label}</span>
             {row.data ? (
               <span className="text-green-600 font-medium text-right">
-                {`${row.data.label} (${formatSignedR(row.data.totalR)})`}
+                {row.label === 'Asset' && row.data.winCount !== undefined
+                  ? `${row.data.label} (${row.data.winCount} ${row.data.winCount === 1 ? 'win' : 'wins'})`
+                  : `${row.data.label} (${formatSignedR(row.data.totalR)})`}
               </span>
             ) : (
               <span className={isDark ? 'text-slate-500' : 'text-gray-400'}>-</span>
@@ -1675,12 +1682,19 @@ function calculateMaxDrawdownR(trades: BacktestingTrade[]): number {
   return maxDrawdown
 }
 
-function calculateBacktestingPerformanceStats(trades: BacktestingTrade[]): PerformanceStats {
+function calculateBacktestingPerformanceStats(
+  trades: BacktestingTrade[],
+  breakEvenRThreshold: number,
+): PerformanceStats {
   const assetTotals = new Map<string, number>()
+  const assetWinCounts = new Map<string, number>()
 
   trades.forEach((trade) => {
     const assetKey = trade.asset?.trim() || 'Unknown'
     assetTotals.set(assetKey, (assetTotals.get(assetKey) ?? 0) + trade.outcome_r)
+    if (isWinOutcome(trade.outcome_r, breakEvenRThreshold, true)) {
+      assetWinCounts.set(assetKey, (assetWinCounts.get(assetKey) ?? 0) + 1)
+    }
   })
 
   const { weekdayTotals, hourTotals } = buildTimingTotals(
@@ -1690,7 +1704,7 @@ function calculateBacktestingPerformanceStats(trades: BacktestingTrade[]): Perfo
     (trade) => trade.trade_time,
   )
 
-  const bestAssets = pickTopTwoTimingEntries(assetTotals)
+  const bestAssetByWins = pickBestCountEntry(assetWinCounts, assetTotals)
   const worstAssets = pickBottomTwoTimingEntries(assetTotals)
   const bestDays = pickTopTwoTimingEntries(weekdayTotals)
   const worstDays = pickBottomTwoTimingEntries(weekdayTotals)
@@ -1703,7 +1717,13 @@ function calculateBacktestingPerformanceStats(trades: BacktestingTrade[]): Perfo
   }
 
   return {
-    bestAsset: toPerformanceEntry(bestAssets.first),
+    bestAsset: bestAssetByWins
+      ? {
+          label: bestAssetByWins.label,
+          totalR: assetTotals.get(bestAssetByWins.label) ?? 0,
+          winCount: bestAssetByWins.total,
+        }
+      : null,
     worstAsset: toPerformanceEntry(worstAssets.first),
     bestDay: toPerformanceEntry(bestDays.first),
     secondBestDay: toPerformanceEntry(bestDays.second),
