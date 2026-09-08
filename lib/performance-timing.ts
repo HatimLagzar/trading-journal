@@ -188,6 +188,31 @@ export function pickBestCountEntry(
   }
 }
 
+export function pickWorstCountEntry(
+  counts: Map<string, number>,
+  tieBreakTotals: Map<string, number>,
+): TimingTotalsEntry | null {
+  const entries = Array.from(counts.entries())
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => {
+      const countDifference = b[1] - a[1]
+      if (countDifference !== 0) return countDifference
+
+      const totalDifference = (tieBreakTotals.get(a[0]) ?? 0) - (tieBreakTotals.get(b[0]) ?? 0)
+      if (totalDifference !== 0) return totalDifference
+
+      return a[0].localeCompare(b[0])
+    })
+
+  const worstEntry = entries[0]
+  if (!worstEntry) return null
+
+  return {
+    label: worstEntry[0],
+    total: worstEntry[1],
+  }
+}
+
 export function pickWorstTimingEntry(
   map: Map<string, number>,
   labelResolver?: (key: string) => string,

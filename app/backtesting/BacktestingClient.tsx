@@ -29,6 +29,7 @@ import {
   pickBestCountEntry,
   pickBottomTwoTimingEntries,
   pickTopTwoTimingEntries,
+  pickWorstCountEntry,
 } from '@/lib/performance-timing'
 import TimingBreakdownModal from '@/app/components/TimingBreakdownModal'
 import DashboardRouteLoading from '@/app/components/DashboardRouteLoading'
@@ -91,6 +92,7 @@ type PerformanceEntry = {
   label: string
   totalR: number
   winCount?: number
+  lossCount?: number
 }
 
 type PerformanceStats = {
@@ -1540,7 +1542,9 @@ function WorstPerformanceCard({
             <span className={isDark ? 'text-slate-400' : 'text-gray-600'}>{row.label}</span>
             {row.data ? (
               <span className="text-red-600 font-medium text-right">
-                {`${row.data.label} (${formatSignedR(row.data.totalR)})`}
+                {row.label === 'Asset' && row.data.lossCount !== undefined
+                  ? `${row.data.label} (${row.data.lossCount} ${row.data.lossCount === 1 ? 'loss' : 'losses'})`
+                  : `${row.data.label} (${formatSignedR(row.data.totalR)})`}
               </span>
             ) : (
               <span className={isDark ? 'text-slate-500' : 'text-gray-400'}>-</span>
@@ -1688,12 +1692,16 @@ function calculateBacktestingPerformanceStats(
 ): PerformanceStats {
   const assetTotals = new Map<string, number>()
   const assetWinCounts = new Map<string, number>()
+  const assetLossCounts = new Map<string, number>()
 
   trades.forEach((trade) => {
     const assetKey = trade.asset?.trim() || 'Unknown'
     assetTotals.set(assetKey, (assetTotals.get(assetKey) ?? 0) + trade.outcome_r)
     if (isWinOutcome(trade.outcome_r, breakEvenRThreshold, true)) {
       assetWinCounts.set(assetKey, (assetWinCounts.get(assetKey) ?? 0) + 1)
+    }
+    if (isLossOutcome(trade.outcome_r, breakEvenRThreshold, true)) {
+      assetLossCounts.set(assetKey, (assetLossCounts.get(assetKey) ?? 0) + 1)
     }
   })
 
@@ -1705,7 +1713,7 @@ function calculateBacktestingPerformanceStats(
   )
 
   const bestAssetByWins = pickBestCountEntry(assetWinCounts, assetTotals)
-  const worstAssets = pickBottomTwoTimingEntries(assetTotals)
+  const worstAssetByLosses = pickWorstCountEntry(assetLossCounts, assetTotals)
   const bestDays = pickTopTwoTimingEntries(weekdayTotals)
   const worstDays = pickBottomTwoTimingEntries(weekdayTotals)
   const bestHours = pickTopTwoTimingEntries(hourTotals)
@@ -1724,7 +1732,13 @@ function calculateBacktestingPerformanceStats(
           winCount: bestAssetByWins.total,
         }
       : null,
-    worstAsset: toPerformanceEntry(worstAssets.first),
+    worstAsset: worstAssetByLosses
+      ? {
+          label: worstAssetByLosses.label,
+          totalR: assetTotals.get(worstAssetByLosses.label) ?? 0,
+          lossCount: worstAssetByLosses.total,
+        }
+      : null,
     bestDay: toPerformanceEntry(bestDays.first),
     secondBestDay: toPerformanceEntry(bestDays.second),
     worstDay: toPerformanceEntry(worstDays.first),

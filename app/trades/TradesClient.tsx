@@ -24,6 +24,7 @@ import {
   pickBestTimingEntry,
   pickSecondBestTimingEntry,
   pickSecondWorstTimingEntry,
+  pickWorstCountEntry,
   pickWorstTimingEntry,
 } from '@/lib/performance-timing'
 import TimingBreakdownModal from '@/app/components/TimingBreakdownModal'
@@ -64,6 +65,7 @@ type PerformanceEntry = {
   label: string
   netPnL: number
   winCount?: number
+  lossCount?: number
 }
 
 type PerformanceStats = {
@@ -464,6 +466,7 @@ export default function TradesClient({
     const systemTotals = new Map<string, number>()
     const assetTotals = new Map<string, number>()
     const assetWinCounts = new Map<string, number>()
+    const assetLossCounts = new Map<string, number>()
 
     statsTrades.forEach((trade) => {
       const tradePnL = (trade.realised_win ?? 0) - (trade.realised_loss ?? 0)
@@ -475,6 +478,9 @@ export default function TradesClient({
       assetTotals.set(assetKey, (assetTotals.get(assetKey) ?? 0) + tradePnL)
       if (isWinOutcome(trade.r_multiple, breakEvenRThreshold, trade.avg_exit !== null)) {
         assetWinCounts.set(assetKey, (assetWinCounts.get(assetKey) ?? 0) + 1)
+      }
+      if (isLossOutcome(trade.r_multiple, breakEvenRThreshold, trade.avg_exit !== null)) {
+        assetLossCounts.set(assetKey, (assetLossCounts.get(assetKey) ?? 0) + 1)
       }
     })
 
@@ -504,6 +510,7 @@ export default function TradesClient({
     }
 
     const bestAssetByWins = pickBestCountEntry(assetWinCounts, assetTotals)
+    const worstAssetByLosses = pickWorstCountEntry(assetLossCounts, assetTotals)
 
     return {
       bestSystem: toPerformanceEntry(pickBestTimingEntry(systemTotals, resolveSystemLabel)),
@@ -515,7 +522,13 @@ export default function TradesClient({
             winCount: bestAssetByWins.total,
           }
         : null,
-      worstAsset: toPerformanceEntry(pickWorstTimingEntry(assetTotals)),
+      worstAsset: worstAssetByLosses
+        ? {
+            label: worstAssetByLosses.label,
+            netPnL: assetTotals.get(worstAssetByLosses.label) ?? 0,
+            lossCount: worstAssetByLosses.total,
+          }
+        : null,
       bestDay: toPerformanceEntry(bestDay),
       worstDay: toPerformanceEntry(worstDay),
       bestHour: toPerformanceEntry(bestHour),
@@ -2088,7 +2101,9 @@ function WorstPerformersCard({
             <span className={`truncate ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{row.label}</span>
             {row.data ? (
               <span className="text-red-600 font-medium text-right">
-                {`${row.data.label} (${row.data.netPnL >= 0 ? '+' : ''}$${row.data.netPnL.toFixed(2)})`}
+                {row.label === 'Asset' && row.data.lossCount !== undefined
+                  ? `${row.data.label} (${row.data.lossCount} ${row.data.lossCount === 1 ? 'loss' : 'losses'})`
+                  : `${row.data.label} (${row.data.netPnL >= 0 ? '+' : ''}$${row.data.netPnL.toFixed(2)})`}
               </span>
             ) : (
               <span className={isDark ? 'text-slate-500' : 'text-gray-400'}>-</span>
