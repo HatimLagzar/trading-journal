@@ -50,11 +50,16 @@ export async function createBacktestingSession(session: BacktestingSessionInsert
   return data;
 }
 
-export async function updateBacktestingSession(id: string, updates: BacktestingSessionUpdate) {
+export async function updateBacktestingSession(
+  id: string,
+  userId: string,
+  updates: BacktestingSessionUpdate,
+) {
   const { data, error } = await supabase
     .from('backtesting_sessions')
     .update(updates)
     .eq('id', id)
+    .eq('user_id', userId)
     .select()
     .single();
 

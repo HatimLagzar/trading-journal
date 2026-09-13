@@ -20,6 +20,7 @@ import {
   deleteBacktestingSession,
   deleteBacktestingTrade,
   deleteBacktestingTradesBulk,
+  updateBacktestingSession,
   updateBacktestingTrade,
 } from '@/services/backtesting'
 import { createSystem } from '@/services/system'
@@ -43,7 +44,6 @@ import type {
   BacktestingTrade,
   BacktestingTradeInsert,
 } from '@/services/backtesting'
-import type { System } from '@/services/system'
 
 interface BacktestingClientProps {
   initialUserId: string
@@ -183,6 +183,7 @@ export default function BacktestingClient({
   }, [selectedSessionId, sessions])
 
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false)
+  const [editingSession, setEditingSession] = useState<BacktestingSession | null>(null)
   const [sessionForm, setSessionForm] = useState<SessionFormState>(initialSessionFormState)
   const [savingSession, setSavingSession] = useState(false)
 
@@ -338,17 +339,30 @@ export default function BacktestingClient({
   }, [trades])
 
   function openSessionModal() {
+    setEditingSession(null)
     setSessionForm(initialSessionFormState)
+    setIsSessionModalOpen(true)
+  }
+
+  function openEditSessionModal(session: BacktestingSession) {
+    setEditingSession(session)
+    setSessionForm({
+      name: session.name,
+      notes: session.notes ?? '',
+      systemId: session.system_id ?? '',
+      newSystemName: '',
+    })
     setIsSessionModalOpen(true)
   }
 
   function closeSessionModal() {
     if (savingSession) return
     setIsSessionModalOpen(false)
+    setEditingSession(null)
     setSessionForm(initialSessionFormState)
   }
 
-  async function handleCreateSession(e: React.FormEvent) {
+  async function handleSaveSession(e: React.FormEvent) {
     e.preventDefault()
     if (!userId) return
 
@@ -362,6 +376,18 @@ export default function BacktestingClient({
     setError(null)
 
     try {
+      if (editingSession) {
+        await updateBacktestingSession(editingSession.id, userId, {
+          name: sessionName,
+          notes: sessionForm.notes.trim() || null,
+        })
+        await refreshSessions()
+        setIsSessionModalOpen(false)
+        setEditingSession(null)
+        setSessionForm(initialSessionFormState)
+        return
+      }
+
       let systemId: string | null = sessionForm.systemId || null
 
       const newSystemName = sessionForm.newSystemName.trim()
@@ -392,9 +418,10 @@ export default function BacktestingClient({
         await refreshSessions()
       }
       setSelectedSessionId(created.id)
-      closeSessionModal()
+      setIsSessionModalOpen(false)
+      setSessionForm(initialSessionFormState)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create session')
+      setError(err instanceof Error ? err.message : 'Failed to save session')
     } finally {
       setSavingSession(false)
     }
@@ -784,15 +811,28 @@ export default function BacktestingClient({
                         <p className="text-sm font-medium">{session.name}</p>
                         <p className="text-xs text-gray-500">{systemName}</p>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteSession(session)
-                        }}
-                        className="text-xs text-red-600 hover:text-red-800"
-                      >
-                        Delete
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openEditSessionModal(session)
+                          }}
+                          className="cursor-pointer text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteSession(session)
+                          }}
+                          className="cursor-pointer text-xs text-red-600 hover:text-red-800"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )
@@ -1043,9 +1083,11 @@ export default function BacktestingClient({
       </div>
 
       <Modal isOpen={isSessionModalOpen} onClose={closeSessionModal}>
-        <form onSubmit={handleCreateSession} className="space-y-4">
+        <form onSubmit={handleSaveSession} className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold">New Backtesting Session</h2>
+            <h2 className="text-xl font-bold">
+              {editingSession ? 'Edit Backtesting Session' : 'New Backtesting Session'}
+            </h2>
             <button type="button" onClick={closeSessionModal} className="text-gray-500 hover:text-gray-700">
               ✕
             </button>
@@ -1063,35 +1105,39 @@ export default function BacktestingClient({
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Use Existing System (optional)</label>
-            <select
-              value={sessionForm.systemId}
-              onChange={(e) => setSessionForm((prev) => ({ ...prev, systemId: e.target.value }))}
-              className="w-full px-3 py-2 border rounded-lg"
-            >
-              <option value="">No system</option>
-              {systems.map((system) => (
-                <option key={system.id} value={system.id}>{system.name}</option>
-              ))}
-            </select>
-          </div>
+          {!editingSession && (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-1">Use Existing System (optional)</label>
+                <select
+                  value={sessionForm.systemId}
+                  onChange={(e) => setSessionForm((prev) => ({ ...prev, systemId: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="">No system</option>
+                  {systems.map((system) => (
+                    <option key={system.id} value={system.id}>{system.name}</option>
+                  ))}
+                </select>
+              </div>
 
-          {!sessionForm.systemId && (
-            <div>
-              <label className="block text-sm font-medium mb-1">Or Create New System</label>
-              <input
-                type="text"
-                value={sessionForm.newSystemName}
-                onChange={(e) => setSessionForm((prev) => ({ ...prev, newSystemName: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-lg"
-                placeholder="e.g. Reversal Model"
-              />
-            </div>
+              {!sessionForm.systemId && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Or Create New System</label>
+                  <input
+                    type="text"
+                    value={sessionForm.newSystemName}
+                    onChange={(e) => setSessionForm((prev) => ({ ...prev, newSystemName: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="e.g. Reversal Model"
+                  />
+                </div>
+              )}
+            </>
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1">Notes</label>
+            <label className="block text-sm font-medium mb-1">Description / Notes</label>
             <textarea
               value={sessionForm.notes}
               onChange={(e) => setSessionForm((prev) => ({ ...prev, notes: e.target.value }))}
@@ -1106,7 +1152,11 @@ export default function BacktestingClient({
               disabled={savingSession}
               className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {savingSession ? 'Creating...' : 'Create Session'}
+              {savingSession
+                ? 'Saving...'
+                : editingSession
+                  ? 'Save Changes'
+                  : 'Create Session'}
             </button>
             <button
               type="button"
