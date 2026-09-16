@@ -1,9 +1,9 @@
 import useSWR from 'swr'
-import { getTrades } from '@/services/trade'
+import { getTradeAnalytics, getTradesPage } from '@/services/trade'
 import { getSystems, getSubSystems } from '@/services/system'
 import { cacheKeys } from '@/lib/swr/cache-keys'
 import { EMPTY_SUB_SYSTEMS, EMPTY_SYSTEMS, EMPTY_TRADES } from '@/lib/swr/empty-collections'
-import type { Trade } from '@/services/trade'
+import type { Trade, TradePageFilters } from '@/services/trade'
 import type { SubSystem, System } from '@/services/system'
 
 export type TradesDashboardFallback = {
@@ -12,11 +12,32 @@ export type TradesDashboardFallback = {
   subSystems?: SubSystem[]
 }
 
-export function useTradesDashboard(userId: string, fallback?: TradesDashboardFallback) {
+export function useTradesDashboard(
+  userId: string,
+  page: number,
+  pageSize: number,
+  filters: TradePageFilters,
+  fallback?: TradesDashboardFallback,
+) {
+  const filtersKey = JSON.stringify(filters)
   const tradesQuery = useSWR(
-    userId ? cacheKeys.trades(userId) : null,
-    () => getTrades(userId),
-    { fallbackData: fallback?.trades },
+    userId ? cacheKeys.tradesPage(userId, page, pageSize, filtersKey) : null,
+    () => getTradesPage(userId, page, pageSize, filters),
+    fallback?.trades
+      ? {
+          fallbackData: {
+            trades: fallback.trades,
+            count: fallback.trades.length,
+            ongoingCount: fallback.trades.filter((trade) => trade.avg_exit === null).length,
+            closedCount: fallback.trades.filter((trade) => trade.avg_exit !== null).length,
+          },
+        }
+      : undefined,
+  )
+
+  const analyticsQuery = useSWR(
+    userId ? cacheKeys.tradeAnalytics(userId) : null,
+    () => getTradeAnalytics(userId),
   )
 
   const systemsQuery = useSWR(
@@ -39,22 +60,27 @@ export function useTradesDashboard(userId: string, fallback?: TradesDashboardFal
     ),
   )
 
-  const error = tradesQuery.error ?? systemsQuery.error ?? subSystemsQuery.error
+  const error = tradesQuery.error ?? analyticsQuery.error ?? systemsQuery.error ?? subSystemsQuery.error
 
   async function refresh() {
     await Promise.all([
       tradesQuery.mutate(),
+      analyticsQuery.mutate(),
       systemsQuery.mutate(),
       subSystemsQuery.mutate(),
     ])
   }
 
   return {
-    trades: tradesQuery.data ?? EMPTY_TRADES,
+    trades: tradesQuery.data?.trades ?? EMPTY_TRADES,
+    tradeCount: tradesQuery.data?.count ?? 0,
+    ongoingTradeCount: tradesQuery.data?.ongoingCount ?? 0,
+    closedTradeCount: tradesQuery.data?.closedCount ?? 0,
+    analyticsTrades: analyticsQuery.data ?? EMPTY_TRADES,
     systems: systemsQuery.data ?? EMPTY_SYSTEMS,
     subSystems: subSystemsQuery.data ?? EMPTY_SUB_SYSTEMS,
     isLoading,
-    isValidating: tradesQuery.isValidating || systemsQuery.isValidating || subSystemsQuery.isValidating,
+    isValidating: tradesQuery.isValidating || analyticsQuery.isValidating || systemsQuery.isValidating || subSystemsQuery.isValidating,
     error: error instanceof Error ? error.message : error ? String(error) : null,
     refresh,
   }

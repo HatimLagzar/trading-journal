@@ -15,8 +15,7 @@ import {
   isWinOutcome,
 } from '@/lib/trade-outcome'
 import { deleteTrade, deleteTradesBulk, updateTrade, updateTradesBulk } from '@/services/trade'
-import type { Trade, TradeUpdate } from '@/services/trade'
-import type { SubSystem, System } from '@/services/system'
+import type { Trade, TradePageFilters, TradeUpdate } from '@/services/trade'
 import {
   aggregateTimingBuckets,
   buildTimingTotals,
@@ -110,6 +109,7 @@ const FLOATING_WIDGET_MIN_WIDTH = 420
 const FLOATING_WIDGET_MIN_HEIGHT = 360
 const FLOATING_WIDGET_MARGIN = 12
 const UNASSIGNED_SYSTEM_FILTER = '__no_system__'
+const TRADES_PAGE_SIZE = 100
 
 export default function TradesClient({
   initialUserId,
@@ -121,20 +121,6 @@ export default function TradesClient({
   const { breakEvenRThreshold } = useUserPreferences()
 
   const [userId] = useState(initialUserId)
-  const {
-    trades,
-    systems,
-    subSystems,
-    isLoading,
-    error: dashboardError,
-    refresh: refreshData,
-  } = useTradesDashboard(userId)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    setError(dashboardError)
-  }, [dashboardError])
-
   const [selectedSystemIds, setSelectedSystemIds] = useState<string[]>([])
   const [selectedSubSystemId, setSelectedSubSystemId] = useState<string>('')
   const [selectedOutcomeFilter, setSelectedOutcomeFilter] = useState<'all' | 'won' | 'lost' | 'be'>('all')
@@ -146,6 +132,7 @@ export default function TradesClient({
   const [showNotesColumn, setShowNotesColumn] = useState(false)
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
   const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('none')
+  const [currentPage, setCurrentPage] = useState(1)
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -179,6 +166,80 @@ export default function TradesClient({
     return selectedRealSystemIds[0] ?? ''
   }, [selectedRealSystemIds])
 
+  const dateRangeError = useMemo(() => {
+    if (selectedDateRangePreset !== 'custom') return null
+    if (!customStartDate || !customEndDate) return null
+    return customStartDate <= customEndDate ? null : 'From date must be on or before To date.'
+  }, [customEndDate, customStartDate, selectedDateRangePreset])
+
+  const activeDateRange = useMemo<ActiveDateRange>(() => {
+    if (selectedDateRangePreset === 'all') {
+      return {
+        start: null,
+        end: null,
+        label: 'All time',
+        isActive: false,
+      }
+    }
+
+    if (selectedDateRangePreset === 'custom') {
+      if (dateRangeError) {
+        return {
+          start: null,
+          end: null,
+          label: 'Invalid custom range',
+          isActive: false,
+        }
+      }
+
+      const start = customStartDate || null
+      const end = customEndDate || null
+      return {
+        start,
+        end,
+        label: formatDateRangeLabel(start, end),
+        isActive: Boolean(start || end),
+      }
+    }
+
+    const presetRange = getUtcPresetRange(selectedDateRangePreset)
+    return {
+      ...presetRange,
+      isActive: true,
+    }
+  }, [customEndDate, customStartDate, dateRangeError, selectedDateRangePreset])
+
+  const tradePageFilters = useMemo<TradePageFilters>(() => ({
+    systemIds: selectedRealSystemIds,
+    includeUnassignedSystem: selectedSystemIds.includes(UNASSIGNED_SYSTEM_FILTER),
+    subSystemId: selectedSubSystemId,
+    outcome: selectedOutcomeFilter,
+    direction: selectedDirectionFilter,
+    asset: selectedAssetFilter,
+    startDate: activeDateRange.start,
+    endDate: activeDateRange.end,
+    breakEvenRThreshold,
+    dateSortDirection,
+  }), [activeDateRange.end, activeDateRange.start, breakEvenRThreshold, dateSortDirection, selectedAssetFilter, selectedDirectionFilter, selectedOutcomeFilter, selectedRealSystemIds, selectedSubSystemId, selectedSystemIds])
+
+  const {
+    trades,
+    tradeCount,
+    ongoingTradeCount,
+    closedTradeCount,
+    analyticsTrades,
+    systems,
+    subSystems,
+    isLoading,
+    error: dashboardError,
+    refresh: refreshData,
+  } = useTradesDashboard(userId, currentPage, TRADES_PAGE_SIZE, tradePageFilters)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setError(dashboardError)
+  }, [dashboardError])
+
   const availableSubSystems = useMemo(() => {
     if (!singleSelectedSystemId) return []
     return subSystems.filter((subSystem) => subSystem.system_id === singleSelectedSystemId)
@@ -195,13 +256,13 @@ export default function TradesClient({
   const availableAssets = useMemo(() => {
     const assets = new Set<string>()
 
-    for (const trade of trades) {
+    for (const trade of analyticsTrades) {
       const trimmed = trade.coin?.trim()
       if (trimmed) assets.add(trimmed)
     }
 
     return [...assets].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
-  }, [trades])
+  }, [analyticsTrades])
 
   const effectiveSelectedAssetFilter = useMemo(() => {
     if (!selectedAssetFilter) return ''
@@ -247,51 +308,8 @@ export default function TradesClient({
     router.replace('/trades', { scroll: false })
   }, [router, searchParams, trades])
 
-  const dateRangeError = useMemo(() => {
-    if (selectedDateRangePreset !== 'custom') return null
-    if (!customStartDate || !customEndDate) return null
-    return customStartDate <= customEndDate ? null : 'From date must be on or before To date.'
-  }, [customEndDate, customStartDate, selectedDateRangePreset])
-
-  const activeDateRange = useMemo<ActiveDateRange>(() => {
-    if (selectedDateRangePreset === 'all') {
-      return {
-        start: null,
-        end: null,
-        label: 'All time',
-        isActive: false,
-      }
-    }
-
-    if (selectedDateRangePreset === 'custom') {
-      if (dateRangeError) {
-        return {
-          start: null,
-          end: null,
-          label: 'Invalid custom range',
-          isActive: false,
-        }
-      }
-
-      const start = customStartDate || null
-      const end = customEndDate || null
-      return {
-        start,
-        end,
-        label: formatDateRangeLabel(start, end),
-        isActive: Boolean(start || end),
-      }
-    }
-
-    const presetRange = getUtcPresetRange(selectedDateRangePreset)
-    return {
-      ...presetRange,
-      isActive: true,
-    }
-  }, [customEndDate, customStartDate, dateRangeError, selectedDateRangePreset])
-
-  const filteredTrades = useMemo(() => {
-    return trades.filter((trade) => {
+  const filteredStatsTrades = useMemo(() => {
+    return analyticsTrades.filter((trade) => {
       const normalizedTradeDate = normalizeTradeDate(trade.trade_date)
 
       const matchesSystem = selectedSystemIds.length === 0
@@ -322,34 +340,25 @@ export default function TradesClient({
 
       return matchesSystem && matchesSubSystem && matchesOutcome && matchesDirection && matchesAsset && matchesDateRange
     })
-  }, [activeDateRange.end, activeDateRange.start, breakEvenRThreshold, effectiveSelectedAssetFilter, effectiveSelectedSubSystemId, selectedDirectionFilter, selectedOutcomeFilter, selectedSystemIds, trades])
+  }, [activeDateRange.end, activeDateRange.start, analyticsTrades, breakEvenRThreshold, effectiveSelectedAssetFilter, effectiveSelectedSubSystemId, selectedDirectionFilter, selectedOutcomeFilter, selectedSystemIds])
 
-  const dateSortedTrades = useMemo(() => {
-    if (dateSortDirection === 'none') return filteredTrades
-
-    return [...filteredTrades].sort((a, b) => {
-      const aKey = getTradeDateTimeSortKey(a)
-      const bKey = getTradeDateTimeSortKey(b)
-      const compare = aKey.localeCompare(bKey)
-      return dateSortDirection === 'asc' ? compare : -compare
-    })
-  }, [dateSortDirection, filteredTrades])
+  const totalPages = Math.max(1, Math.ceil(tradeCount / TRADES_PAGE_SIZE))
 
   const ongoingTrades = useMemo(() => {
-    return dateSortedTrades.filter((trade) => trade.avg_exit === null)
-  }, [dateSortedTrades])
+    return trades.filter((trade) => trade.avg_exit === null)
+  }, [trades])
 
   const completedTrades = useMemo(() => {
-    return dateSortedTrades.filter((trade) => trade.avg_exit !== null)
-  }, [dateSortedTrades])
+    return trades.filter((trade) => trade.avg_exit !== null)
+  }, [trades])
 
   const visibleSelectedTradeIds = useMemo(() => {
-    return selectedTradeIds.filter((id) => filteredTrades.some((trade) => trade.id === id))
-  }, [filteredTrades, selectedTradeIds])
+    return selectedTradeIds.filter((id) => trades.some((trade) => trade.id === id))
+  }, [selectedTradeIds, trades])
 
   const selectedTradesInView = useMemo(() => {
-    return filteredTrades.filter((trade) => visibleSelectedTradeIds.includes(trade.id))
-  }, [filteredTrades, visibleSelectedTradeIds])
+    return trades.filter((trade) => visibleSelectedTradeIds.includes(trade.id))
+  }, [trades, visibleSelectedTradeIds])
 
   const selectedOngoingTradeIds = useMemo(() => {
     const ongoingIds = new Set(ongoingTrades.map((trade) => trade.id))
@@ -361,7 +370,7 @@ export default function TradesClient({
     return visibleSelectedTradeIds.filter((id) => completedIds.has(id))
   }, [completedTrades, visibleSelectedTradeIds])
 
-  const statsTrades = selectedTradesInView.length > 0 ? selectedTradesInView : filteredTrades
+  const statsTrades = selectedTradesInView.length > 0 ? selectedTradesInView : filteredStatsTrades
 
   const stats = useMemo<DashboardStats>(() => {
     const totalTrades = statsTrades.length
@@ -548,7 +557,7 @@ export default function TradesClient({
     [statsTrades],
   )
 
-  const timingBreakdownFiltersActive = statsTrades.length !== trades.length
+  const timingBreakdownFiltersActive = statsTrades.length !== analyticsTrades.length
 
   if (isLoading) {
     return <DashboardRouteLoading variant="trades" />
@@ -891,6 +900,7 @@ export default function TradesClient({
   }
 
   function toggleDateSortDirection() {
+    setCurrentPage(1)
     setDateSortDirection((prev) => {
       if (prev === 'none') return 'asc'
       if (prev === 'asc') return 'desc'
@@ -905,6 +915,7 @@ export default function TradesClient({
   }
 
   function applyDatePreset(preset: DateRangePreset) {
+    setCurrentPage(1)
     if (preset === 'all') {
       setSelectedDateRangePreset('all')
       setCustomStartDate('')
@@ -924,11 +935,13 @@ export default function TradesClient({
   }
 
   function handleCustomStartDateChange(value: string) {
+    setCurrentPage(1)
     setSelectedDateRangePreset(value || customEndDate ? 'custom' : 'all')
     setCustomStartDate(value)
   }
 
   function handleCustomEndDateChange(value: string) {
+    setCurrentPage(1)
     setSelectedDateRangePreset(customStartDate || value ? 'custom' : 'all')
     setCustomEndDate(value)
   }
@@ -938,6 +951,7 @@ export default function TradesClient({
   }
 
   function resetFilters() {
+    setCurrentPage(1)
     setSelectedSystemIds([])
     setSelectedSubSystemId('')
     setSelectedOutcomeFilter('all')
@@ -947,6 +961,7 @@ export default function TradesClient({
   }
 
   function toggleSystemFilterOption(systemId: string) {
+    setCurrentPage(1)
     setSelectedSystemIds((prev) => {
       if (prev.includes(systemId)) {
         return prev.filter((id) => id !== systemId)
@@ -957,6 +972,7 @@ export default function TradesClient({
   }
 
   function clearSystemFilters() {
+    setCurrentPage(1)
     setSelectedSystemIds([])
     setSelectedSubSystemId('')
   }
@@ -1176,7 +1192,10 @@ export default function TradesClient({
                 <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Sub-System</label>
                 <select
                   value={effectiveSelectedSubSystemId}
-                  onChange={(e) => setSelectedSubSystemId(e.target.value)}
+                  onChange={(e) => {
+                    setCurrentPage(1)
+                    setSelectedSubSystemId(e.target.value)
+                  }}
                   disabled={!singleSelectedSystemId}
                   className={`w-full rounded-lg border px-3 py-2 disabled:cursor-not-allowed ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100 disabled:bg-slate-900 disabled:text-slate-500' : 'border-gray-300 bg-white text-gray-900 disabled:bg-gray-100 disabled:text-gray-500'}`}
                 >
@@ -1191,7 +1210,10 @@ export default function TradesClient({
                 <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Outcome</label>
                 <select
                   value={selectedOutcomeFilter}
-                  onChange={(e) => setSelectedOutcomeFilter(e.target.value as 'all' | 'won' | 'lost' | 'be')}
+                  onChange={(e) => {
+                    setCurrentPage(1)
+                    setSelectedOutcomeFilter(e.target.value as 'all' | 'won' | 'lost' | 'be')
+                  }}
                   className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100' : 'border-gray-300 bg-white text-gray-900'}`}
                 >
                   <option value="all">All Trades</option>
@@ -1205,7 +1227,10 @@ export default function TradesClient({
                 <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Direction</label>
                 <select
                   value={selectedDirectionFilter}
-                  onChange={(e) => setSelectedDirectionFilter(e.target.value as 'all' | 'long' | 'short')}
+                  onChange={(e) => {
+                    setCurrentPage(1)
+                    setSelectedDirectionFilter(e.target.value as 'all' | 'long' | 'short')
+                  }}
                   className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100' : 'border-gray-300 bg-white text-gray-900'}`}
                 >
                   <option value="all">All Directions</option>
@@ -1218,7 +1243,10 @@ export default function TradesClient({
                 <label className={`mb-1 block text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Asset</label>
                 <select
                   value={effectiveSelectedAssetFilter}
-                  onChange={(e) => setSelectedAssetFilter(e.target.value)}
+                  onChange={(e) => {
+                    setCurrentPage(1)
+                    setSelectedAssetFilter(e.target.value)
+                  }}
                   className={`w-full rounded-lg border px-3 py-2 ${isDark ? 'border-slate-600 bg-slate-950 text-slate-100' : 'border-gray-300 bg-white text-gray-900'}`}
                 >
                   <option value="">All Assets</option>
@@ -1236,7 +1264,7 @@ export default function TradesClient({
               endDate={customEndDate}
               activeLabel={activeDateRange.label}
               isActive={activeDateRange.isActive}
-              filteredTradeCount={filteredTrades.length}
+              filteredTradeCount={tradeCount}
               error={dateRangeError}
               onPresetChange={applyDatePreset}
               onStartDateChange={handleCustomStartDateChange}
@@ -1261,7 +1289,10 @@ export default function TradesClient({
 
       {/* Stats Summary */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <StatCard label="Total Trades" value={stats.totalTrades} />
+        <StatCard
+          label="Total Trades"
+          value={selectedTradesInView.length > 0 ? selectedTradesInView.length : tradeCount}
+        />
         <StatCard label="Win Rate" value={`${stats.winRate.toFixed(1)}%`} />
         <StatCard
           label="Net P&L"
@@ -1301,7 +1332,7 @@ export default function TradesClient({
       {/* Ongoing Trades Table */}
       <div className={`mb-6 overflow-hidden rounded-lg border ${isDark ? 'border-amber-400/20 bg-amber-300/8' : 'border-amber-200 bg-amber-50/40'}`}>
         <div className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${isDark ? 'border-amber-400/20 bg-amber-300/12' : 'border-amber-200 bg-amber-100/40'}`}>
-          <h2 className={`text-sm font-semibold ${isDark ? 'text-amber-100' : 'text-amber-900'}`}>Ongoing trades ({ongoingTrades.length})</h2>
+          <h2 className={`text-sm font-semibold ${isDark ? 'text-amber-100' : 'text-amber-900'}`}>Ongoing trades ({ongoingTradeCount})</h2>
           <div className="flex items-center gap-3">
             {selectedOngoingTradeIds.length > 0 && (
               <>
@@ -1380,7 +1411,7 @@ export default function TradesClient({
       {/* Completed Trades Table */}
       <div className="border rounded-lg overflow-hidden">
         <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-gray-700">Closed trades ({completedTrades.length})</h2>
+          <h2 className="text-sm font-semibold text-gray-700">Closed trades ({closedTradeCount})</h2>
           <div className="flex items-center gap-3">
             {selectedCompletedTradeIds.length > 0 && (
               <>
@@ -1455,6 +1486,38 @@ export default function TradesClient({
           </table>
         </div>
       </div>
+
+      {tradeCount > 0 && (
+        <nav
+          aria-label="Trades pagination"
+          className={`mt-4 flex flex-col items-center justify-between gap-3 rounded-lg border px-4 py-3 sm:flex-row ${isDark ? 'border-white/10 bg-white/5' : 'bg-white'}`}
+        >
+          <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+            Showing {(currentPage - 1) * TRADES_PAGE_SIZE + 1}–{Math.min(currentPage * TRADES_PAGE_SIZE, tradeCount)} of {tradeCount} trades
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={currentPage === 1}
+              className="cursor-pointer rounded-lg border px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <span className={`px-2 text-sm ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              disabled={currentPage >= totalPages}
+              className="cursor-pointer rounded-lg border px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </nav>
+      )}
 
       {/* Modal for Add/Edit Trade */}
       {userId && (
@@ -1922,17 +1985,6 @@ function normalizeDisplayTime(tradeTime: string | null): string {
   }
 
   return '00:00:00'
-}
-
-function getTradeDateTimeSortKey(trade: Trade): string {
-  const normalizedDate = normalizeTradeDate(trade.trade_date)
-  const normalizedTime = normalizeDisplayTime(trade.trade_time)
-
-  if (!normalizedDate) {
-    return `9999-12-31T${normalizedTime}`
-  }
-
-  return `${normalizedDate}T${normalizedTime}`
 }
 
 function clamp(value: number, min: number, max: number): number {

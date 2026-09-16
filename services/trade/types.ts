@@ -29,6 +29,41 @@ export type TradeInsert = Omit<Trade, "id" | "created_at" | "trade_number">;
 
 export type TradeUpdate = Partial<Omit<Trade, "id" | "created_at" | "trade_number">>;
 
+export type TradeAnalyticsRow = Pick<
+  Trade,
+  | "id"
+  | "trade_date"
+  | "trade_time"
+  | "coin"
+  | "direction"
+  | "avg_exit"
+  | "realised_loss"
+  | "realised_win"
+  | "r_multiple"
+  | "system_id"
+  | "sub_system_id"
+>;
+
+export type TradePageFilters = {
+  systemIds: string[];
+  includeUnassignedSystem: boolean;
+  subSystemId: string;
+  outcome: "all" | "won" | "lost" | "be";
+  direction: "all" | "long" | "short";
+  asset: string;
+  startDate: string | null;
+  endDate: string | null;
+  breakEvenRThreshold: number;
+  dateSortDirection: "none" | "asc" | "desc";
+};
+
+export type TradePage = {
+  trades: Trade[];
+  count: number;
+  ongoingCount: number;
+  closedCount: number;
+};
+
 export type TradeScreenshot = {
   id: string;
   created_at: string;
