@@ -85,10 +85,9 @@ export async function getTradesPage(
   if (filters.asset) query = query.ilike('coin', filters.asset)
   if (filters.startDate) query = query.gte('trade_date', filters.startDate)
   if (filters.endDate) query = query.lte('trade_date', filters.endDate)
+  query = query.not('avg_exit', 'is', null)
 
   if (filters.outcome !== 'all') {
-    query = query.not('avg_exit', 'is', null)
-
     if (filters.outcome === 'won') {
       query = query.gt('r_multiple', filters.breakEvenRThreshold)
     } else if (filters.outcome === 'lost') {
@@ -110,68 +109,72 @@ export async function getTradesPage(
       .order('created_at', { ascending })
   }
 
-  const [pageResult, ongoingCount, closedCount] = await Promise.all([
+  const [pageResult, ongoingTrades] = await Promise.all([
     query.range(from, to),
-    getFilteredTradeCount(userId, filters, false),
-    getFilteredTradeCount(userId, filters, true),
+    getFilteredOngoingTrades(userId, filters),
   ])
 
   const { data, error, count } = pageResult
 
   if (error) throw error
+  const closedCount = count ?? 0
   return {
-    trades: data,
-    count: count ?? 0,
-    ongoingCount,
+    trades: [...ongoingTrades, ...data],
+    count: ongoingTrades.length + closedCount,
+    ongoingCount: ongoingTrades.length,
     closedCount,
   }
 }
 
-async function getFilteredTradeCount(
+async function getFilteredOngoingTrades(
   userId: string,
   filters: TradePageFilters,
-  isClosed: boolean,
-): Promise<number> {
-  let query = supabase
-    .from('trades')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
+): Promise<Trade[]> {
+  if (filters.outcome !== 'all') return []
 
-  if (filters.systemIds.length > 0 && filters.includeUnassignedSystem) {
-    query = query.or(`system_id.is.null,system_id.in.(${filters.systemIds.join(',')})`)
-  } else if (filters.systemIds.length > 0) {
-    query = query.in('system_id', filters.systemIds)
-  } else if (filters.includeUnassignedSystem) {
-    query = query.is('system_id', null)
-  }
+  const trades: Trade[] = []
+  let from = 0
 
-  if (filters.subSystemId) query = query.eq('sub_system_id', filters.subSystemId)
-  if (filters.direction !== 'all') query = query.eq('direction', filters.direction)
-  if (filters.asset) query = query.ilike('coin', filters.asset)
-  if (filters.startDate) query = query.gte('trade_date', filters.startDate)
-  if (filters.endDate) query = query.lte('trade_date', filters.endDate)
+  while (true) {
+    let query = supabase
+      .from('trades')
+      .select('*')
+      .eq('user_id', userId)
+      .is('avg_exit', null)
 
-  if (filters.outcome !== 'all') {
-    query = query.not('avg_exit', 'is', null)
-
-    if (filters.outcome === 'won') {
-      query = query.gt('r_multiple', filters.breakEvenRThreshold)
-    } else if (filters.outcome === 'lost') {
-      query = query.lt('r_multiple', -filters.breakEvenRThreshold)
-    } else {
-      query = query
-        .gte('r_multiple', -filters.breakEvenRThreshold)
-        .lte('r_multiple', filters.breakEvenRThreshold)
+    if (filters.systemIds.length > 0 && filters.includeUnassignedSystem) {
+      query = query.or(`system_id.is.null,system_id.in.(${filters.systemIds.join(',')})`)
+    } else if (filters.systemIds.length > 0) {
+      query = query.in('system_id', filters.systemIds)
+    } else if (filters.includeUnassignedSystem) {
+      query = query.is('system_id', null)
     }
+
+    if (filters.subSystemId) query = query.eq('sub_system_id', filters.subSystemId)
+    if (filters.direction !== 'all') query = query.eq('direction', filters.direction)
+    if (filters.asset) query = query.ilike('coin', filters.asset)
+    if (filters.startDate) query = query.gte('trade_date', filters.startDate)
+    if (filters.endDate) query = query.lte('trade_date', filters.endDate)
+
+    if (filters.dateSortDirection === 'none') {
+      query = query.order('created_at', { ascending: false })
+    } else {
+      const ascending = filters.dateSortDirection === 'asc'
+      query = query
+        .order('trade_date', { ascending })
+        .order('trade_time', { ascending, nullsFirst: ascending })
+        .order('created_at', { ascending })
+    }
+
+    const { data, error } = await query.range(from, from + TRADE_FETCH_BATCH_SIZE - 1)
+    if (error) throw error
+    trades.push(...data)
+
+    if (data.length < TRADE_FETCH_BATCH_SIZE) break
+    from += TRADE_FETCH_BATCH_SIZE
   }
 
-  query = isClosed
-    ? query.not('avg_exit', 'is', null)
-    : query.is('avg_exit', null)
-
-  const { count, error } = await query
-  if (error) throw error
-  return count ?? 0
+  return trades
 }
 
 // Get a single trade by ID

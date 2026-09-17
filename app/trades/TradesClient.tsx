@@ -342,7 +342,7 @@ export default function TradesClient({
     })
   }, [activeDateRange.end, activeDateRange.start, analyticsTrades, breakEvenRThreshold, effectiveSelectedAssetFilter, effectiveSelectedSubSystemId, selectedDirectionFilter, selectedOutcomeFilter, selectedSystemIds])
 
-  const totalPages = Math.max(1, Math.ceil(tradeCount / TRADES_PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(closedTradeCount / TRADES_PAGE_SIZE))
 
   const ongoingTrades = useMemo(() => {
     return trades.filter((trade) => trade.avg_exit === null)
@@ -1487,13 +1487,13 @@ export default function TradesClient({
         </div>
       </div>
 
-      {tradeCount > 0 && (
+      {closedTradeCount > 0 && (
         <nav
           aria-label="Trades pagination"
           className={`mt-4 flex flex-col items-center justify-between gap-3 rounded-lg border px-4 py-3 sm:flex-row ${isDark ? 'border-white/10 bg-white/5' : 'bg-white'}`}
         >
           <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
-            Showing {(currentPage - 1) * TRADES_PAGE_SIZE + 1}–{Math.min(currentPage * TRADES_PAGE_SIZE, tradeCount)} of {tradeCount} trades
+            Showing closed trades {(currentPage - 1) * TRADES_PAGE_SIZE + 1}–{Math.min(currentPage * TRADES_PAGE_SIZE, closedTradeCount)} of {closedTradeCount}
           </p>
           <div className="flex items-center gap-2">
             <button
