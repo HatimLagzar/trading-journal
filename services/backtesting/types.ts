@@ -10,6 +10,11 @@ export type BacktestingSession = {
 export type BacktestingSessionInsert = Omit<BacktestingSession, 'id' | 'created_at'>;
 export type BacktestingSessionUpdate = Partial<Omit<BacktestingSession, 'id' | 'created_at'>>;
 
+export type BacktestingTakeProfit = {
+  price: number;
+  quantity_percent: number;
+};
+
 export type BacktestingTrade = {
   id: string;
   created_at: string;
@@ -22,6 +27,7 @@ export type BacktestingTrade = {
   entry_price: number | null;
   stop_loss: number | null;
   target_price: number | null;
+  take_profits: BacktestingTakeProfit[];
   outcome_r: number;
   notes: string | null;
 };

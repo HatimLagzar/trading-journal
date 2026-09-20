@@ -245,6 +245,9 @@ export default function ImportBacktestingTradesForm({
           entry_price: entry,
           stop_loss: stopLoss,
           target_price: target,
+          take_profits: target !== null && target !== stopLoss
+            ? [{ price: target, quantity_percent: 100 }]
+            : [],
           outcome_r: outcomeR,
           notes: getNullableText(getCell(row, mapping.notes)),
         })

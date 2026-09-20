@@ -41,6 +41,7 @@ import BacktestingTradeChartView from './BacktestingTradeChartView'
 import type {
   BacktestingSession,
   BacktestingSessionInsert,
+  BacktestingTakeProfit,
   BacktestingTrade,
   BacktestingTradeInsert,
 } from '@/services/backtesting'
@@ -63,12 +64,21 @@ type TradeFormState = {
   direction: 'long' | 'short'
   entry_price: string
   stop_loss: string
-  target_price: string
+  take_profits: TakeProfitFormRow[]
+  is_full_loss: boolean
   outcome_r: string
+  use_manual_outcome: boolean
   notes: string
 }
 
+type TakeProfitFormRow = {
+  id: string
+  price: string
+  quantity_percent: string
+}
+
 const LAST_ASSET_STORAGE_KEY = 'trade_form_last_asset'
+let takeProfitRowSequence = 0
 
 type AiExtractedFields = {
   coin: string | null
@@ -136,8 +146,10 @@ const emptyTradeFormState: TradeFormState = {
   direction: 'long',
   entry_price: '',
   stop_loss: '',
-  target_price: '',
+  take_profits: [createTakeProfitFormRow('', '100')],
+  is_full_loss: false,
   outcome_r: '',
+  use_manual_outcome: false,
   notes: '',
 }
 
@@ -218,31 +230,24 @@ export default function BacktestingClient({
     }
   }, [tradeForm.entry_price, tradeForm.stop_loss, tradeForm.direction])
 
+  const allocationTotal = useMemo(
+    () => calculateAllocationTotal(tradeForm.take_profits),
+    [tradeForm.take_profits],
+  )
+
+  const calculatedOutcomeR = useMemo(
+    () => calculateTradeFormOutcomeR(tradeForm),
+    [tradeForm],
+  )
+
   useEffect(() => {
-    const entry = toNullableNumber(tradeForm.entry_price)
-    const stopLoss = toNullableNumber(tradeForm.stop_loss)
-    const target = toNullableNumber(tradeForm.target_price)
+    if (tradeForm.use_manual_outcome) return
 
-    const outcomeR = calculateOutcomeR(entry, stopLoss, target, tradeForm.direction)
-
-    if (outcomeR === null) {
-      if (tradeForm.outcome_r !== '') {
-        setTradeForm((prev) => ({
-          ...prev,
-          outcome_r: '',
-        }))
-      }
-      return
-    }
-
-    const formatted = formatOutcomeR(outcomeR)
+    const formatted = calculatedOutcomeR === null ? '' : formatOutcomeR(calculatedOutcomeR)
     if (tradeForm.outcome_r !== formatted) {
-      setTradeForm((prev) => ({
-        ...prev,
-        outcome_r: formatted,
-      }))
+      setTradeForm((prev) => ({ ...prev, outcome_r: formatted }))
     }
-  }, [tradeForm.entry_price, tradeForm.stop_loss, tradeForm.target_price, tradeForm.direction, tradeForm.outcome_r])
+  }, [calculatedOutcomeR, tradeForm.outcome_r, tradeForm.use_manual_outcome])
 
   const selectedSession = useMemo(() => {
     if (!selectedSessionId) return null
@@ -454,6 +459,21 @@ export default function BacktestingClient({
   function openEditTradeModal(trade: BacktestingTrade) {
     setOpenTradeMenuId(null)
     setEditingTrade(trade)
+
+    const storedTakeProfits = normalizeStoredTakeProfits(trade.take_profits)
+    const isFullLoss = storedTakeProfits.length === 0
+      && trade.target_price !== null
+      && trade.stop_loss !== null
+      && numbersAreClose(trade.target_price, trade.stop_loss)
+    const takeProfits = storedTakeProfits.length > 0
+      ? storedTakeProfits
+      : !isFullLoss && trade.target_price !== null
+        ? [{ price: trade.target_price, quantity_percent: 100 }]
+        : []
+    const calculated = isFullLoss
+      ? calculateOutcomeR(trade.entry_price, trade.stop_loss, trade.stop_loss, trade.direction)
+      : calculateWeightedOutcomeR(trade.entry_price, trade.stop_loss, takeProfits, trade.direction)
+
     setTradeForm({
       trade_date: trade.trade_date,
       trade_time: trade.trade_time ? trade.trade_time.substring(0, 5) : '',
@@ -461,8 +481,12 @@ export default function BacktestingClient({
       direction: trade.direction,
       entry_price: trade.entry_price !== null ? String(trade.entry_price) : '',
       stop_loss: trade.stop_loss !== null ? String(trade.stop_loss) : '',
-      target_price: trade.target_price !== null ? String(trade.target_price) : '',
+      take_profits: takeProfits.length > 0
+        ? takeProfits.map((target) => createTakeProfitFormRow(String(target.price), String(target.quantity_percent)))
+        : [createTakeProfitFormRow('', '100')],
+      is_full_loss: isFullLoss,
       outcome_r: String(trade.outcome_r),
+      use_manual_outcome: calculated === null || !numbersAreClose(calculated, trade.outcome_r, 0.0001),
       notes: trade.notes ?? '',
     })
     setAiWarnings([])
@@ -537,7 +561,10 @@ export default function BacktestingClient({
       if (fields.coin && !isEmptyText(fields.coin)) next.asset = fields.coin
       if (fields.avg_entry !== null) next.entry_price = String(fields.avg_entry)
       if (fields.stop_loss !== null) next.stop_loss = String(fields.stop_loss)
-      if (fields.avg_exit !== null) next.target_price = String(fields.avg_exit)
+      if (fields.avg_exit !== null) {
+        next.take_profits = [createTakeProfitFormRow(String(fields.avg_exit), '100')]
+        next.is_full_loss = false
+      }
       if (fields.trade_time) next.trade_time = fields.trade_time.substring(0, 5)
       if (fields.trade_date) next.trade_date = fields.trade_date
       if (fields.direction) next.direction = fields.direction
@@ -617,6 +644,11 @@ export default function BacktestingClient({
     if (!userId || !selectedSessionId) return
 
     const asset = tradeForm.asset.trim()
+    const entryPrice = toNullableNumber(tradeForm.entry_price)
+    const stopLoss = toNullableNumber(tradeForm.stop_loss)
+    const takeProfits = parseTakeProfitFormRows(tradeForm.take_profits)
+    const hasEnteredTarget = tradeForm.take_profits.some((target) => target.price.trim() !== '')
+    const allowManualWithoutTargets = tradeForm.use_manual_outcome && !hasEnteredTarget
     const outcomeR = Number(tradeForm.outcome_r)
 
     if (!asset) {
@@ -629,8 +661,27 @@ export default function BacktestingClient({
       return
     }
 
+    if ((entryPrice === null || stopLoss === null) && (!tradeForm.use_manual_outcome || tradeForm.is_full_loss)) {
+      setError('Entry and stop loss are required to calculate Profit R')
+      return
+    }
+
+    if (!tradeForm.is_full_loss) {
+      if (takeProfits === null && !allowManualWithoutTargets) {
+        setError('Each TP needs a valid price and a quantity from 1.00% to 100.00%')
+        return
+      }
+
+      if (takeProfits !== null && !numbersAreClose(calculateTakeProfitAllocation(takeProfits), 100, 0.001)) {
+        setError('TP quantities must total exactly 100.00%')
+        return
+      }
+    }
+
     if (!Number.isFinite(outcomeR)) {
-      setError('Outcome R must be a valid number')
+      setError(tradeForm.use_manual_outcome
+        ? 'Manual Profit R must be a valid number'
+        : 'Enter valid Entry, SL, TP prices, and quantities to calculate Profit R')
       return
     }
 
@@ -645,9 +696,10 @@ export default function BacktestingClient({
         trade_time: tradeForm.trade_time ? `${tradeForm.trade_time}:00` : null,
         asset,
         direction: tradeForm.direction,
-        entry_price: toNullableNumber(tradeForm.entry_price),
-        stop_loss: toNullableNumber(tradeForm.stop_loss),
-        target_price: toNullableNumber(tradeForm.target_price),
+        entry_price: entryPrice,
+        stop_loss: stopLoss,
+        target_price: tradeForm.is_full_loss ? stopLoss : takeProfits?.[0]?.price ?? null,
+        take_profits: tradeForm.is_full_loss ? [] : takeProfits ?? [],
         outcome_r: outcomeR,
         notes: tradeForm.notes.trim() || null,
       }
@@ -668,8 +720,10 @@ export default function BacktestingClient({
           ...prev,
           entry_price: '',
           stop_loss: '',
-          target_price: '',
+          take_profits: [createTakeProfitFormRow('', '100')],
+          is_full_loss: false,
           outcome_r: '',
+          use_manual_outcome: false,
         }))
       } else {
         closeTradeModal()
@@ -720,8 +774,82 @@ export default function BacktestingClient({
 
     setTradeForm((prev) => ({
       ...prev,
-      target_price: stopLossValue,
+      take_profits: [createTakeProfitFormRow('', '100')],
+      is_full_loss: true,
+      use_manual_outcome: false,
     }))
+  }
+
+  function addTakeProfit(): void {
+    setTradeForm((prev) => {
+      const remainingQuantity = calculateRemainingQuantity(prev.take_profits)
+
+      return {
+        ...prev,
+        is_full_loss: false,
+        take_profits: prev.is_full_loss
+          ? [createTakeProfitFormRow('', '100')]
+          : [
+              ...prev.take_profits,
+              createTakeProfitFormRow('', remainingQuantity >= 1 ? formatQuantityPercent(remainingQuantity) : ''),
+            ],
+      }
+    })
+  }
+
+  function updateTakeProfit(id: string, updates: Partial<Omit<TakeProfitFormRow, 'id'>>): void {
+    setTradeForm((prev) => ({
+      ...prev,
+      is_full_loss: false,
+      take_profits: prev.take_profits.map((target) => (
+        target.id === id ? { ...target, ...updates } : target
+      )),
+    }))
+  }
+
+  function updateTakeProfitQuantity(id: string, rawValue: string): void {
+    setTradeForm((prev) => {
+      const maximum = calculateRemainingQuantity(prev.take_profits, id)
+      const parsed = Number(rawValue)
+      const quantityPercent = rawValue !== '' && Number.isFinite(parsed) && parsed > maximum
+        ? formatQuantityPercent(maximum)
+        : rawValue
+
+      return {
+        ...prev,
+        is_full_loss: false,
+        take_profits: prev.take_profits.map((target) => (
+          target.id === id ? { ...target, quantity_percent: quantityPercent } : target
+        )),
+      }
+    })
+  }
+
+  function removeTakeProfit(id: string): void {
+    setTradeForm((prev) => {
+      if (prev.take_profits.length <= 1) return prev
+      return {
+        ...prev,
+        take_profits: prev.take_profits.filter((target) => target.id !== id),
+      }
+    })
+  }
+
+  function moveTakeProfit(id: string, direction: -1 | 1): void {
+    setTradeForm((prev) => {
+      const currentIndex = prev.take_profits.findIndex((target) => target.id === id)
+      const nextIndex = currentIndex + direction
+
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= prev.take_profits.length) {
+        return prev
+      }
+
+      const takeProfits = [...prev.take_profits]
+      const [movedTarget] = takeProfits.splice(currentIndex, 1)
+      takeProfits.splice(nextIndex, 0, movedTarget)
+
+      return { ...prev, take_profits: takeProfits }
+    })
   }
 
   function toggleTradeSelection(tradeId: string) {
@@ -1010,7 +1138,9 @@ export default function BacktestingClient({
                         <td className="px-3 py-2 uppercase">{trade.direction}</td>
                         <td className="px-3 py-2 text-right">{trade.entry_price ?? '-'}</td>
                         <td className="px-3 py-2 text-right">{trade.stop_loss ?? '-'}</td>
-                        <td className="px-3 py-2 text-right">{trade.target_price ?? '-'}</td>
+                        <td className="px-3 py-2 text-right text-xs">
+                          {formatTakeProfitSummary(trade)}
+                        </td>
                         <td className={`px-3 py-2 text-right font-medium ${outcomeColorClass}`}>
                           {`${trade.outcome_r >= 0 ? '+' : ''}${trade.outcome_r.toFixed(2)}R`}
                         </td>
@@ -1297,7 +1427,7 @@ export default function BacktestingClient({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Entry</label>
               <PriceInput
@@ -1316,38 +1446,166 @@ export default function BacktestingClient({
                 className="w-full px-3 py-2 border rounded-lg"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">TP</label>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold">Executed targets</p>
+                <p className="text-xs text-gray-500">Only add TPs that were actually reached.</p>
+              </div>
               <div className="flex items-center gap-2">
-                <PriceInput
-                  valueMode="string"
-                  value={tradeForm.target_price}
-                  onValueChange={(target_price) => setTradeForm((prev) => ({ ...prev, target_price }))}
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
+                <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                  !tradeForm.is_full_loss && numbersAreClose(allocationTotal, 100, 0.001)
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {tradeForm.is_full_loss ? '100.00% at SL' : `${allocationTotal.toFixed(2)}% / 100.00%`}
+                </span>
                 <button
                   type="button"
                   onClick={applyLossToTargetPrice}
                   disabled={!tradeForm.stop_loss.trim()}
-                  className="cursor-pointer rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="cursor-pointer rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Loss
+                  Full loss
                 </button>
               </div>
             </div>
+
+            {tradeForm.is_full_loss ? (
+              <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <span>Entire position stopped at {tradeForm.stop_loss || 'SL'}.</span>
+                <button
+                  type="button"
+                  onClick={addTakeProfit}
+                  className="cursor-pointer font-semibold underline underline-offset-2"
+                >
+                  Enter a TP instead
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {tradeForm.take_profits.map((target, index) => {
+                  const maximumQuantity = calculateRemainingQuantity(tradeForm.take_profits, target.id)
+                  const contribution = calculateTakeProfitFormContribution(
+                    tradeForm.entry_price,
+                    tradeForm.stop_loss,
+                    target,
+                    tradeForm.direction,
+                  )
+
+                  return (
+                    <div key={target.id} className="grid grid-cols-[minmax(0,1fr)_110px_auto] items-end gap-2">
+                      <div>
+                        <div className="mb-1 flex items-center justify-between gap-2 text-xs font-medium text-gray-600">
+                          <span>{tradeForm.take_profits.length === 1 ? 'TP' : `TP${index + 1}`} price</span>
+                          {tradeForm.take_profits.length > 1 && (
+                            <span className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => moveTakeProfit(target.id, -1)}
+                                disabled={index === 0}
+                                aria-label={`Move TP${index + 1} up`}
+                                title="Move target up"
+                                className="h-5 w-5 cursor-pointer rounded border text-[10px] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveTakeProfit(target.id, 1)}
+                                disabled={index === tradeForm.take_profits.length - 1}
+                                aria-label={`Move TP${index + 1} down`}
+                                title="Move target down"
+                                className="h-5 w-5 cursor-pointer rounded border text-[10px] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
+                              >
+                                ↓
+                              </button>
+                            </span>
+                          )}
+                        </div>
+                        <PriceInput
+                          valueMode="string"
+                          value={target.price}
+                          onValueChange={(price) => updateTakeProfit(target.id, { price })}
+                          className="w-full rounded-lg border px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">
+                          Position % <span className="font-normal">(max {formatQuantityPercent(maximumQuantity)})</span>
+                        </label>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min="1"
+                          max={maximumQuantity}
+                          step="0.01"
+                          value={target.quantity_percent}
+                          onChange={(event) => updateTakeProfitQuantity(target.id, event.target.value)}
+                          disabled={maximumQuantity < 1 && target.quantity_percent === ''}
+                          title={`Maximum available: ${formatQuantityPercent(maximumQuantity)}%`}
+                          className="w-full rounded-lg border px-3 py-2"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 pb-0.5">
+                        <span className="min-w-14 text-right text-xs font-medium text-gray-500">
+                          {contribution === null ? '—' : `${formatOutcomeR(contribution)}R`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeTakeProfit(target.id)}
+                          disabled={tradeForm.take_profits.length === 1}
+                          aria-label={`Remove TP${index + 1}`}
+                          className="h-9 w-9 cursor-pointer rounded-lg border text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                <button
+                  type="button"
+                  onClick={addTakeProfit}
+                  className="cursor-pointer rounded-lg border border-dashed border-indigo-300 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
+                >
+                  + Add TP
+                </button>
+              </div>
+            )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Profit (R)</label>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <label className="block text-sm font-medium">Profit (R)</label>
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={tradeForm.use_manual_outcome}
+                  onChange={(event) => setTradeForm((prev) => ({
+                    ...prev,
+                    use_manual_outcome: event.target.checked,
+                  }))}
+                  className="h-4 w-4 cursor-pointer"
+                />
+                Override calculated result
+              </label>
+            </div>
             <PriceInput
               valueMode="string"
               value={tradeForm.outcome_r}
               onValueChange={(outcome_r) => setTradeForm((prev) => ({ ...prev, outcome_r }))}
-              className="w-full px-3 py-2 border rounded-lg"
+              readOnly={!tradeForm.use_manual_outcome}
+              className={`w-full px-3 py-2 border rounded-lg ${!tradeForm.use_manual_outcome ? 'bg-slate-50 text-slate-700' : ''}`}
               required
             />
             <p className="text-xs text-gray-500 mt-1">
-              Auto-calculated from entry, stop loss, target, and direction.
+              {tradeForm.use_manual_outcome
+                ? `Calculated result: ${calculatedOutcomeR === null ? '—' : `${formatOutcomeR(calculatedOutcomeR)}R`}`
+                : 'Weighted automatically from entry, stop loss, executed targets, and position percentages.'}
             </p>
           </div>
 
@@ -1369,7 +1627,7 @@ export default function BacktestingClient({
                 onChange={(e) => setKeepTradeModalOpenOnAdd(e.target.checked)}
                 className="h-4 w-4 cursor-pointer"
               />
-              Keep modal open after adding (clear only Entry/SL/TP)
+              Keep modal open after adding (clear only Entry/SL/TPs)
             </label>
           )}
 
@@ -1439,11 +1697,157 @@ function toNullableNumber(value: string): number | null {
   return parsePriceInput(value)
 }
 
+function createTakeProfitFormRow(price: string, quantityPercent: string): TakeProfitFormRow {
+  takeProfitRowSequence += 1
+  return {
+    id: `tp-${takeProfitRowSequence}`,
+    price,
+    quantity_percent: quantityPercent,
+  }
+}
+
 function createInitialTradeFormState(): TradeFormState {
   return {
     ...emptyTradeFormState,
     asset: getStoredAsset(),
+    take_profits: [createTakeProfitFormRow('', '100')],
   }
+}
+
+function normalizeStoredTakeProfits(value: unknown): BacktestingTakeProfit[] {
+  if (!Array.isArray(value)) return []
+
+  return value.flatMap((target) => {
+    if (!target || typeof target !== 'object') return []
+
+    const price = Number((target as { price?: unknown }).price)
+    const quantityPercent = Number((target as { quantity_percent?: unknown }).quantity_percent)
+
+    if (!Number.isFinite(price) || price <= 0) return []
+    if (!Number.isFinite(quantityPercent) || quantityPercent < 1 || quantityPercent > 100) return []
+
+    return [{ price, quantity_percent: quantityPercent }]
+  })
+}
+
+function parseTakeProfitFormRows(rows: TakeProfitFormRow[]): BacktestingTakeProfit[] | null {
+  if (rows.length === 0) return null
+
+  const parsed: BacktestingTakeProfit[] = []
+  for (const row of rows) {
+    const price = toNullableNumber(row.price)
+    const quantityPercent = Number(row.quantity_percent)
+
+    if (price === null || price <= 0) return null
+    if (!/^\d+(?:\.\d{1,2})?$/.test(row.quantity_percent.trim())) return null
+    if (!Number.isFinite(quantityPercent) || quantityPercent < 1 || quantityPercent > 100) return null
+
+    parsed.push({ price, quantity_percent: quantityPercent })
+  }
+
+  return parsed
+}
+
+function calculateAllocationTotal(rows: TakeProfitFormRow[]): number {
+  const total = rows.reduce((sum, row) => {
+    const quantity = Number(row.quantity_percent)
+    return sum + (Number.isFinite(quantity) ? quantity : 0)
+  }, 0)
+
+  return Math.round(total * 100) / 100
+}
+
+function calculateRemainingQuantity(rows: TakeProfitFormRow[], excludedId?: string): number {
+  const allocatedQuantity = rows.reduce((sum, row) => {
+    if (row.id === excludedId) return sum
+
+    const quantity = Number(row.quantity_percent)
+    return sum + (Number.isFinite(quantity) ? quantity : 0)
+  }, 0)
+
+  return Math.max(0, Math.round((100 - allocatedQuantity) * 100) / 100)
+}
+
+function formatQuantityPercent(value: number): string {
+  return Number(value.toFixed(2)).toString()
+}
+
+function calculateTakeProfitAllocation(takeProfits: BacktestingTakeProfit[]): number {
+  const total = takeProfits.reduce((sum, target) => sum + target.quantity_percent, 0)
+  return Math.round(total * 100) / 100
+}
+
+function calculateTradeFormOutcomeR(form: TradeFormState): number | null {
+  const entry = toNullableNumber(form.entry_price)
+  const stopLoss = toNullableNumber(form.stop_loss)
+
+  if (form.is_full_loss) {
+    return calculateOutcomeR(entry, stopLoss, stopLoss, form.direction)
+  }
+
+  const takeProfits = parseTakeProfitFormRows(form.take_profits)
+  if (takeProfits === null) return null
+
+  return calculateWeightedOutcomeR(entry, stopLoss, takeProfits, form.direction)
+}
+
+function calculateTakeProfitFormContribution(
+  entryValue: string,
+  stopLossValue: string,
+  target: TakeProfitFormRow,
+  direction: 'long' | 'short',
+): number | null {
+  const entry = toNullableNumber(entryValue)
+  const stopLoss = toNullableNumber(stopLossValue)
+  const price = toNullableNumber(target.price)
+  const quantity = Number(target.quantity_percent)
+  const targetR = calculateOutcomeR(entry, stopLoss, price, direction)
+
+  if (targetR === null || !Number.isFinite(quantity) || quantity < 1 || quantity > 100) return null
+  return targetR * (quantity / 100)
+}
+
+function calculateWeightedOutcomeR(
+  entry: number | null,
+  stopLoss: number | null,
+  takeProfits: BacktestingTakeProfit[],
+  direction: 'long' | 'short',
+): number | null {
+  if (takeProfits.length === 0) return null
+  if (!numbersAreClose(calculateTakeProfitAllocation(takeProfits), 100, 0.001)) return null
+
+  let totalR = 0
+  for (const target of takeProfits) {
+    const targetR = calculateOutcomeR(entry, stopLoss, target.price, direction)
+    if (targetR === null) return null
+    totalR += targetR * (target.quantity_percent / 100)
+  }
+
+  return totalR
+}
+
+function numbersAreClose(a: number, b: number, tolerance = 0.00000001): boolean {
+  return Math.abs(a - b) <= tolerance
+}
+
+function formatTakeProfitSummary(trade: BacktestingTrade): string {
+  const takeProfits = normalizeStoredTakeProfits(trade.take_profits)
+
+  if (takeProfits.length > 0) {
+    return takeProfits
+      .map((target, index) => `TP${takeProfits.length === 1 ? '' : index + 1}: ${target.price} (${target.quantity_percent}%)`)
+      .join(' · ')
+  }
+
+  if (
+    trade.target_price !== null
+    && trade.stop_loss !== null
+    && numbersAreClose(trade.target_price, trade.stop_loss)
+  ) {
+    return `SL: ${trade.stop_loss} (100%)`
+  }
+
+  return trade.target_price === null ? '-' : `TP: ${trade.target_price}`
 }
 
 function getStoredAsset(): string {

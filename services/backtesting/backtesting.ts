@@ -194,6 +194,7 @@ export async function createBacktestingMirrorFromLiveTrade(input: MirrorPayloadI
     entry_price: input.entryPrice,
     stop_loss: input.stopLoss,
     target_price: null,
+    take_profits: [],
     outcome_r: toOutcomeR(input.outcomeR),
     notes: normalizeNotes(input.notes),
   };
@@ -213,6 +214,7 @@ export async function updateBacktestingMirrorFromLiveTrade(
     entry_price: input.entryPrice,
     stop_loss: input.stopLoss,
     target_price: null,
+    take_profits: [],
     outcome_r: toOutcomeR(input.outcomeR),
     notes: normalizeNotes(input.notes),
   };

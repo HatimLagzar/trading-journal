@@ -6,4 +6,5 @@ export type {
   BacktestingTrade,
   BacktestingTradeInsert,
   BacktestingTradeUpdate,
+  BacktestingTakeProfit,
 } from './types';
