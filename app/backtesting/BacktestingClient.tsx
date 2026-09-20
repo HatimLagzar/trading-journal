@@ -781,20 +781,13 @@ export default function BacktestingClient({
   }
 
   function addTakeProfit(): void {
-    setTradeForm((prev) => {
-      const remainingQuantity = calculateRemainingQuantity(prev.take_profits)
-
-      return {
-        ...prev,
-        is_full_loss: false,
-        take_profits: prev.is_full_loss
-          ? [createTakeProfitFormRow('', '100')]
-          : [
-              ...prev.take_profits,
-              createTakeProfitFormRow('', remainingQuantity >= 1 ? formatQuantityPercent(remainingQuantity) : ''),
-            ],
-      }
-    })
+    setTradeForm((prev) => ({
+      ...prev,
+      is_full_loss: false,
+      take_profits: prev.is_full_loss
+        ? [createTakeProfitFormRow('', '100')]
+        : [...prev.take_profits, createTakeProfitFormRow('', '')],
+    }))
   }
 
   function updateTakeProfit(id: string, updates: Partial<Omit<TakeProfitFormRow, 'id'>>): void {
@@ -805,24 +798,6 @@ export default function BacktestingClient({
         target.id === id ? { ...target, ...updates } : target
       )),
     }))
-  }
-
-  function updateTakeProfitQuantity(id: string, rawValue: string): void {
-    setTradeForm((prev) => {
-      const maximum = calculateRemainingQuantity(prev.take_profits, id)
-      const parsed = Number(rawValue)
-      const quantityPercent = rawValue !== '' && Number.isFinite(parsed) && parsed > maximum
-        ? formatQuantityPercent(maximum)
-        : rawValue
-
-      return {
-        ...prev,
-        is_full_loss: false,
-        take_profits: prev.take_profits.map((target) => (
-          target.id === id ? { ...target, quantity_percent: quantityPercent } : target
-        )),
-      }
-    })
   }
 
   function removeTakeProfit(id: string): void {
@@ -1487,7 +1462,6 @@ export default function BacktestingClient({
             ) : (
               <div className="space-y-3">
                 {tradeForm.take_profits.map((target, index) => {
-                  const maximumQuantity = calculateRemainingQuantity(tradeForm.take_profits, target.id)
                   const contribution = calculateTakeProfitFormContribution(
                     tradeForm.entry_price,
                     tradeForm.stop_loss,
@@ -1533,19 +1507,15 @@ export default function BacktestingClient({
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600">
-                          Position % <span className="font-normal">(max {formatQuantityPercent(maximumQuantity)})</span>
-                        </label>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">Position %</label>
                         <input
                           type="number"
                           inputMode="decimal"
                           min="1"
-                          max={maximumQuantity}
-                          step="0.01"
+                          max="100"
+                          step="0.5"
                           value={target.quantity_percent}
-                          onChange={(event) => updateTakeProfitQuantity(target.id, event.target.value)}
-                          disabled={maximumQuantity < 1 && target.quantity_percent === ''}
-                          title={`Maximum available: ${formatQuantityPercent(maximumQuantity)}%`}
+                          onChange={(event) => updateTakeProfit(target.id, { quantity_percent: event.target.value })}
                           className="w-full rounded-lg border px-3 py-2"
                         />
                       </div>
@@ -1755,21 +1725,6 @@ function calculateAllocationTotal(rows: TakeProfitFormRow[]): number {
   }, 0)
 
   return Math.round(total * 100) / 100
-}
-
-function calculateRemainingQuantity(rows: TakeProfitFormRow[], excludedId?: string): number {
-  const allocatedQuantity = rows.reduce((sum, row) => {
-    if (row.id === excludedId) return sum
-
-    const quantity = Number(row.quantity_percent)
-    return sum + (Number.isFinite(quantity) ? quantity : 0)
-  }, 0)
-
-  return Math.max(0, Math.round((100 - allocatedQuantity) * 100) / 100)
-}
-
-function formatQuantityPercent(value: number): string {
-  return Number(value.toFixed(2)).toString()
 }
 
 function calculateTakeProfitAllocation(takeProfits: BacktestingTakeProfit[]): number {
